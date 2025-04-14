@@ -13,7 +13,7 @@ def train_main(model_name: str, use_gpu: bool):
     program_dir = Path(__file__).resolve().parent
     
     # 対戦データのlogファイルがあるディレクトリ
-    log_dir = "./LearnLog"
+    log_dir = "path to data directory."
     size = BOARD_SIZE
     
     print(f"start learning model {model_name} !!")
