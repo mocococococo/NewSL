@@ -4,8 +4,6 @@ port="$1"
 model="$2"
 dir="$3"
 
-
-
 if [ -z "$port" ]; then
     echo "No port provided"
     exit 1
@@ -28,6 +26,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-model="${model}.bin"
+model="${model}"
 
 python sample.py --port=$port --model=$model --use_gpu=True --name=$model
