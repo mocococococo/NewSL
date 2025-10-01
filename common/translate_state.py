@@ -26,3 +26,6 @@ def convert_stones_to_list(stones: Stones) -> List[dict]:
 
     return result
 
+def convert_scores_to_dict(scores):
+    return {"team0": scores.team0, "team1": scores.team1}
+

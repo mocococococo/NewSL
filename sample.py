@@ -3,36 +3,10 @@ from typing import List
 
 from dc3client import SocketClient
 from dc3client.models import Stones
-from nn.feature import generate_input_planes
-from nn.utility import get_torch_device, load_network
+from nn.learn.feature import generate_input_planes
+from nn.learn.utility import get_torch_device, load_network
 from policy_shot import generate_move_from_policy
-
-
-def convert_stones_to_list(stones: Stones) -> List[dict]:
-    result = [None] * 16  # 16要素のリストを作成し、全てをNoneで初期化
-    for i, coordinate in enumerate(stones.team0):
-        if coordinate.angle is not None and coordinate.position[0].x is not None and coordinate.position[0].y is not None:
-            data = {
-                "angle": coordinate.angle,
-                "angular_velocity": 0.0,
-                "linear_velocity": {"x": 0.0, "y": 0.0},
-                "position": {"x": coordinate.position[0].x, "y": coordinate.position[0].y}
-            }
-            result[i] = data
-
-    for i, coordinate in enumerate(stones.team1):
-        if coordinate.angle is not None and coordinate.position[0].x is not None and coordinate.position[0].y is not None:
-            data = {
-                "angle": coordinate.angle,
-                "angular_velocity": 0.0,
-                "linear_velocity": {"x": 0.0, "y": 0.0},
-                "position": {"x": coordinate.position[0].x, "y": coordinate.position[0].y}
-            }
-            result[i + 8] = data
-
-    return result
-    
-
+from common.translate_state import convert_scores_to_dict, convert_stones_to_list
 
 
 @click.command()
@@ -139,10 +113,12 @@ def main(**kwargs):
             # StoneRotation.counterclockwise : 反時計回り
             # StoneRotation.outturn : アウトターン = 反時計回り
             stones = convert_stones_to_list(match_data.update_list[-1].state.stones)
-            inputplanes = generate_input_planes(stones, match_data.update_list[-1].state.shot)
-            shot_index = match_data.update_list[-1].state.shot
+            scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
+            end = match_data.update_list[-1].state.end
+            shot = match_data.update_list[-1].state.shot
+            inputplanes = generate_input_planes(stones=stones, scores=scores, end=end, shot=shot)
 
-            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot_index)
+            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
     
             cli.move(x=selected_x, y=selected_y, rotation=selected_rotation)
         else:
