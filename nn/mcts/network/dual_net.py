@@ -5,18 +5,18 @@ from torch import nn
 import torch
 
 from board.constant import BOARD_SIZE, PLANES_SIZE
-from nn.network.res_block import ResidualBlock
-from nn.network.head.policy_head import PolicyHead
-from nn.network.head.value_head import ValueHead
+from nn.mcts.network.res_block import ResidualBlock
+from nn.mcts.network.head.policy_head import PolicyHead
+from nn.mcts.network.head.value_head import ValueHead
 
 
 class DualNet(nn.Module):
-    def __init__(self, device: torch.device):
+    def __init__(self, device: torch.device, board_size: int=BOARD_SIZE):
         #Dual Networkの実装クラス
 
         super().__init__()
-        filters = 32  
-        blocks = 9    
+        filters = 32
+        blocks = 9
 
         self.device = device
 
@@ -25,10 +25,9 @@ class DualNet(nn.Module):
         self.bn_layer = nn.BatchNorm2d(num_features=filters)
         self.relu = nn.ReLU()
         self.blocks = make_common_blocks(blocks, filters)
-        self.policy_head = PolicyHead(filters)
-        self.value_head = ValueHead(filters)
+        self.policy_head = PolicyHead(board_size, filters)
+        self.value_head = ValueHead(board_size, filters)
 
-        self.softmax0 = nn.Softmax(dim=0)
         self.softmax = nn.Softmax(dim=1)
         self.softmax2 = nn.Softmax(dim=2)
 

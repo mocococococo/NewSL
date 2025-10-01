@@ -7,7 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from common.print_console import print_err
-from nn.network.dual_net import DualNet
+from nn.mcts.network.dual_net import DualNet
+from learning_param import EPOCHS
 
 
 def get_torch_device(use_gpu: bool) -> torch.device:
@@ -88,9 +89,9 @@ def print_learning_result(loss_history: Dict[str, float]) -> NoReturn:
     
     epochs = range(1,len(loss_history["loss"]) + 1)
     plt.figure(figsize=(8, 6))
-    #plt.plot(epochs, loss_history["loss"], label='Loss', marker='o', linestyle='-')
+    plt.plot(epochs, loss_history["loss"], label='Loss', marker='o', linestyle='-')
     plt.plot(epochs, loss_history["policy"], label='Policy Loss', marker='s', linestyle='--')
-    #plt.plot(epochs, loss_history["value"], label='Value Loss', marker='*', linestyle=':')
+    plt.plot(epochs, loss_history["value"], label='Value Loss', marker='*', linestyle=':')
     plt.title('Training Loss Over Epochs', fontsize=16)
     plt.xlabel('Epochs', fontsize=14)
     plt.ylabel('Loss', fontsize=14)
