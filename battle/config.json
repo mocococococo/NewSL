@@ -1,0 +1,93 @@
+{
+    "server": {
+        "port": {
+            "team0": 10000,
+            "team1": 10001
+        },
+        "timeout_dc_ok": 10.0,
+        "send_trajectory": true,
+        "steps_per_trajectory_frame": 100
+    },
+    "game": {
+        "rule": "normal",
+        "setting": {
+            "max_end": 10,
+            "sheet_width": 4.75,
+            "five_rock_rule": true,
+            "thinking_time": {
+                "team0": 219,
+                "team1": 219
+            },
+            "extra_end_thinking_time": {
+                "team0": 21.9,
+                "team1": 21.9
+            }
+        },
+        "simulator": {
+            "type": "fcv1",
+            "seconds_per_frame": 0.001
+        },
+        "players": {
+            "team0": [
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                },
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                },
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                },
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                }
+            ],
+            "team1": [
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                },
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                },
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                },
+                {
+                    "type": "normal_dist",
+                    "max_speed": 4.0,
+                    "stddev_speed": 0.0076,
+                    "stddev_angle": 0.0018,
+                    "seed": null
+                }
+            ]
+        }
+    }
+}
