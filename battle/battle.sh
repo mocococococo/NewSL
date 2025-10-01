@@ -1,10 +1,11 @@
 # config.jsonの相対パス
-cd ./battle
 json_file="config.json"
 
 # 新しいポート番号
 port0=10000
 port1=10001
+model="Default.bin"
+dir=".."
 
 # N 回自己対戦させる
 for i in {1..1}; do
@@ -14,8 +15,8 @@ for i in {1..1}; do
     sleep 2
 
     # バックグラウンドでクライアントを立ち上げる
-    ../sample.sh $port0 &
-    ../sample.sh $port1 &
+    ./sample.sh $port0 $model $dir &
+    ./sample.sh $port1 $model $dir &
 
     wait
 
