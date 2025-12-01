@@ -3,7 +3,6 @@ import math
 import random
 
 from nn.mcts.network.dual_net import DualNet
-import fast_simulator as fs
 
 from PUCT.action import ActionSpace
 from PUCT.edge import Edge
@@ -29,7 +28,6 @@ class PUCTSearch:
         Args:
             nn (PolicyNetwork): ポリシーネットワーク。
             sim (Simulator): 高速シミュレータ。
-            rules (EndRules): 終端判定・スコア計算。
             config (PUCTConfig): パラメータ。
         """
         self.nn = nn
@@ -100,7 +98,7 @@ class PUCTSearch:
 
         # 選択フェーズ
         while True:
-            terminal, score = self.rules.is_end_and_score(node.state)
+            terminal, score = self.state.is_end_and_score(node.state)
             if terminal:
                 v_leaf = self._normalize_score(score)  # 葉（終端）の客観スコアを[-1,1]に
                 break

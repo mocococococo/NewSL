@@ -3,6 +3,7 @@ from typing import List, Tuple, Optional, Dict
 
 from PUCT.state import State
 from PUCT.edge import Edge
+from PUCT.action import ActionSpace
 
 @dataclass
 class Node:
