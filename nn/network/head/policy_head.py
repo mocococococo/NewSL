@@ -1,4 +1,4 @@
-#polocy headの実装  途中なの注意
+#polocy headの実装
 
 import torch
 from torch import nn

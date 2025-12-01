@@ -3,28 +3,31 @@
 import numpy as np
 import math
 
-from board.constant import BOARD_SIZE, X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, PLANES_SIZE
+from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, STONE_RADIUS, X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, PLANES_SIZE
 
 def discretization(x: float, y: float, 
                    xmin: float, xmax: float, 
                    ymin: float, ymax: float) -> int:
     """
-    ストーンの２次元座標の位置を１次元のインデックスに変換する
+    連続座標 (x,y) を BOARD_SIZE_X × BOARD_SIZE_Y 個のセルに割り当て、セルの1次元indexを返す
     """
-    x_clamped = max(xmin, min(x, xmax))
-    y_clamped = max(ymin, min(y, ymax))
+    # セル幅
+    dx = (xmax - xmin) / BOARD_SIZE_X
+    dy = (ymax - ymin) / BOARD_SIZE_Y
 
-    x_interval = (xmax - xmin) / (BOARD_SIZE - 1)
-    y_interval = (ymax - ymin) / (BOARD_SIZE - 1)
+    # clamp（境界ちょうども最後のセルに入れたいので xmax/ymax を少し内側扱い）
+    x = max(xmin, min(x, xmax))
+    y = max(ymin, min(y, ymax))
 
-    x_index = int((x_clamped - xmin) / x_interval)
-    y_index = int((y_clamped - ymin) / y_interval)
+    # どのセルか（floor）
+    xi = int((x - xmin) / dx)
+    yi = int((y - ymin) / dy)
 
-    x_index = max(0, min(x_index, BOARD_SIZE - 1))
-    y_index = max(0, min(y_index, BOARD_SIZE - 1))
+    # x==xmax 等で xi==BOARD_SIZE_X になり得るので丸める
+    xi = max(0, min(xi, BOARD_SIZE_X - 1))
+    yi = max(0, min(yi, BOARD_SIZE_Y - 1))
 
-    index = y_index * BOARD_SIZE + x_index
-    return index
+    return yi * BOARD_SIZE_X + xi
 
 def is_house(x: float, y: float):
     """
@@ -32,8 +35,8 @@ def is_house(x: float, y: float):
     
     改良案: ストーンの半径を考慮してハウス内にあるかどうかを判定する
     """
-    distance = math.sqrt(x ** 2 + (y - Y_TEE) ** 2)
-    return distance <= R_HOUSE
+    distance = x ** 2 + (y - Y_TEE) ** 2
+    return distance <= (R_HOUSE + STONE_RADIUS) ** 2
  
 def sort_order_by_distance(order):
     """
@@ -109,7 +112,7 @@ planes[52] : ティーからの距離順に並び替えたストーン16
 """jsonファイルの['log']['simulator_storage']['stones']と['log']['shot']を入力し、PLANES_SIZEの特徴平面を出力する。"""
 def generate_input_planes(stones: list, scores: list, end: int, shot: int) -> np.ndarray:
     num_planes = PLANES_SIZE
-    planes = np.zeros(shape=(num_planes, BOARD_SIZE * BOARD_SIZE))
+    planes = np.zeros(shape=(num_planes, BOARD_SIZE_X * BOARD_SIZE_Y))
     planes[0][:] = 1 #空点
     planes[3][:] = 1 #定数平面
     turn_number = (shot // 2) + 5
@@ -187,12 +190,12 @@ def generate_input_planes(stones: list, scores: list, end: int, shot: int) -> np
         j += 1
     
     # 最後に2次元の特徴平面を3次元に変換して返す
-    return planes.reshape(num_planes, BOARD_SIZE, BOARD_SIZE).astype(np.float32)#, box
+    return planes.reshape(num_planes, BOARD_SIZE_Y, BOARD_SIZE_X).astype(np.float32)#, box
 
 
 # Policy の正解データを作成する
 def generate_target_data(selected_move: dict) ->np.ndarray:
-    policy_plane = np.zeros(shape=(2, BOARD_SIZE * BOARD_SIZE))
+    policy_plane = np.zeros(shape=(2, BOARD_SIZE_X * BOARD_SIZE_Y))
     vx = selected_move['velocity']['x']
     vy = selected_move['velocity']['y']
 
@@ -202,7 +205,7 @@ def generate_target_data(selected_move: dict) ->np.ndarray:
     else:
         policy_plane[1][vindex] = 1
     
-    return np.argmax(policy_plane.reshape((BOARD_SIZE * BOARD_SIZE) * 2).astype(np.int64))
+    return np.argmax(policy_plane.reshape((BOARD_SIZE_X * BOARD_SIZE_Y) * 2).astype(np.int64))
 
 
 def generate_value_data(dcl_data, end, shot) ->np.ndarray:
