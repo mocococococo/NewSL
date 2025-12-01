@@ -8,6 +8,10 @@ from nn.learn.utility import get_torch_device, load_network
 from policy_shot import generate_move_from_policy
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list
 
+from PUCT.puct import PUCTSearch
+from PUCT.PUCTConfig import PUCTConfig
+import fast_simulator as fs
+
 
 @click.command()
 @click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
@@ -70,7 +74,10 @@ def main(**kwargs):
     device = get_torch_device(use_gpu=use_gpu)
     network = load_network(model, use_gpu=use_gpu)
     network.to(device)
-
+    simulator = fs.FastSimulator()
+    config = PUCTConfig()
+    puct = PUCTSearch(nn=network, sim=simulator, config=config)
+                      
     is_ready_message = cli.convert_is_ready(is_ready)
 
     # 試合を開始します
@@ -119,7 +126,9 @@ def main(**kwargs):
             inputplanes = generate_input_planes(stones=stones, scores=scores, end=end, shot=shot)
 
             selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
-    
+            
+            puct = PUCTSearch(network, 
+
             cli.move(x=selected_x, y=selected_y, rotation=selected_rotation)
         else:
             # 次のチームが自分のチームでなければ、何もしません
@@ -128,17 +137,6 @@ def main(**kwargs):
     # 試合が終了したら、clientから試合データを取得します
     move_info = cli.get_move_info()
     update_list, trajectory_list = cli.get_update_and_trajectory(remove_trajectory)
-
-    '''# 試合データを保存します、
-    update_dict = {}
-
-    for update in update_list:
-        # updateをdict形式に変換します
-        update_dict = cli.convert_update(update, remove_trajectory)
-
-    # updateを保存します、どのように保存するかは任意です
-    with open("data.json", "w", encoding="UTF-8") as f:
-        json.dump(update_dict, f, indent=4)'''
 
 
 if __name__ == '__main__':

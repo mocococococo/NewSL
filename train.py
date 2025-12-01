@@ -3,7 +3,7 @@ import click
 from learning_param import BATCH_SIZE, EPOCHS
 from board.constant import BOARD_SIZE
 from nn.learn import train_on_cpu, train_on_gpu
-from nn.data_generator import generate_supervised_learning_data
+from nn.learn.data_generator import generate_supervised_learning_data
 
 @click.command()
 @click.option('--model-name', type=click.STRING, default="sl-model.bin", help="保存するモデルの名前の指定")
