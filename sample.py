@@ -32,13 +32,15 @@ def convert_stones_to_list(stones: Stones) -> List[dict]:
 
     return result
     
+def convert_scores_to_dict(scores):
+    return {"team0": scores.team0, "team1": scores.team1}
 
 
 
 @click.command()
 @click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
-@click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
+@click.option('--model', type=str, default="sl-model.bin", help='Model name (default: sl-model.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="NewSL", help='AIname (default: True)')
 
@@ -139,10 +141,12 @@ def main(**kwargs):
             # StoneRotation.counterclockwise : 反時計回り
             # StoneRotation.outturn : アウトターン = 反時計回り
             stones = convert_stones_to_list(match_data.update_list[-1].state.stones)
-            inputplanes = generate_input_planes(stones, match_data.update_list[-1].state.shot)
-            shot_index = match_data.update_list[-1].state.shot
+            scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
+            end = match_data.update_list[-1].state.end
+            shot = match_data.update_list[-1].state.shot
+            inputplanes = generate_input_planes(stones=stones, scores=scores, end=end, shot=shot)
 
-            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot_index)
+            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
     
             cli.move(x=selected_x, y=selected_y, rotation=selected_rotation)
         else:
@@ -152,17 +156,6 @@ def main(**kwargs):
     # 試合が終了したら、clientから試合データを取得します
     move_info = cli.get_move_info()
     update_list, trajectory_list = cli.get_update_and_trajectory(remove_trajectory)
-
-    '''# 試合データを保存します、
-    update_dict = {}
-
-    for update in update_list:
-        # updateをdict形式に変換します
-        update_dict = cli.convert_update(update, remove_trajectory)
-
-    # updateを保存します、どのように保存するかは任意です
-    with open("data.json", "w", encoding="UTF-8") as f:
-        json.dump(update_dict, f, indent=4)'''
 
 
 if __name__ == '__main__':

@@ -37,7 +37,7 @@ class ValueHead(nn.Module):
         hidden = self.relu(self.bn_layer(self.conv_layer(input_plane)))
         batch_size, _, height, width = hidden.shape
         reshape = hidden.reshape(batch_size, height * width)
-        fc1 = self.fc_layer1(reshape)
+        fc1 = self.relu(self.fc_layer1(reshape))
         value_out = self.fc_layer2(fc1)
 
         return value_out

@@ -3,6 +3,9 @@
 #画像の一辺のサイズ
 BOARD_SIZE_X = 32
 BOARD_SIZE_Y = 56
+#vx, vyの離散化数
+VX_SIZE = 32
+VY_SIZE = 25
 #盤外のサイズ
 OB_SIZE = 1
 #ストーンの半径
@@ -22,6 +25,7 @@ R_HOUSE = 1.829
 VX_MIN = -0.25
 VX_MAX = 0.25
 VY_MIN = 2.21
+VY_SHEET_MAX = 2.5
 VY_MAX = 3.5
 
 

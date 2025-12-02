@@ -175,7 +175,7 @@ def generate_supervised_learning_data(
                 # print("len(value_data): ", len(value_data), ", DATA_SET_SIZE: ", DATA_SET_SIZE)
                 if len(value_data) >= DATA_SET_SIZE:
                     print(f"sl_data{data_counter}")
-                    _save_data(os.path.join(program_dir, "data_dcl2", f"sl_data_{data_counter}"), input_data, policy_data, value_data, log_counter)
+                    _save_data(os.path.join(program_dir, "data", f"sl_data_{data_counter}"), input_data, policy_data, value_data, log_counter)
                     input_data = input_data[DATA_SET_SIZE:]
                     policy_data = policy_data[DATA_SET_SIZE:]
                     value_data = value_data[DATA_SET_SIZE:]
@@ -190,7 +190,7 @@ def generate_supervised_learning_data(
     n_batches = len(value_data) // BATCH_SIZE
     print("n_batches: ", n_batches)
     if n_batches > 0:
-        _save_data(os.path.join(program_dir, "data_dcl2", f"sl_data_{data_counter}"), \
+        _save_data(os.path.join(program_dir, "data", f"sl_data_{data_counter}"), \
             input_data[0:n_batches*BATCH_SIZE], policy_data[0:n_batches*BATCH_SIZE], \
             value_data[0:n_batches*BATCH_SIZE], log_counter)
     

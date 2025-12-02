@@ -15,14 +15,14 @@ os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 @click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
 def train_main(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ
-    program_dir = "C:/Users/itolab/Desktop/DC3/KuraCurling_lowlossCP"
+    program_dir = "C:/Users/kirby/Programs/NewSL"
     # 対戦データのlogファイルがあるディレクトリ
     # log_dir = "../LearnLog/jiritsu-vs-silicon"
-    log_dir = "../LearnLog/cai"
+    log_dir = "./LearnLog/cai"
     
     print(f"start learning model {model_name} !!")
     
-    # generate_supervised_learning_data(program_dir, log_dir, data_size=60000)
+    generate_supervised_learning_data(program_dir, log_dir, data_size=60000)
     # return
     if use_gpu:
         train_on_gpu(program_dir=program_dir, batch_size=BATCH_SIZE, epochs=EPOCHS, model_name=model_name)
