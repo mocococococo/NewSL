@@ -1,5 +1,7 @@
 from dc3client.models import Position, Coordinate, Stones
-from typing import List
+from typing import List, Optional, Tuple, Dict
+
+Pos = Tuple[float, float]
 
 def convert_stones_to_list(stones: Stones) -> List[dict]:
     result = [None] * 16  # 16要素のリストを作成し、全てをNoneで初期化
@@ -29,3 +31,24 @@ def convert_stones_to_list(stones: Stones) -> List[dict]:
 def convert_scores_to_dict(scores):
     return {"team0": scores.team0, "team1": scores.team1}
 
+def stones_listdict_to_xy16(stones_list: List[Optional[dict]]) -> List[Optional[Pos]]:
+    """convert_stones_to_list() の出力(list[dict|None]) -> list[(x,y)|None]"""
+    out: List[Optional[Pos]] = [None] * 16
+    for i, s in enumerate(stones_list):
+        if s is None:
+            continue
+        out[i] = (float(s["position"]["x"]), float(s["position"]["y"]))
+    return out
+
+def scores_dict_to_list(scores: Dict[str, List[Optional[int]]]) -> List[Optional[Tuple[int, int]]]:
+    team0 = scores["team0"]
+    team1 = scores["team1"]
+    if len(team0) != len(team1):
+        raise ValueError(f"score length mismatch: team0={len(team0)} team1={len(team1)}")
+
+    out: List[Optional[Tuple[int, int]]] = []
+    for a, b in zip(team0, team1):
+        a0 = 0 if a is None else int(a)
+        b0 = 0 if b is None else int(b)
+        out.append((a0, b0))
+    return out

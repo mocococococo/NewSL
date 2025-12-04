@@ -5,6 +5,9 @@ BOARD_SIZE = 32
 #盤外のサイズ
 OB_SIZE = 1
 
+#ストーンの半径
+STONE_RADIUS = 0.145
+
 #座標の範囲、coordinate.hppより
 X_MIN = -2.375
 X_MAX = 2.375

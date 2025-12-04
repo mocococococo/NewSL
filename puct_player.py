@@ -2,15 +2,12 @@ import click
 from typing import List
 
 from dc3client import SocketClient
-from dc3client.models import Stones
+from dc3client.models import StoneRotation
 from nn.learn.feature import generate_input_planes
 from nn.learn.utility import get_torch_device, load_network
-from policy_shot import generate_move_from_policy
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list
 
-from PUCT.puct import PUCTSearch
-from PUCT.PUCTConfig import PUCTConfig
-import fast_simulator as fs
+from puct_.search import puct_search, set_root_state
 
 
 @click.command()
@@ -18,7 +15,7 @@ import fast_simulator as fs
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
-@click.option('--name', type=str, default="NewSL", help='AIname (default: True)')
+@click.option('--name', type=str, default="PUCT_NewSL", help='AIname (default: True)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -74,9 +71,6 @@ def main(**kwargs):
     device = get_torch_device(use_gpu=use_gpu)
     network = load_network(model, use_gpu=use_gpu)
     network.to(device)
-    simulator = fs.FastSimulator()
-    config = PUCTConfig()
-    puct = PUCTSearch(nn=network, sim=simulator, config=config)
                       
     is_ready_message = cli.convert_is_ready(is_ready)
 
@@ -123,13 +117,19 @@ def main(**kwargs):
             scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
             end = match_data.update_list[-1].state.end
             shot = match_data.update_list[-1].state.shot
-            inputplanes = generate_input_planes(stones=stones, scores=scores, end=end, shot=shot)
-
-            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
+            hammer = True if shot % 2 == 1 else False
             
-            puct = PUCTSearch(network, 
+            root_state = set_root_state(
+                stones=stones,
+                scores=scores,
+                end=end,
+                network=network,
+                hammer=hammer
+            )
+            vx, vy, spin = puct_search(root_state, debug=True, debug_every=1, debug_topk=5)
+            spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
 
-            cli.move(x=selected_x, y=selected_y, rotation=selected_rotation)
+            cli.move(x=vx, y=vy, rotation=spin)
         else:
             # 次のチームが自分のチームでなければ、何もしません
             continue
