@@ -70,9 +70,9 @@ class State:
         return (self.end, self.shot_index, int(self.hammer), self.score_diff, tuple(team0), tuple(team1))
     
     @staticmethod
-    def initial(end: int, hammer: bool, stones: List[Optional[Pos]], score_diff: int) -> 'State':
-        """エンド開始状態を作る（shot_index=0）"""
-        return State(stones=tuple(stones), hammer=hammer, shot_index=0, end=end, score_diff=score_diff)
+    def initial(stones: List[Optional[Pos]], hammer: bool, shot_index: int, end: int, score_diff: int) -> 'State':
+        """エンド開始状態を作る"""
+        return State(stones=tuple(stones), hammer=hammer, shot_index=shot_index, end=end, score_diff=score_diff)
     
 # puct_search 側の呼び出し形式に合わせた薄い関数（任意）
 def is_end_terminal(state: State) -> bool:

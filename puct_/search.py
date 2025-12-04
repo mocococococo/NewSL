@@ -2,6 +2,7 @@ import time
 from typing import List, Tuple, Optional, Dict
 
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
+from nn.mcts.network.dual_net import DualNet
 from .node import Node, get_node, argmax_over_actions
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
@@ -132,7 +133,8 @@ def set_root_state(
     stones: List[Optional[Dict]],
     scores: Dict[str, List[int]],
     end: int,
-    network,
+    shot_index: int,
+    network: DualNet,
     hammer: bool
 ) -> State:
     """
@@ -146,6 +148,10 @@ def set_root_state(
     """
     stones16 = stones_listdict_to_xy16(stones)
     scores_list = scores_dict_to_list(scores)
+    
+    print("------ DEBUG set_root_state -----")
+    for i, p in enumerate(stones16):
+        print(f"root_state stone: x={p[0]} y={p[1]}" if p is not None else f"root_state stone: None")
 
     # score_diff_from_scores が list[(t0,t1)|None] を取る設計なら、
     # dc3_state.scores をその形式に変換して渡す必要がある。
@@ -158,8 +164,9 @@ def set_root_state(
     set_policy_context(network, scores)
 
     return State.initial(
-        end=end,
-        hammer=hammer,
         stones=stones16,
-        score_diff=int(score_diff),
+        hammer=hammer,
+        shot_index=shot_index,
+        end=end,
+        score_diff=score_diff
     )

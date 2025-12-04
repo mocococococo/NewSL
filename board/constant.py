@@ -7,6 +7,8 @@ OB_SIZE = 1
 
 #ストーンの半径
 STONE_RADIUS = 0.145
+#座標変換用定数
+DCL2_YPOS_DIFF = 21.0314998626709
 
 #座標の範囲、coordinate.hppより
 X_MIN = -2.375

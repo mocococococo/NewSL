@@ -11,3 +11,9 @@ ROLLOUT_USE_GREEDY_POLICY = True  # Trueならargmax(policy)、Falseならサン
 
 # State.key 量子化
 STATE_POS_SCALE = 1000            # 座標をround(v*scale)して整数化
+
+PUCT_DEBUG_SCORE = 10  # スコアデバッグ有効化フラグ
+PUCT_DEBUG_SCORE_LIMIT = 30  # スコアデバッグ出力上限
+
+PUCT_DEBUG_SIM = 1
+PUCT_DEBUG_SIM_LIMIT = 20
