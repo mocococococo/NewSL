@@ -7,6 +7,7 @@ from nn.learn.feature import generate_input_planes
 from nn.learn.utility import get_torch_device, load_network
 from policy_shot import generate_move_from_policy
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list
+from common.print_console import print_stone_info_from_server
 
 
 @click.command()
@@ -15,7 +16,7 @@ from common.translate_state import convert_scores_to_dict, convert_stones_to_lis
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="NewSL", help='AIname (default: True)')
-
+@click.option('--debug', type=bool, default=False, help='debug (default: False)')
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
     # 通信プロトコルの解説において、is_readyを受け取ってからreadyを返すまでに行うことを推奨しています。
@@ -41,6 +42,7 @@ def main(**kwargs):
     model = "./model/" + kwargs['model']
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
+    debug = kwargs['debug']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -112,10 +114,14 @@ def main(**kwargs):
             # StoneRotation.inturn : インターン = 時計回り
             # StoneRotation.counterclockwise : 反時計回り
             # StoneRotation.outturn : アウトターン = 反時計回り
-            stones = convert_stones_to_list(match_data.update_list[-1].state.stones)
+            stones = convert_stones_to_list(match_data.update_list[-1].state.stones, dcl2_on= not debug)
             scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
             end = match_data.update_list[-1].state.end
             shot = match_data.update_list[-1].state.shot
+            
+            # print(f"[INFO] stones: {stones}")
+            print_stone_info_from_server(stones, debug_on=debug)
+            
             inputplanes = generate_input_planes(stones=stones, scores=scores, end=end, shot=shot)
 
             selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)

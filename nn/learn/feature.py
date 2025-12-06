@@ -107,6 +107,7 @@ planes[52] : ティーからの距離順に並び替えたストーン16
 
 """
 """jsonファイルの['log']['simulator_storage']['stones']と['log']['shot']を入力し、PLANES_SIZEの特徴平面を出力する。"""
+# ストーンの格納がteam0が先行であることを前提としており、壊れている可能性がある。
 def generate_input_planes(stones: list, scores: list, end: int, shot: int) -> np.ndarray:
     num_planes = PLANES_SIZE
     planes = np.zeros(shape=(num_planes, BOARD_SIZE * BOARD_SIZE))
@@ -161,7 +162,7 @@ def generate_input_planes(stones: list, scores: list, end: int, shot: int) -> np
     for i in range(16): # 16個のストーンの情報を特徴平面に反映
         if stones[i]:
             x = stones[i]['position']['x']
-            y = np.abs(stones[i]['position']['y'])
+            y = stones[i]['position']['y']
             index = discretization(x, y, X_MIN, X_MAX, Y_MIN, Y_MAX) # 1次元の位置を計算
             planes[0][index] = 0 #空点の更新
 

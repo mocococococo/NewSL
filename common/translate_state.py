@@ -5,7 +5,7 @@ from board.constant import DCL2_YPOS_DIFF
 
 Pos = Tuple[float, float]
 
-def convert_stones_to_list(stones: Stones) -> List[dict]:
+def convert_stones_to_list(stones: Stones, dcl2_on: bool = True) -> List[dict]:
     result = [None] * 16  # 16要素のリストを作成し、全てをNoneで初期化
 
     for i, coordinate in enumerate(stones.team0):
@@ -16,7 +16,7 @@ def convert_stones_to_list(stones: Stones) -> List[dict]:
                 "linear_velocity": {"x": 0.0, "y": 0.0},
                 "position": {
                     "x": coordinate.position[0].x,
-                    "y": coordinate.position[0].y - DCL2_YPOS_DIFF
+                    "y": coordinate.position[0].y - DCL2_YPOS_DIFF if dcl2_on else coordinate.position[0].y
                 }
             }
             result[i] = data
@@ -29,7 +29,7 @@ def convert_stones_to_list(stones: Stones) -> List[dict]:
                 "linear_velocity": {"x": 0.0, "y": 0.0},
                 "position": {
                     "x": coordinate.position[0].x,
-                    "y": coordinate.position[0].y - DCL2_YPOS_DIFF
+                    "y": coordinate.position[0].y - DCL2_YPOS_DIFF if dcl2_on else coordinate.position[0].y
                 }
             }
             result[i + 8] = data

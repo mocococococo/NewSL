@@ -7,7 +7,7 @@ from nn.learn.feature import generate_input_planes
 from nn.learn.utility import get_torch_device, load_network
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list
 
-from puct_.search import puct_search, set_root_state
+from puct.search import puct_search, set_root_state
 
 
 @click.command()
@@ -122,6 +122,7 @@ def main(**kwargs):
             root_state = set_root_state(
                 stones=stones,
                 scores=scores,
+                shot_index=shot,
                 end=end,
                 network=network,
                 hammer=hammer

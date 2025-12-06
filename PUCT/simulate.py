@@ -11,6 +11,20 @@ VEC_SIZE = BOARD_SIZE * BOARD_SIZE  # 1024
 StonePos = Tuple[float, float]
 Stones16 = List[Optional[StonePos]]
 
+DEBUG_SIM_INDEX = True
+
+def _shot_to_teamblock_index(shot_index: int, hammer: bool) -> int:
+    """
+    shot_index(0..15) が「投球順」のとき、その石が対応する team-block の index を返す。
+    team-block は 0..7 が team0, 8..15 が team1。
+    hammer=True なら hammerチームは team1、False なら hammerチームは team0。
+    """
+    h = 1 if hammer else 0
+    nh = 1 - h
+    k = shot_index // 2
+    team = nh if (shot_index % 2 == 0) else h
+    return k if team == 0 else 8 + k
+
 def _idx_to_value(i: int, vmin: float, vmax: float, size: int) -> float:
     # feature.py の discretization と逆対応になるように（size-1 で割る）
     step = (vmax - vmin) / (size - 1)
@@ -42,9 +56,15 @@ def simulator_step(state: State, action: int) -> State:
 
     vx, vy, spin = decode_action(action)
     
-    print("------ DEBUG simulate_step Before Simulate -----")
-    for i, p in enumerate(state.stones):
-        print(f"stone pos: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
+    if DEBUG_SIM_INDEX:
+        tb = _shot_to_teamblock_index(state.shot_index, state.hammer)
+        tm = state.to_move()
+        before_none = (state.stones[tb] is None)
+        print(f"[SIMIDX] BEFORE shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none={before_none}")
+    
+    # print("------ DEBUG simulate_step Before Simulate -----")
+    # for i, p in enumerate(state.stones):
+    #     print(f"stone pos: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
     
     stones_shotorder = _teamblock_to_shotorder(list(state.stones), state.hammer)
 
@@ -67,9 +87,19 @@ def simulator_step(state: State, action: int) -> State:
             
     stones_out_teamblock = _shotorder_to_teamblock(stones_out_shotorder, state.hammer)
     
-    print("------ DEBUG simulate_step After Simulate -----")
-    for i, p in enumerate(stones_out_teamblock):
-        print(f"stone pos: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
+    if DEBUG_SIM_INDEX:
+        tb = _shot_to_teamblock_index(state.shot_index, state.hammer)
+        tm = state.to_move()
+        after_none = (stones_out_teamblock[tb] is None)
+        if after_none:
+            print(f"[SIMIDX] AFTER  shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none=True")
+        else:
+            x, y = stones_out_teamblock[tb]
+            print(f"[SIMIDX] AFTER  shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none=False pos=({x:.3f},{y:.3f})")
+    
+    # print("------ DEBUG simulate_step After Simulate -----")
+    # for i, p in enumerate(stones_out_teamblock):
+    #     print(f"stone pos: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
 
     return State(
         stones=tuple(stones_out_teamblock),
@@ -104,3 +134,33 @@ def _shotorder_to_teamblock(stones_shotorder, hammer) -> Stones16:
         tb = k if team == 0 else 8 + k
         out[tb] = p
     return out
+
+def _to_move_team(shot_index: int, hammer: bool) -> int:
+    """
+    今この shot_index を投げるチームを返す
+    hammer=True なら team1 が後攻(ハンマー)
+    shot_index 偶数: 先攻(ハンマーではない側)
+    shot_index 奇数: 後攻(ハンマー側)
+    """
+    h = 1 if hammer else 0
+    nh = 1 - h
+    if (shot_index % 2) == 0:
+        return nh
+    return h
+
+
+def _teamblock_index_for_current_shot(shot_index: int, hammer: bool) -> int:
+    """
+    今回の投球 shot_index が、teamblock(0-7 team0, 8-15 team1) のどこに入るべきか
+    例: shot_index=0 は先攻1投目なので (先攻チームの0番) に入る
+    """
+    team = _to_move_team(shot_index, hammer)
+    k = shot_index // 2  # そのチームの何投目か(0..7)
+    if team == 0:
+        return k
+    return 8 + k
+
+
+def _stone_is_none(stones_teamblock, idx: int) -> bool:
+    p = stones_teamblock[idx]
+    return p is None
