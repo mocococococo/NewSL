@@ -19,8 +19,9 @@ class PolicyHead(nn.Module):
             kernel_size=3, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(num_features=2, eps=2e-5, momentum=momentum)
         self.bn2 = nn.BatchNorm2d(num_features=1, eps=2e-5, momentum=momentum)
-        self.fc_layer1 = nn.Linear(BOARD_SIZE_X * BOARD_SIZE_Y, 2048)
-        self.fc_layer2 = nn.Linear(2048, 2 * VX_SIZE * VY_SIZE)
+        self.fc_layer1 = nn.Linear(BOARD_SIZE_X * BOARD_SIZE_Y, 2 * VX_SIZE * VY_SIZE)
+        
+        self.dropout = nn.Dropout(p=0.1)
         self.relu = nn.ReLU()
 
     def forward(self, input_plane: torch.Tensor) -> torch.Tensor:
@@ -29,7 +30,7 @@ class PolicyHead(nn.Module):
         hidden2 = self.relu(self.bn2(self.conv2(hidden1)))
         batch_size, _, height, width = hidden2.shape
         reshape = hidden2.reshape(batch_size, height * width)
-        fc1 = self.relu(self.fc_layer1(reshape))
-        policy_out = self.fc_layer2(fc1)
+        # policy_out = self.fc_layer1(self.dropout(reshape))
+        policy_out = self.fc_layer1(reshape)
         
         return policy_out

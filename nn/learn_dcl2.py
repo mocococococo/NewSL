@@ -247,6 +247,10 @@ def train_on_gpu(program_dir: str, batch_size: int, \
         print_evaluation_information(test_loss, epoch, test_iteration, testing_time)
         
         save_loss_history(loss_history, json_dir)
+            
+        save_model(dual_net, os.path.join("model", f"{model_name}_epoch{epoch}.bin"))
+        
+        dual_net.to(device)
 
         if epoch in LEARNING_SCHEDULE["learning_rate"]: #特定のエポックの回数（現在は5,8,10）の時、学習率を変更
             previous_lr = current_lr
@@ -255,6 +259,6 @@ def train_on_gpu(program_dir: str, batch_size: int, \
             current_lr = LEARNING_SCHEDULE["learning_rate"][epoch]
             print(f"Epoch {epoch}, learning rate has changed {previous_lr} -> {current_lr}")
     
-    save_model(dual_net, os.path.join("model", f"{model_name}"))
-    
+    # save_model(dual_net, os.path.join("model", f"{model_name}"))
+    print("Finished Training on GPU.")
 

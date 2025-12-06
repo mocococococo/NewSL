@@ -3,6 +3,7 @@
 import glob
 import os
 import random
+import copy
 import json
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -165,9 +166,41 @@ def generate_supervised_learning_data(
                     if end < 10:
                         planes = generate_input_planes(stones, scores, end, shot)
                         input_data.append(planes)
+                        
                         policy = generate_target_data(selected_move)
                         policy_data.append(policy)
-                        value_data.append(generate_value_data(dcl2_json_data, end, shot))
+                        
+                        value = generate_value_data(dcl2_json_data, end, shot)
+                        value_data.append(value)
+                        
+                        # --- 2. ★追加: 左右反転データの生成 ---
+        
+                        # (A) 入力平面の反転
+                        # planesのshapeは (CHANNELS, HEIGHT, WIDTH) = (53, 56, 32)
+                        # axis=2 (Width方向) を反転させる
+                        flipped_planes = np.flip(planes, axis=2)
+                        input_data.append(flipped_planes)
+
+                        # (B) Policy(正解ラベル)の反転
+                        # move情報をコピーして値を書き換える
+                        flipped_move = copy.deepcopy(selected_move) # import copy が必要です
+                        
+                        # vx の符号を反転
+                        flipped_move['velocity']['x'] = -1 * flipped_move['velocity']['x']
+                        
+                        # 回転方向を入れ替え (cw <-> ccw)
+                        # カーリングの物理では、左右反転すると曲がる方向も逆になるため回転定義も逆転させる必要がある
+                        if flipped_move['rotation'] == 'cw':
+                            flipped_move['rotation'] = 'ccw'
+                        else:
+                            flipped_move['rotation'] = 'cw'
+                            
+                        flipped_policy = generate_target_data(flipped_move)
+                        policy_data.append(flipped_policy)
+
+                        # (C) Valueは盤面を反転しても変わらないので同じ値を使う
+                        value_data.append(value)
+                        
                         #print(f"shot: {shot}")
                 except Exception as e:
                     print(f"Error processing log: {dcl2_data[i]}")

@@ -94,7 +94,7 @@ def save_loss_history(loss_history: Dict[str, List[float]], file_path: str) -> N
 
 def make_json(model_name: str) -> str:
     data = {}
-    dir = os.path.join("record", f"{model_name.removesuffix('.bin')}.json")
+    dir = os.path.join("record", f"{model_name}.json")
     with open(dir, 'w', encoding='utf-8') as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
     
