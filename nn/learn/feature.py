@@ -3,6 +3,8 @@
 import numpy as np
 import math
 
+from typing import List, Optional, Tuple, Dict
+
 from board.constant import BOARD_SIZE, X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, PLANES_SIZE
 
 def discretization(x: float, y: float, 
@@ -108,50 +110,55 @@ planes[52] : ティーからの距離順に並び替えたストーン16
 """
 """jsonファイルの['log']['simulator_storage']['stones']と['log']['shot']を入力し、PLANES_SIZEの特徴平面を出力する。"""
 # ストーンの格納がteam0が先行であることを前提としており、壊れている可能性がある。
-def generate_input_planes(stones: list, scores: list, end: int, shot: int) -> np.ndarray:
+def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, shot_team: int, hammer: int, score_diff_for_team0: int) -> np.ndarray:
+# def generate_input_planes(stones: List[Optional[dict]], scores: List[Optional[Tuple[int, int]]], end: int, shot: int) -> np.ndarray:
+    """
+    入力特徴の生成を行う
+    目線はshotを打つチーム目線
+    入力:
+        stones: ストーンの情報が格納されたリスト (list[dict|None]) 先攻8個、後攻8個の順番で格納されている
+        end: 現在のエンド数 (int)
+        shot: 現在のショット数 (int)
+        shot_team: ショットを打つチームの番号 (0 or 1)
+        hammer: そのエンドで後攻のチーム番号 (0 or 1)
+        score_diff_for_team0: team0にとってのこれまでの得点差 (int)
+    出力:
+        planes: 入力特徴平面 (np.ndarray) shape=(PLANES_SIZE, BOARD_SIZE, BOARD_SIZE)        
+    """
     num_planes = PLANES_SIZE
     planes = np.zeros(shape=(num_planes, BOARD_SIZE * BOARD_SIZE))
-    planes[0][:] = 1 #空点
-    planes[3][:] = 1 #定数平面
+    
+    # 空点
+    planes[0][:] = 1
+    
+    #定数平面
+    planes[3][:] = 1
+    
+    # ターン番号を特徴平面に反映
     turn_number = (shot // 2) + 5
-    planes[turn_number][:] = 1 #ターン番号
-    me = 1
-    if shot % 2 == 1: #自分が先攻か後攻か
-        me = 2
+    planes[turn_number][:] = 1
     
-    
-    planes[me + 12][:] = 1 #自分のストーンの順番
+    # 自分が現在先攻か、後攻かを特徴平面に反映
+    planes[13 if shot_team == hammer else 14][:] = 1
     
     if end <= 9: #エクストラエンド以前か
         planes[end + 15][:] = 1 #エンド番号
     else:
         planes[25][:] = 1 #エクストラエンド以降か
         
-    # どちらのチームが先攻かを判定 + 何点差かを計算
-    team0_score = scores['team0']
-    team1_score = scores['team1']
-    
-    score_diff = 0
-    team0_is_first = True
-    for i in range(end):
-        score_diff += team0_score[i] - team1_score[i]
-        if team0_score[i] < team1_score[i]:
-            team0_is_first = False
-        elif team0_score[i] > team1_score[i]:
-            team0_is_first = True
-        else:
-            continue
-    
     # 得点差は最大5点
-    if score_diff > 5:
-        score_diff = 5
-    elif score_diff < -5:
-        score_diff = -5
+    if score_diff_for_team0 > 5:
+        score_diff_for_team0 = 5
+    elif score_diff_for_team0 < -5:
+        score_diff_for_team0 = -5
+
     # 何点差かを特徴平面に反映
-    if team0_is_first != (shot % 2 == 0):
-        planes[31 + score_diff][:] = 1
+    # ショットするチームがteam0の場合、スコア差をそのまま反映
+    if shot_team == 0:
+        planes[31 + score_diff_for_team0][:] = 1
+    # 自分がteam1の場合、スコア差を反転して反映
     else:
-        planes[31 - score_diff][:] = 1
+        planes[31 - score_diff_for_team0][:] = 1
     
     order = np.full(shape=(16, 3), fill_value=-1)
     """
@@ -163,16 +170,20 @@ def generate_input_planes(stones: list, scores: list, end: int, shot: int) -> np
         if stones[i]:
             x = stones[i]['position']['x']
             y = stones[i]['position']['y']
-            index = discretization(x, y, X_MIN, X_MAX, Y_MIN, Y_MAX) # 1次元の位置を計算
-            planes[0][index] = 0 #空点の更新
+            
+            # 1次元の位置を計算
+            index = discretization(x, y, X_MIN, X_MAX, Y_MIN, Y_MAX)
+            
+            # ストーンが存在する位置は空点ではないので、空点平面を 0 にする
+            planes[0][index] = 0
 
-            # ここはストーンの情報を更新するけど、何投目かの情報を与えているわけではない。
+            # どのストーンが自分のチーム、どのストーンが相手のチームかを判定して特徴平面に反映
             # 先攻の過去8投のショット情報がjsonにある
             if i < 8:
-                planes[me][index] = 1 # 先攻のストーンの更新
+                planes[shot_team + 1][index] = 1 # 先攻のストーンの更新
             # 後攻の過去8投のショット情報がjsonにある            
             else:
-                planes[3 - me][index] = 1 # 後攻のストーンの更新
+                planes[2 - shot_team][index] = 1 # 後攻のストーンの更新
 
             if is_house(x, y):
                 planes[4][index] = 1 #ハウス内にあるストーン
@@ -188,7 +199,7 @@ def generate_input_planes(stones: list, scores: list, end: int, shot: int) -> np
         j += 1
     
     # 最後に2次元の特徴平面を3次元に変換して返す
-    return planes.reshape(num_planes, BOARD_SIZE, BOARD_SIZE).astype(np.float32)#, box
+    return planes.reshape(num_planes, BOARD_SIZE, BOARD_SIZE).astype(np.float32)
 
 
 # Policy の正解データを作成する
@@ -206,28 +217,22 @@ def generate_target_data(selected_move: dict) ->np.ndarray:
     return np.argmax(policy_plane.reshape((BOARD_SIZE * BOARD_SIZE) * 2).astype(np.int64))
 
 
-def generate_value_data(dcl_data, end, shot) ->np.ndarray:
+def generate_value_data(scores: Dict[str, List[Optional[int]]], end: int, shot_team: int) -> int:
     """
-    end: その局面のエンド数
-    shot: その局面のショットが何投目か？
+    ニューラルネットワークのValue出力の正解データを作成する
+    入力:
+        scores: 各エンドの得点が格納された辞書型データ
+        end: その局面のエンド数
+        shot_team: ショットを打つチームの番号 (0 or 1)
+    出力:
+        diff: ショットを打つチームにとっての得点差 (0 ~ 16, 8が引き分け)
     """
-    team0 = dcl_data['log']['state']['scores']['team0']
-    team1 = dcl_data['log']['state']['scores']['team1']
-    
-    team0_is_first = True
-    for i in range(end):
-        if team0[i] < team1[i]:
-            team0_is_first = False
-        elif team0[i] > team1[i]:
-            team0_is_first = True
-        else:
-            continue
 
-    # team0 にとっての得点を計算
-    diff = 8 + team0[end] - team1[end]
-    
-    # 現在のショット数が偶数なら先攻のバリュー、奇数なら後攻のバリューを出力
-    if team0_is_first != (shot % 2 == 0):
+    # team0 にとっての実際の得点を計算
+    diff = 8 + scores['team0'][end] - scores['team1'][end]
+
+    # ショットを打つチームが team1 の場合、得点差を反転
+    if shot_team == 1:
         diff = 16 - diff
         
     return diff

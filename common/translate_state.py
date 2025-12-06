@@ -60,3 +60,20 @@ def scores_dict_to_list(scores: Dict[str, List[Optional[int]]]) -> List[Optional
         b0 = 0 if b is None else int(b)
         out.append((a0, b0))
     return out
+
+def scores_to_scorediff_for_team0(scores: Dict[str, List[Optional[int]]]) -> int:
+    score_diff_for_team0 = 0
+    for a, b in zip(scores['team0'], scores['team1']):
+        a0 = 0 if a is None else int(a)
+        b0 = 0 if b is None else int(b)
+        score_diff_for_team0 += a0 - b0
+    return score_diff_for_team0
+
+def convert_team_stoi(team: str) -> int:
+    """チーム名を整数に変換する。team0 -> 0, team1 -> 1"""
+    if team == "team0":
+        return 0
+    elif team == "team1":
+        return 1
+    else:
+        raise ValueError(f"Invalid team name: {team}")

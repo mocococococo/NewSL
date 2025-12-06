@@ -2,12 +2,15 @@
 """
 from typing import NoReturn, Dict, List, Tuple
 import time
+import os
 import torch
+import json
 import numpy as np
 import matplotlib.pyplot as plt
 
 from common.print_console import print_err
 from nn.learn.network.dual_net import DualNet
+from learning_param import EPOCHS
 
 
 def get_torch_device(use_gpu: bool) -> torch.device:
@@ -78,6 +81,52 @@ def print_evaluation_information(loss_data: Dict[str, float], epoch: int, \
     print_err(f"\tvalue loss  : {value_loss:6f}")
 
 
+def save_loss_history(loss_history: Dict[str, List[float]], file_path: str) -> None:
+    """loss_history をテキストファイルに書き込む関数（上書きモード）。
+
+    Args:
+        loss_history (Dict[str, List[float]]): 各エポックの損失値を含む辞書。
+        file_path (str): 保存先のファイルパス。
+    """
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(loss_history, f, ensure_ascii=False, indent=4)
+
+
+def make_json(model_name: str) -> str:
+    data = {}
+    dir = os.path.join("record", f"{model_name}.json")
+    with open(dir, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+    
+    print(f"Success to make {dir}.")
+
+    return dir
+    
+
+def load_loss_history(file_path: str) -> Dict[str, List[float]]:
+    """テキストファイルから loss_history を読み込む関数。
+
+    Args:
+        file_path (str): 読み込み元のファイルパス。
+
+    Returns:
+        Dict[str, List[float]]: 読み込んだ損失値を含む辞書。
+    """
+    with open(file_path, 'r', encoding='utf-8') as f:
+        loss_history = json.load(f)
+    return loss_history
+
+
+def plot_loss_history(file_path: str) -> None:
+    """テキストファイルから loss_history を読み込み、学習結果をプロットする関数。
+
+    Args:
+        file_path (str): 読み込み元のファイルパス。
+    """
+    loss_history = load_loss_history(file_path)
+    print_learning_result(loss_history)
+
+
 def print_learning_result(loss_history: Dict[str, float]) -> NoReturn:
     """学習結果を表示する。
 
@@ -88,9 +137,9 @@ def print_learning_result(loss_history: Dict[str, float]) -> NoReturn:
     
     epochs = range(1,len(loss_history["loss"]) + 1)
     plt.figure(figsize=(8, 6))
-    #plt.plot(epochs, loss_history["loss"], label='Loss', marker='o', linestyle='-')
+    plt.plot(epochs, loss_history["loss"], label='Loss', marker='o', linestyle='-')
     plt.plot(epochs, loss_history["policy"], label='Policy Loss', marker='s', linestyle='--')
-    #plt.plot(epochs, loss_history["value"], label='Value Loss', marker='*', linestyle=':')
+    plt.plot(epochs, loss_history["value"], label='Value Loss', marker='*', linestyle=':')
     plt.title('Training Loss Over Epochs', fontsize=16)
     plt.xlabel('Epochs', fontsize=14)
     plt.ylabel('Loss', fontsize=14)
@@ -121,7 +170,7 @@ def load_data_set(path: str) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     Returns:
         Tuple[np.ndarray, np.ndarray, np.ndarray]: 入力データ、Policy、Value。
     """
-    data = np.load(path)
+    data = np.load(path, mmap_mode="r")
     perm = np.random.permutation(len(data["value"]))
     return data["input"][perm], data["policy"][perm].astype(np.float32), \
         data["value"][perm].astype(np.float32)

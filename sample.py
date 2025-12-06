@@ -6,7 +6,8 @@ from dc3client.models import Stones
 from nn.learn.feature import generate_input_planes
 from nn.learn.utility import get_torch_device, load_network
 from policy_shot import generate_move_from_policy
-from common.translate_state import convert_scores_to_dict, convert_stones_to_list
+from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
+    scores_to_scorediff_for_team0, convert_team_stoi
 from common.print_console import print_stone_info_from_server
 
 
@@ -114,15 +115,19 @@ def main(**kwargs):
             # StoneRotation.inturn : インターン = 時計回り
             # StoneRotation.counterclockwise : 反時計回り
             # StoneRotation.outturn : アウトターン = 反時計回り
+            # print(match_data.update_list[-1])
             stones = convert_stones_to_list(match_data.update_list[-1].state.stones, dcl2_on= not debug)
             scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
             end = match_data.update_list[-1].state.end
             shot = match_data.update_list[-1].state.shot
+            shot_team = convert_team_stoi(my_team)
+            hammer = convert_team_stoi(match_data.update_list[-1].state.hammer)
+            score_diff_for_team0 = scores_to_scorediff_for_team0(scores)
             
             # print(f"[INFO] stones: {stones}")
             print_stone_info_from_server(stones, debug_on=debug)
             
-            inputplanes = generate_input_planes(stones=stones, scores=scores, end=end, shot=shot)
+            inputplanes = generate_input_planes(stones=stones, end=end, shot=shot, shot_team=shot_team, hammer=hammer, score_diff_for_team0=score_diff_for_team0)
 
             selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
     
@@ -134,17 +139,6 @@ def main(**kwargs):
     # 試合が終了したら、clientから試合データを取得します
     move_info = cli.get_move_info()
     update_list, trajectory_list = cli.get_update_and_trajectory(remove_trajectory)
-
-    '''# 試合データを保存します、
-    update_dict = {}
-
-    for update in update_list:
-        # updateをdict形式に変換します
-        update_dict = cli.convert_update(update, remove_trajectory)
-
-    # updateを保存します、どのように保存するかは任意です
-    with open("data.json", "w", encoding="UTF-8") as f:
-        json.dump(update_dict, f, indent=4)'''
 
 
 if __name__ == '__main__':
