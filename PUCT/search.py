@@ -30,7 +30,7 @@ def puct_search(
     """
 
     dbg = Debugger(debug, every=debug_every)
-    dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer} score_diff={root_state.score_diff}")
+    dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} score_diff={root_state.score_diff}")
     dbg.log("[PUCT] " + summarize_stones(root_state.stones))
     
     root: Node = get_node(root_state)
@@ -130,43 +130,40 @@ def puct_search(
     return best_action
 
 def set_root_state(
+    network: DualNet,
     stones: List[Optional[Dict]],
-    scores: Dict[str, List[int]],
+    score_diff: int,
     end: int,
     shot_index: int,
-    network: DualNet,
-    hammer: bool
+    hammer_team: int,
+    debug: bool = False
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
-    - stones: list[(x,y)|None] 16要素
-    - scores: dict{"team0":int,"team1":int}
     - network: dual_net（policy用）
+    - stones: list[(x,y)|None] 16要素
+    - score_diff: team0から見た得点差
+    - end: 現在のエンド数
+    - shot_index: 現在のショット番号
     - hammer: Trueならteam1が後攻(ハンマー)、Falseならteam0が後攻(ハンマー)
 
     戻り値: PUCT用 root_state
     """
     stones16 = stones_listdict_to_xy16(stones)
-    scores_list = scores_dict_to_list(scores)
     
-    print("------ DEBUG set_root_state -----")
-    for i, p in enumerate(stones16):
-        print(f"root_state stone: x={p[0]} y={p[1]}" if p is not None else f"root_state stone: None")
-
-    # score_diff_from_scores が list[(t0,t1)|None] を取る設計なら、
-    # dc3_state.scores をその形式に変換して渡す必要がある。
-    # ただしあなたの translate_state.py では dict を返しているので、
-    # 今は「PUCTのstate.score_diffはキー用途」と割り切って 0 でも動く。
-    # もし score_diff をちゃんと入れたいなら、scores_list を作って渡す。
-    score_diff = score_diff_from_scores(scores_list)
+    if debug:
+        print("------ DEBUG set_root_state -----")
+        for i, p in enumerate(stones16):
+            print(f"root_state stone: x={p[0]} y={p[1]}" if p is not None else f"root_state stone: None")
+        
 
     # policy側のグローバルに network と scores_dict をセット
-    set_policy_context(network, scores)
+    set_policy_context(network, score_diff)
 
     return State.initial(
         stones=stones16,
-        hammer=hammer,
-        shot_index=shot_index,
         end=end,
+        hammer_team=hammer_team,
+        shot_index=shot_index,
         score_diff=score_diff
     )

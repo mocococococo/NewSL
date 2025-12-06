@@ -61,7 +61,7 @@ def scores_dict_to_list(scores: Dict[str, List[Optional[int]]]) -> List[Optional
         out.append((a0, b0))
     return out
 
-def scores_to_scorediff_for_team0(scores: Dict[str, List[Optional[int]]]) -> int:
+def scores_to_scorediff_for_team0(scores: Dict[str, List[Optional[Tuple[int, int]]]]) -> int:
     score_diff_for_team0 = 0
     for a, b in zip(scores['team0'], scores['team1']):
         a0 = 0 if a is None else int(a)

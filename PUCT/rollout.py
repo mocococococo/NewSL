@@ -1,7 +1,7 @@
 # rollout.py
 import math
 
-from .state import is_end_terminal
+from .state import State, is_end_terminal
 from .simulate import simulator_step
 from .policy import get_policy
 from board.constant import Y_TEE, R_HOUSE, STONE_RADIUS
@@ -84,19 +84,19 @@ def _end_score_diff_team0_minus_team1(stones) -> int:
     return out
 
 
-def _to_move_defined_even_if_terminal(state) -> int:
+def _to_move_defined_even_if_terminal(state: State) -> int:
     """終端でも「次に手番になるはずだったチーム」を定義して返す"""
     if not state.is_end_terminal():
         return state.to_move()
     # shot_index==16 の想定。最後に投げたのは (shot_index-1)。
     last_shot = state.shot_index - 1
-    h = state.hammer_team()
+    h = state.hammer_team
     nh = 1 - h
     last_mover = nh if (last_shot % 2 == 0) else h
     return 1 - last_mover
 
 
-def rollout_to_end_score(state, debug: bool = True) -> float:
+def rollout_to_end_score(state: State, debug: bool = True) -> float:
     """終端までプレイアウトし、返り値は「stateの手番視点」のスカラー"""
     global _SCORE_DEBUG
     if debug:

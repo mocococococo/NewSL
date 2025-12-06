@@ -5,9 +5,10 @@ from dc3client import SocketClient
 from dc3client.models import StoneRotation
 from nn.learn.feature import generate_input_planes
 from nn.learn.utility import get_torch_device, load_network
-from common.translate_state import convert_scores_to_dict, convert_stones_to_list
+from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
+    scores_to_scorediff_for_team0, convert_team_stoi
 
-from puct.search import puct_search, set_root_state
+from puct.search import set_root_state, puct_search
 
 
 @click.command()
@@ -16,6 +17,7 @@ from puct.search import puct_search, set_root_state
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="PUCT_NewSL", help='AIname (default: True)')
+@click.option('--debug', type=bool, default=False, help='debug (default: False)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -42,6 +44,7 @@ def main(**kwargs):
     model = "./model/" + kwargs['model']
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
+    debug = kwargs['debug']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -117,17 +120,19 @@ def main(**kwargs):
             scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
             end = match_data.update_list[-1].state.end
             shot = match_data.update_list[-1].state.shot
-            hammer = True if shot % 2 == 1 else False
+            hammer = convert_team_stoi(match_data.update_list[-1].state.hammer)
+            score_diff_for_team0 = scores_to_scorediff_for_team0(scores)
             
             root_state = set_root_state(
-                stones=stones,
-                scores=scores,
-                shot_index=shot,
-                end=end,
                 network=network,
-                hammer=hammer
+                stones=stones,
+                score_diff=score_diff_for_team0,
+                end=end,
+                shot_index=shot,
+                hammer_team=hammer,
+                debug=debug
             )
-            vx, vy, spin = puct_search(root_state, debug=True, debug_every=1, debug_topk=5)
+            vx, vy, spin = puct_search(root_state, debug=debug)
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
 
             cli.move(x=vx, y=vy, rotation=spin)

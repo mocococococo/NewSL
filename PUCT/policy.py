@@ -15,28 +15,28 @@ N_ACTIONS = BOARD_SIZE * BOARD_SIZE * 2
 
 # 外から設定する（search開始前に1回だけセット）
 _DUAL_NET = None
-_SCORES_DICT: Optional[Dict[str, List[int]]] = None
+_SCORE_DIFF: int = None
 
 
-def set_policy_context(dual_net: DualNet, scores_dict: Dict[str, List[int]]) -> None:
+def set_policy_context(dual_net: DualNet, score_diff: int) -> None:
     """探索で使うNNとscoresをセットする（開始前に1回だけ呼ぶ）"""
-    global _DUAL_NET, _SCORES_DICT
+    global _DUAL_NET, _SCORE_DIFF
     _DUAL_NET = dual_net
-    _SCORES_DICT = scores_dict
+    _SCORE_DIFF = score_diff
 
 
-def scores_list_to_dict(scores: List[Optional[Tuple[int, int]]]) -> Dict[str, List[int]]:
-    """[(t0,t1) or None] 形式を {'team0':[...], 'team1':[...]} に変換"""
-    team0: List[int] = []
-    team1: List[int] = []
-    for s in scores:
-        if s is None:
-            team0.append(0)
-            team1.append(0)
-        else:
-            team0.append(int(s[0]))
-            team1.append(int(s[1]))
-    return {"team0": team0, "team1": team1}
+# def scores_list_to_dict(scores: List[Optional[Tuple[int, int]]]) -> Dict[str, List[int]]:
+#     """[(t0,t1) or None] 形式を {'team0':[...], 'team1':[...]} に変換"""
+#     team0: List[int] = []
+#     team1: List[int] = []
+#     for s in scores:
+#         if s is None:
+#             team0.append(0)
+#             team1.append(0)
+#         else:
+#             team0.append(int(s[0]))
+#             team1.append(int(s[1]))
+#     return {"team0": team0, "team1": team1}
 
 
 def _state_stones_to_feature_stones(state: State) -> List[Optional[dict]]:
@@ -58,16 +58,17 @@ def get_policy(state: State) -> List[float]:
     """
     if _DUAL_NET is None:
         raise RuntimeError("dual_net is not set. Call set_policy_context() first.")
-    if _SCORES_DICT is None:
+    if _SCORE_DIFF is None:
         raise RuntimeError("scores_dict is not set. Call set_policy_context() first.")
 
     stones_for_feature = _state_stones_to_feature_stones(state)
 
     planes_np = generate_input_planes(
         stones=stones_for_feature,
-        scores=_SCORES_DICT,
         end=state.end,
         shot=state.shot_index,
+        hammer=state.hammer_team,
+        score_diff_for_team0=_SCORE_DIFF
     )  # (PLANES_SIZE, 32, 32) float32 :contentReference[oaicite:4]{index=4}
 
     input_data = torch.tensor(planes_np.reshape(1, PLANES_SIZE, BOARD_SIZE, BOARD_SIZE))

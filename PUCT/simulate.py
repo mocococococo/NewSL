@@ -13,17 +13,20 @@ Stones16 = List[Optional[StonePos]]
 
 DEBUG_SIM_INDEX = True
 
-def _shot_to_teamblock_index(shot_index: int, hammer: bool) -> int:
+def _shot_to_teamblock_index(shot_index: int, hammer_team: int) -> int:
     """
     shot_index(0..15) が「投球順」のとき、その石が対応する team-block の index を返す。
     team-block は 0..7 が team0, 8..15 が team1。
-    hammer=True なら hammerチームは team1、False なら hammerチームは team0。
+    hammer_team は後攻チーム番号 (0 or 1)。
+    例: hammer_team=1 (team1が後攻) のとき
+        shot_index=0 -> team0の0番 -> return 0
+        shot_index=1 -> team1の0番 -> return 8
     """
-    h = 1 if hammer else 0
-    nh = 1 - h
-    k = shot_index // 2
-    team = nh if (shot_index % 2 == 0) else h
-    return k if team == 0 else 8 + k
+    team = _to_move_team(shot_index, hammer_team)
+    k = shot_index // 2  # そのチームの何投目か(0..7)
+    if team == 0:
+        return k
+    return 8 + k
 
 def _idx_to_value(i: int, vmin: float, vmax: float, size: int) -> float:
     # feature.py の discretization と逆対応になるように（size-1 で割る）
@@ -57,7 +60,7 @@ def simulator_step(state: State, action: int) -> State:
     vx, vy, spin = decode_action(action)
     
     if DEBUG_SIM_INDEX:
-        tb = _shot_to_teamblock_index(state.shot_index, state.hammer)
+        tb = _shot_to_teamblock_index(state.shot_index, state.hammer_team)
         tm = state.to_move()
         before_none = (state.stones[tb] is None)
         print(f"[SIMIDX] BEFORE shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none={before_none}")
@@ -66,7 +69,7 @@ def simulator_step(state: State, action: int) -> State:
     # for i, p in enumerate(state.stones):
     #     print(f"stone pos: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
     
-    stones_shotorder = _teamblock_to_shotorder(list(state.stones), state.hammer)
+    stones_shotorder = _teamblock_to_shotorder(list(state.stones), state.hammer_team)
 
     stones_in: List[Tuple[float, float]] = []
     for p in stones_shotorder:
@@ -85,10 +88,10 @@ def simulator_step(state: State, action: int) -> State:
         else:
             stones_out_shotorder.append(None)
             
-    stones_out_teamblock = _shotorder_to_teamblock(stones_out_shotorder, state.hammer)
+    stones_out_teamblock = _shotorder_to_teamblock(stones_out_shotorder, state.hammer_team)
     
     if DEBUG_SIM_INDEX:
-        tb = _shot_to_teamblock_index(state.shot_index, state.hammer)
+        tb = _shot_to_teamblock_index(state.shot_index, state.hammer_team)
         tm = state.to_move()
         after_none = (stones_out_teamblock[tb] is None)
         if after_none:
@@ -103,64 +106,80 @@ def simulator_step(state: State, action: int) -> State:
 
     return State(
         stones=tuple(stones_out_teamblock),
-        hammer=state.hammer,
-        shot_index=state.shot_index + 1,
         end=state.end,
+        hammer_team=state.hammer_team,
+        shot_index=state.shot_index + 1,
         score_diff=state.score_diff,
     )
 
-def _teamblock_to_shotorder(stones_teamblock, hammer) -> Stones16:
+def _teamblock_to_shotorder(stones_teamblock, hammer_team: int) -> Stones16:
+    """    
+    team-block 形式の stones を 投球順形式に変換する。
+    つまり、先攻・後攻が交互に並ぶ形に変換する。
+    hammer_team は後攻チーム番号 (0 or 1)。
+        例: hammer_team=1 (team1が後攻) のとき
+            shot_index=0 -> team0の0番
+            shot_index=1 -> team1の0番
+            shot_index=2 -> team0の1番
+            shot_index=3 -> team1の1番
+            ...
+    """
     # stones_teamblock: [0..7 team0][8..15 team1]
     # return: [0..15 shot order] where even=nonhammer, odd=hammer
-    h = 1 if hammer else 0
+    h = hammer_team
     nh = 1 - h
-    out = [None] * 16
-    for team in (0, 1):
-        for k in range(8):
-            tb = team * 8 + k
-            p = stones_teamblock[tb]
-            shot = 2 * k if team == nh else 2 * k + 1
-            out[shot] = p
-    return out
-
-def _shotorder_to_teamblock(stones_shotorder, hammer) -> Stones16:
-    h = 1 if hammer else 0
-    nh = 1 - h
-    out = [None] * 16
+    out: Stones16 = [None] * 16
     for shot in range(16):
-        p = stones_shotorder[shot]
         k = shot // 2
         team = nh if (shot % 2 == 0) else h
         tb = k if team == 0 else 8 + k
-        out[tb] = p
+        out[shot] = stones_teamblock[tb]
+        
     return out
 
-def _to_move_team(shot_index: int, hammer: bool) -> int:
+def _shotorder_to_teamblock(stones_shotorder, hammer_team: int) -> Stones16:
+    """
+    投球順形式の stones を team-block 形式に変換する。
+    hammer_team は後攻チーム番号 (0 or 1)。
+        例: hammer_team=0 でも、1 でも同じ動作
+            shot_index=0 -> team0の0番
+            shot_index=1 -> team0の1番
+            shot_index=2 -> team0の2番
+            shot_index=3 -> team0の3番
+            ...
+            shot_index=8 -> team1の0番
+            shot_index=9 -> team1の1番
+            shot_index=10 -> team1の2番
+            shot_index=11 -> team1の3番
+            ...
+    """
+    # stones_shotorder: [0..15 shot order] where even=nonhammer, odd=hammer
+    # return: [0..7 team0][8..15 team1]
+    h = hammer_team
+    nh = 1 - h
+    out: Stones16 = [None] * 16
+    for shot in range(16):
+        k = shot // 2
+        team = nh if (shot % 2 == 0) else h
+        tb = k if team == 0 else 8 + k
+        out[tb] = stones_shotorder[shot]
+        
+    return out
+
+def _to_move_team(shot_index: int, hammer_team: int) -> int:
     """
     今この shot_index を投げるチームを返す
-    hammer=True なら team1 が後攻(ハンマー)
-    shot_index 偶数: 先攻(ハンマーではない側)
-    shot_index 奇数: 後攻(ハンマー側)
+    hammer_team は後攻チーム番号 (0 or 1)。
+    例: hammer_team=1 (team1が後攻) のとき
+        shot_index=0 -> team0の番 -> return 0
+        shot_index=1 -> team1の番 -> return 1
+        hammer_team=0 (team0が後攻) のとき
+        shot_index=0 -> team1の番 -> return 1
+        shot_index=1 -> team0の番 -> return 0
     """
-    h = 1 if hammer else 0
+    h = hammer_team
     nh = 1 - h
     if (shot_index % 2) == 0:
         return nh
     return h
 
-
-def _teamblock_index_for_current_shot(shot_index: int, hammer: bool) -> int:
-    """
-    今回の投球 shot_index が、teamblock(0-7 team0, 8-15 team1) のどこに入るべきか
-    例: shot_index=0 は先攻1投目なので (先攻チームの0番) に入る
-    """
-    team = _to_move_team(shot_index, hammer)
-    k = shot_index // 2  # そのチームの何投目か(0..7)
-    if team == 0:
-        return k
-    return 8 + k
-
-
-def _stone_is_none(stones_teamblock, idx: int) -> bool:
-    p = stones_teamblock[idx]
-    return p is None
