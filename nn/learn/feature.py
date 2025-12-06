@@ -109,14 +109,12 @@ planes[52] : ティーからの距離順に並び替えたストーン16
 
 """
 """jsonファイルの['log']['simulator_storage']['stones']と['log']['shot']を入力し、PLANES_SIZEの特徴平面を出力する。"""
-# ストーンの格納がteam0が先行であることを前提としており、壊れている可能性がある。
 def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, shot_team: int, hammer: int, score_diff_for_team0: int) -> np.ndarray:
-# def generate_input_planes(stones: List[Optional[dict]], scores: List[Optional[Tuple[int, int]]], end: int, shot: int) -> np.ndarray:
     """
     入力特徴の生成を行う
     目線はshotを打つチーム目線
     入力:
-        stones: ストーンの情報が格納されたリスト (list[dict|None]) 先攻8個、後攻8個の順番で格納されている
+        stones: ストーンの情報が格納されたリスト (list[dict|None]): team0 が 0~7番, team1 が 8~15番の順番で格納されている
         end: 現在のエンド数 (int)
         shot: 現在のショット数 (int)
         shot_team: ショットを打つチームの番号 (0 or 1)
@@ -139,7 +137,7 @@ def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, sho
     planes[turn_number][:] = 1
     
     # 自分が現在先攻か、後攻かを特徴平面に反映
-    planes[13 if shot_team == hammer else 14][:] = 1
+    planes[13 if shot_team != hammer else 14][:] = 1
     
     if end <= 9: #エクストラエンド以前か
         planes[end + 15][:] = 1 #エンド番号
@@ -178,12 +176,12 @@ def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, sho
             planes[0][index] = 0
 
             # どのストーンが自分のチーム、どのストーンが相手のチームかを判定して特徴平面に反映
-            # 先攻の過去8投のショット情報がjsonにある
-            if i < 8:
-                planes[shot_team + 1][index] = 1 # 先攻のストーンの更新
-            # 後攻の過去8投のショット情報がjsonにある            
-            else:
-                planes[2 - shot_team][index] = 1 # 後攻のストーンの更新
+            # shot_team が自分のチームとする
+            # team0 の過去 8 投のショット情報が 0~7 にある
+            # team1 の過去 8 投のショット情報が 8~15 にある
+            # 自分のチームのストーンなら planes[1]、相手のチームのストーンなら planes[2] に 1 を立てる
+            stone_team = 0 if i < 8 else 1
+            planes[1 if stone_team == shot_team else 2][index] = 1
 
             if is_house(x, y):
                 planes[4][index] = 1 #ハウス内にあるストーン
