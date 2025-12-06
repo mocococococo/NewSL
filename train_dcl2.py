@@ -11,7 +11,7 @@ import os
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 @click.command()
-@click.option('--model-name', type=click.STRING, default="cai60000CP-32-9-LeaRate000.bin", help="保存するモデルの名前の指定")
+@click.option('--model-name', type=click.STRING, default="cai60000CP-32-9-LeaRate000", help="保存するモデルの名前の指定")
 @click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
 def train_main(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ
