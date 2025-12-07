@@ -1,14 +1,12 @@
 import click
-from typing import List
 
 from dc3client import SocketClient
-from dc3client.models import StoneRotation
 from nn.learn.feature import generate_input_planes
 from nn.learn.utility import get_torch_device, load_network
+from policy_shot import generate_move_from_policy
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
     scores_to_scorediff_for_team0, convert_team_stoi
-
-from puct.search import set_root_state, puct_search
+from common.print_console import print_stone_info_from_server
 
 
 @click.command()
@@ -16,9 +14,8 @@ from puct.search import set_root_state, puct_search
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
-@click.option('--name', type=str, default="PUCT_NewSL", help='AIname (default: True)')
+@click.option('--name', type=str, default="NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
-
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
     # 通信プロトコルの解説において、is_readyを受け取ってからreadyを返すまでに行うことを推奨しています。
@@ -74,7 +71,7 @@ def main(**kwargs):
     device = get_torch_device(use_gpu=use_gpu)
     network = load_network(model, use_gpu=use_gpu)
     network.to(device)
-                      
+
     is_ready_message = cli.convert_is_ready(is_ready)
 
     # 試合を開始します
@@ -116,26 +113,22 @@ def main(**kwargs):
             # StoneRotation.inturn : インターン = 時計回り
             # StoneRotation.counterclockwise : 反時計回り
             # StoneRotation.outturn : アウトターン = 反時計回り
+            # print(match_data.update_list[-1])
             stones = convert_stones_to_list(match_data.update_list[-1].state.stones)
             scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
             end = match_data.update_list[-1].state.end
             shot = match_data.update_list[-1].state.shot
             hammer = convert_team_stoi(match_data.update_list[-1].state.hammer)
             score_diff_for_team0 = scores_to_scorediff_for_team0(scores)
+            
+            # print(f"[INFO] stones: {stones}")
+            print_stone_info_from_server(stones, debug_on=debug)
+            
+            inputplanes = generate_input_planes(stones=stones, end=end, shot=shot, hammer=hammer, score_diff_for_team0=score_diff_for_team0)
 
-            root_state = set_root_state(
-                network=network,
-                stones=stones,
-                score_diff=score_diff_for_team0,
-                end=end,
-                shot_index=shot,
-                hammer_team=hammer,
-                debug=debug
-            )
-            vx, vy, spin = puct_search(root_state, debug=debug)
-            spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
-
-            cli.move(x=vx, y=vy, rotation=spin)
+            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
+    
+            cli.move(x=selected_x, y=selected_y, rotation=selected_rotation)
         else:
             # 次のチームが自分のチームでなければ、何もしません
             continue
