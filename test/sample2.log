@@ -1,0 +1,1281 @@
+Success to load ./model/cai1000CP-32-9-LeaRate000.bin.
+[DEBUG] stone 0: x = -0.1502060741186142 y = 35.83372116088867
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03825116530060768 y = 36.222068786621094
+[DEBUG] stone 1: x = 0.16916365921497345 y = 35.59309387207031
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4970541298389435 y = 35.79956817626953
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03825116530060768 y = 36.222068786621094
+[DEBUG] stone 1: x = 0.2319200187921524 y = 35.92481231689453
+[DEBUG] stone 2: x = 0.36456266045570374 y = 37.678924560546875
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4970541298389435 y = 35.79956817626953
+[DEBUG] stone 9: x = 0.051973145455121994 y = 35.32670593261719
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03825116530060768 y = 36.222068786621094
+[DEBUG] stone 1: x = 0.2319200187921524 y = 35.92481231689453
+[DEBUG] stone 2: x = 0.36456266045570374 y = 37.678924560546875
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4970541298389435 y = 35.79956817626953
+[DEBUG] stone 9: x = 0.051973145455121994 y = 35.32670593261719
+[DEBUG] stone 10: x = -0.8742338418960571 y = 37.315635681152344
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03825116530060768 y = 36.222068786621094
+[DEBUG] stone 1: x = 0.2319200187921524 y = 35.92481231689453
+[DEBUG] stone 2: x = 0.36456266045570374 y = 37.678924560546875
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4970541298389435 y = 35.79956817626953
+[DEBUG] stone 9: x = 0.051973145455121994 y = 35.32670593261719
+[DEBUG] stone 10: x = -0.8742338418960571 y = 37.315635681152344
+[DEBUG] stone 11: x = 0.5685977935791016 y = 37.438621520996094
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03825116530060768 y = 36.222068786621094
+[DEBUG] stone 1: x = 0.2319200187921524 y = 35.92481231689453
+[DEBUG] stone 2: x = 0.36456266045570374 y = 37.678924560546875
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4970541298389435 y = 35.79956817626953
+[DEBUG] stone 9: x = 0.051973145455121994 y = 35.32670593261719
+[DEBUG] stone 10: x = -0.9592636823654175 y = 37.50455093383789
+[DEBUG] stone 11: x = 0.5685977935791016 y = 37.438621520996094
+[DEBUG] stone 12: x = -0.642890214920044 y = 37.12171173095703
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03825116530060768 y = 36.222068786621094
+[DEBUG] stone 1: x = 0.2319200187921524 y = 35.92481231689453
+[DEBUG] stone 2: x = 0.36456266045570374 y = 37.678924560546875
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4970541298389435 y = 35.79956817626953
+[DEBUG] stone 9: x = 0.051973145455121994 y = 35.32670593261719
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.5685977935791016 y = 37.438621520996094
+[DEBUG] stone 12: x = -0.642890214920044 y = 37.12171173095703
+[DEBUG] stone 13: x = 0.5706900358200073 y = 37.08991241455078
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03825116530060768 y = 36.222068786621094
+[DEBUG] stone 1: x = 0.2319200187921524 y = 35.92481231689453
+[DEBUG] stone 2: x = 0.36456266045570374 y = 37.678924560546875
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4970541298389435 y = 35.79956817626953
+[DEBUG] stone 9: x = 0.051973145455121994 y = 35.32670593261719
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.5685977935791016 y = 37.438621520996094
+[DEBUG] stone 12: x = -0.6169297695159912 y = 37.136207580566406
+[DEBUG] stone 13: x = 0.5706900358200073 y = 37.08991241455078
+[DEBUG] stone 14: x = -0.9292965531349182 y = 37.046875
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.06684020906686783 y = 36.047794342041016
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.06684020906686783 y = 36.047794342041016
+[DEBUG] stone 1: x = 0.08063112199306488 y = 35.532501220703125
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.3655322194099426 y = 35.64463806152344
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.26366275548934937 y = 36.325050354003906
+[DEBUG] stone 1: x = 0.026509946212172508 y = 36.04108810424805
+[DEBUG] stone 2: x = 0.8220207691192627 y = 36.51883316040039
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.3655322194099426 y = 35.64463806152344
+[DEBUG] stone 9: x = -0.009363536722958088 y = 35.25558853149414
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.26366275548934937 y = 36.325050354003906
+[DEBUG] stone 1: x = 0.026509946212172508 y = 36.04108810424805
+[DEBUG] stone 2: x = 0.8220207691192627 y = 36.51883316040039
+[DEBUG] stone 3: x = -0.6516180634498596 y = 37.11083221435547
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.3655322194099426 y = 35.64463806152344
+[DEBUG] stone 9: x = -0.009363536722958088 y = 35.25558853149414
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.26366275548934937 y = 36.325050354003906
+[DEBUG] stone 1: x = 0.026509946212172508 y = 36.04108810424805
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.6516180634498596 y = 37.11083221435547
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.3655322194099426 y = 35.64463806152344
+[DEBUG] stone 9: x = -0.009363536722958088 y = 35.25558853149414
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.5734317898750305 y = 36.619224548339844
+[DEBUG] stone 1: x = -0.058386534452438354 y = 36.120487213134766
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.6516180634498596 y = 37.11083221435547
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.3655322194099426 y = 35.64463806152344
+[DEBUG] stone 9: x = -0.009363536722958088 y = 35.25558853149414
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.5458691716194153 y = 36.26332473754883
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.5734317898750305 y = 36.619224548339844
+[DEBUG] stone 1: x = -0.058386534452438354 y = 36.120487213134766
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.6516180634498596 y = 37.11083221435547
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.3655322194099426 y = 35.64463806152344
+[DEBUG] stone 9: x = -0.009363536722958088 y = 35.25558853149414
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.5458691716194153 y = 36.26332473754883
+[DEBUG] stone 13: x = -0.9125823974609375 y = 38.830474853515625
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.5734317898750305 y = 36.619224548339844
+[DEBUG] stone 1: x = -0.058386534452438354 y = 36.120487213134766
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.6516180634498596 y = 37.11083221435547
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.3655322194099426 y = 35.64463806152344
+[DEBUG] stone 9: x = -0.009363536722958088 y = 35.25558853149414
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.5458691716194153 y = 36.26332473754883
+[DEBUG] stone 13: x = -0.733684241771698 y = 39.247005462646484
+[DEBUG] stone 14: x = -0.9914775490760803 y = 38.59099578857422
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.25485411286354065 y = 35.799354553222656
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.16215267777442932 y = 36.28993225097656
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.5572676062583923 y = 36.20747756958008
+[DEBUG] stone 1: x = -0.03168152645230293 y = 35.27178192138672
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.16215267777442932 y = 36.28993225097656
+[DEBUG] stone 9: x = 0.04609901085495949 y = 35.69005584716797
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.5572676062583923 y = 36.20747756958008
+[DEBUG] stone 1: x = -0.03168152645230293 y = 35.27178192138672
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = 0.04609901085495949 y = 35.69005584716797
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.5572676062583923 y = 36.20747756958008
+[DEBUG] stone 1: x = -0.03168152645230293 y = 35.27178192138672
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = 0.06297393888235092 y = 38.20289611816406
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = 0.026005098596215248 y = 35.69479751586914
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.3704119026660919 y = 38.430747985839844
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.03168152645230293 y = 35.27178192138672
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.29823338985443115 y = 38.7249870300293
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = -0.5193970203399658 y = 35.87214660644531
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.3704119026660919 y = 38.430747985839844
+[DEBUG] stone 12: x = 0.3327326476573944 y = 38.04076385498047
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.03168152645230293 y = 35.27178192138672
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.29823338985443115 y = 38.7249870300293
+[DEBUG] stone 4: None
+[DEBUG] stone 5: x = -0.44029173254966736 y = 37.4671516418457
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = 0.6556557416915894 y = 37.32530212402344
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.3704119026660919 y = 38.430747985839844
+[DEBUG] stone 12: x = 0.3327326476573944 y = 38.04076385498047
+[DEBUG] stone 13: x = -1.3148959875106812 y = 36.230560302734375
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.03168152645230293 y = 35.27178192138672
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.29823338985443115 y = 38.7249870300293
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: x = -0.23463067412376404 y = 37.68467330932617
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = 0.6556557416915894 y = 37.32530212402344
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.3704119026660919 y = 38.430747985839844
+[DEBUG] stone 12: x = 0.3327326476573944 y = 38.04076385498047
+[DEBUG] stone 13: x = -1.3148959875106812 y = 36.230560302734375
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.3870321214199066 y = 36.04438781738281
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.0821143314242363 y = 36.0426025390625
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.3870321214199066 y = 36.04438781738281
+[DEBUG] stone 1: x = -0.1587386131286621 y = 35.51887512207031
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.2729439437389374 y = 36.36284255981445
+[DEBUG] stone 9: x = -0.11444290727376938 y = 35.930381774902344
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.4505889415740967 y = 36.068668365478516
+[DEBUG] stone 1: x = -0.18854451179504395 y = 35.52702713012695
+[DEBUG] stone 2: x = 0.23068733513355255 y = 36.56242370605469
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.29689568281173706 y = 38.45621871948242
+[DEBUG] stone 9: x = -0.11845359951257706 y = 35.93528747558594
+[DEBUG] stone 10: x = 0.6594562530517578 y = 36.188804626464844
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.4505889415740967 y = 36.068668365478516
+[DEBUG] stone 1: x = -0.18854451179504395 y = 35.52702713012695
+[DEBUG] stone 2: x = 0.23068733513355255 y = 36.56242370605469
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.29689568281173706 y = 38.45621871948242
+[DEBUG] stone 9: x = -0.11845359951257706 y = 35.93528747558594
+[DEBUG] stone 10: x = 0.6594562530517578 y = 36.188804626464844
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.530585765838623 y = 38.05679702758789
+[DEBUG] stone 1: x = -0.18854451179504395 y = 35.52702713012695
+[DEBUG] stone 2: x = 0.23068733513355255 y = 36.56242370605469
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = -0.7701184153556824 y = 35.90629196166992
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.29689568281173706 y = 38.45621871948242
+[DEBUG] stone 9: x = -0.11845359951257706 y = 35.93528747558594
+[DEBUG] stone 10: x = 0.6594562530517578 y = 36.188804626464844
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.530585765838623 y = 38.05679702758789
+[DEBUG] stone 1: x = 0.23988762497901917 y = 35.72758483886719
+[DEBUG] stone 2: x = 0.23068733513355255 y = 36.56242370605469
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = -1.7724285125732422 y = 37.19358825683594
+[DEBUG] stone 5: x = -1.4043900966644287 y = 36.93573760986328
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.29689568281173706 y = 38.45621871948242
+[DEBUG] stone 9: x = 0.17295949161052704 y = 36.11216735839844
+[DEBUG] stone 10: x = 0.6594562530517578 y = 36.188804626464844
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: x = -0.4128829538822174 y = 35.91243362426758
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.530585765838623 y = 38.05679702758789
+[DEBUG] stone 1: x = 0.23988762497901917 y = 35.72758483886719
+[DEBUG] stone 2: x = 0.7150465250015259 y = 36.986183166503906
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = -1.7724285125732422 y = 37.19358825683594
+[DEBUG] stone 5: None
+[DEBUG] stone 6: x = -1.2509732246398926 y = 36.47980499267578
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.29689568281173706 y = 38.45621871948242
+[DEBUG] stone 9: x = 0.17313982546329498 y = 36.112060546875
+[DEBUG] stone 10: x = 0.6594562530517578 y = 36.188804626464844
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: x = 0.011087695136666298 y = 36.373172760009766
+[DEBUG] stone 14: x = 0.4341469705104828 y = 37.28153610229492
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.47890275716781616 y = 36.049068450927734
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.2023991495370865 y = 36.37034225463867
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.47890275716781616 y = 36.049068450927734
+[DEBUG] stone 1: x = -0.08474854379892349 y = 35.68251037597656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.2023991495370865 y = 36.37034225463867
+[DEBUG] stone 9: x = -0.12120119482278824 y = 36.11478805541992
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.47890275716781616 y = 36.049068450927734
+[DEBUG] stone 1: x = -0.08474854379892349 y = 35.68251037597656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.2023991495370865 y = 36.37034225463867
+[DEBUG] stone 9: x = -0.12120119482278824 y = 36.11478805541992
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.6411110162734985 y = 36.185707092285156
+[DEBUG] stone 1: x = -0.2727757692337036 y = 35.845401763916016
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.2023991495370865 y = 36.37034225463867
+[DEBUG] stone 9: x = -0.12120119482278824 y = 36.11478805541992
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.6411110162734985 y = 36.185707092285156
+[DEBUG] stone 1: x = -0.2784667909145355 y = 35.83678436279297
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = 1.052371621131897 y = 37.94645690917969
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.02156354859471321 y = 39.186641693115234
+[DEBUG] stone 9: x = -0.2032969444990158 y = 36.12997817993164
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.16637617349624634 y = 36.15968322753906
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.6411110162734985 y = 36.185707092285156
+[DEBUG] stone 1: x = -0.2784667909145355 y = 35.83678436279297
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: x = 0.4371488094329834 y = 37.323089599609375
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.02156354859471321 y = 39.186641693115234
+[DEBUG] stone 9: x = -0.2032969444990158 y = 36.12997817993164
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.16637617349624634 y = 36.15968322753906
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.6411110162734985 y = 36.185707092285156
+[DEBUG] stone 1: x = -0.2784667909145355 y = 35.83678436279297
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: x = 0.4371488094329834 y = 37.323089599609375
+[DEBUG] stone 6: x = 0.06470788270235062 y = 38.20917510986328
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = 0.02156354859471321 y = 39.186641693115234
+[DEBUG] stone 9: x = -0.21588490903377533 y = 36.13262939453125
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = -0.4510703980922699 y = 37.006439208984375
+[DEBUG] stone 13: None
+[DEBUG] stone 14: x = 1.1551011800765991 y = 36.79996871948242
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2311241626739502 y = 35.731834411621094
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.1943274438381195 y = 36.34137725830078
+[DEBUG] stone 1: x = 0.03497469425201416 y = 35.31098937988281
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.29238641262054443 y = 35.4930419921875
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2586733400821686 y = 36.53433609008789
+[DEBUG] stone 1: x = -0.08870331197977066 y = 36.07142639160156
+[DEBUG] stone 2: x = 0.5065569281578064 y = 37.29911804199219
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.29238641262054443 y = 35.4930419921875
+[DEBUG] stone 9: x = 0.07400353252887726 y = 35.0236930847168
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2586733400821686 y = 36.53433609008789
+[DEBUG] stone 1: x = -0.08870331197977066 y = 36.07142639160156
+[DEBUG] stone 2: x = 0.2554338574409485 y = 37.88557815551758
+[DEBUG] stone 3: x = 1.1168323755264282 y = 37.366432189941406
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = -0.16816093027591705 y = 35.289302825927734
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = 1.1168323755264282 y = 37.366432189941406
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = -0.16816093027591705 y = 35.289302825927734
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.0891679897904396 y = 37.61042785644531
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: x = 1.0631052255630493 y = 36.79153823852539
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: x = -0.16816093027591705 y = 35.289302825927734
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.0891679897904396 y = 37.61042785644531
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.0891679897904396 y = 37.61042785644531
+[DEBUG] stone 12: None
+[DEBUG] stone 13: x = 1.1019872426986694 y = 36.50294494628906
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: x = -0.3263154625892639 y = 37.7711067199707
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.26238375902175903 y = 37.73435974121094
+[DEBUG] stone 12: None
+[DEBUG] stone 13: x = 1.1019872426986694 y = 36.50294494628906
+[DEBUG] stone 14: x = -0.20158569514751434 y = 38.90374755859375
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2640429437160492 y = 35.77732849121094
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.07605656236410141 y = 36.163719177246094
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2640429437160492 y = 35.77732849121094
+[DEBUG] stone 1: x = 0.010250409133732319 y = 35.60350799560547
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.20358699560165405 y = 36.51353073120117
+[DEBUG] stone 9: x = 0.01512918621301651 y = 36.15913772583008
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2640429437160492 y = 35.77732849121094
+[DEBUG] stone 1: x = 0.010250409133732319 y = 35.60350799560547
+[DEBUG] stone 2: x = -1.1160601377487183 y = 38.898521423339844
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.20358699560165405 y = 36.51353073120117
+[DEBUG] stone 9: x = 0.01512918621301651 y = 36.15913772583008
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2640429437160492 y = 35.77732849121094
+[DEBUG] stone 1: x = 0.010250409133732319 y = 35.60350799560547
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = 0.22980232536792755 y = 38.530677795410156
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.20358699560165405 y = 36.51353073120117
+[DEBUG] stone 9: x = 0.01512918621301651 y = 36.15913772583008
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.2640429437160492 y = 35.77732849121094
+[DEBUG] stone 1: x = 0.010250409133732319 y = 35.60350799560547
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = 0.23099812865257263 y = 39.41032791137695
+[DEBUG] stone 4: x = 0.17071905732154846 y = 37.95398712158203
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.20358699560165405 y = 36.51353073120117
+[DEBUG] stone 9: x = 0.01512918621301651 y = 36.15913772583008
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.2272176891565323 y = 38.912513732910156
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = 0.23099812865257263 y = 39.41032791137695
+[DEBUG] stone 4: x = 0.17071905732154846 y = 37.95398712158203
+[DEBUG] stone 5: x = -0.07587402313947678 y = 38.99969482421875
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -1.9969077110290527 y = 38.894622802734375
+[DEBUG] stone 9: x = 0.0976964682340622 y = 36.38290023803711
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.2272176891565323 y = 38.912513732910156
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = 0.32509371638298035 y = 39.507598876953125
+[DEBUG] stone 4: x = 0.17071905732154846 y = 37.95398712158203
+[DEBUG] stone 5: x = 0.0033088757190853357 y = 39.230430603027344
+[DEBUG] stone 6: x = -0.12454552203416824 y = 38.45436096191406
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -1.9969077110290527 y = 38.894622802734375
+[DEBUG] stone 9: x = 0.0976964682340622 y = 36.38290023803711
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = 0.2272176891565323 y = 38.912513732910156
+[DEBUG] stone 13: None
+[DEBUG] stone 14: x = -0.20751824975013733 y = 38.88494873046875
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.06905556470155716 y = 35.268394470214844
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.14695851504802704 y = 36.31241989135742
+[DEBUG] stone 1: x = 0.0478963665664196 y = 35.103797912597656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4675479829311371 y = 35.38041305541992
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03220149874687195 y = 36.549598693847656
+[DEBUG] stone 1: x = -0.06365948170423508 y = 36.10956573486328
+[DEBUG] stone 2: x = 0.6603211760520935 y = 36.631248474121094
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4675479829311371 y = 35.38041305541992
+[DEBUG] stone 9: x = 0.057907722890377045 y = 34.8141975402832
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.03220149874687195 y = 36.549598693847656
+[DEBUG] stone 1: x = -0.06365948170423508 y = 36.10956573486328
+[DEBUG] stone 2: x = 0.6603211760520935 y = 36.631248474121094
+[DEBUG] stone 3: x = -0.8595512509346008 y = 37.41643524169922
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4675479829311371 y = 35.38041305541992
+[DEBUG] stone 9: x = 0.057907722890377045 y = 34.8141975402832
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.1489797681570053 y = 36.59854507446289
+[DEBUG] stone 1: x = -0.06365948170423508 y = 36.10956573486328
+[DEBUG] stone 2: x = 0.6603211760520935 y = 36.631248474121094
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = 0.5541213154792786 y = 38.09419250488281
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4675479829311371 y = 35.38041305541992
+[DEBUG] stone 9: x = 0.057907722890377045 y = 34.8141975402832
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.1489797681570053 y = 36.59854507446289
+[DEBUG] stone 1: x = -0.06365948170423508 y = 36.10956573486328
+[DEBUG] stone 2: x = 0.6603211760520935 y = 36.631248474121094
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = 0.5541213154792786 y = 38.09419250488281
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4675479829311371 y = 35.38041305541992
+[DEBUG] stone 9: x = 0.057907722890377045 y = 34.8141975402832
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = -0.951714813709259 y = 37.20624542236328
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.06365948170423508 y = 36.10956573486328
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = 0.5541213154792786 y = 38.09419250488281
+[DEBUG] stone 5: None
+[DEBUG] stone 6: x = 0.2449605017900467 y = 38.716331481933594
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.4675479829311371 y = 35.38041305541992
+[DEBUG] stone 9: x = 0.057907722890377045 y = 34.8141975402832
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = -0.951714813709259 y = 37.20624542236328
+[DEBUG] stone 13: x = -0.19017228484153748 y = 38.733619689941406
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.06365948170423508 y = 36.10956573486328
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: x = 0.5541213154792786 y = 38.09419250488281
+[DEBUG] stone 5: None
+[DEBUG] stone 6: x = 0.3108859360218048 y = 39.200050354003906
+[DEBUG] stone 7: x = 0.9284818768501282 y = 35.21173858642578
+[DEBUG] stone 8: x = -1.8696218729019165 y = 36.3917236328125
+[DEBUG] stone 9: x = -0.1800519824028015 y = 35.2851448059082
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: x = -0.951714813709259 y = 37.20624542236328
+[DEBUG] stone 13: x = -0.19017228484153748 y = 38.733619689941406
+[DEBUG] stone 14: x = 0.154160737991333 y = 38.44016647338867
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.22130294144153595 y = 35.76097869873047
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.06949843466281891 y = 36.21806716918945
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.24976274371147156 y = 35.798011779785156
+[DEBUG] stone 1: x = -0.12015566229820251 y = 35.285682678222656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.06949843466281891 y = 36.21806716918945
+[DEBUG] stone 9: x = 0.058513522148132324 y = 35.63690185546875
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.12015566229820251 y = 35.285682678222656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.06949843466281891 y = 36.21806716918945
+[DEBUG] stone 9: x = 0.3787638545036316 y = 36.534881591796875
+[DEBUG] stone 10: x = 0.4242556691169739 y = 37.53812026977539
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.12015566229820251 y = 35.285682678222656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -0.5539159178733826 y = 37.41681671142578
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.06949843466281891 y = 36.21806716918945
+[DEBUG] stone 9: x = 0.5609849095344543 y = 37.27272415161133
+[DEBUG] stone 10: x = 0.2053443342447281 y = 38.649871826171875
+[DEBUG] stone 11: x = 0.3443121612071991 y = 36.247474670410156
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.12015566229820251 y = 35.285682678222656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -1.000783085823059 y = 39.46944808959961
+[DEBUG] stone 4: x = -0.577670693397522 y = 37.70337677001953
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.06949843466281891 y = 36.21806716918945
+[DEBUG] stone 9: x = 0.5609849095344543 y = 37.27272415161133
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.3443121612071991 y = 36.247474670410156
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.12015566229820251 y = 35.285682678222656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: x = -1.000783085823059 y = 39.46944808959961
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.06949843466281891 y = 36.21806716918945
+[DEBUG] stone 9: x = 0.5609849095344543 y = 37.27272415161133
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.3443121612071991 y = 36.247474670410156
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.12015566229820251 y = 35.285682678222656
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: x = -0.361534982919693 y = 37.3919677734375
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.06949843466281891 y = 36.21806716918945
+[DEBUG] stone 9: x = 0.5609849095344543 y = 37.27272415161133
+[DEBUG] stone 10: None
+[DEBUG] stone 11: x = 0.3443121612071991 y = 36.247474670410156
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = -0.10047481209039688 y = 35.463172912597656
+[DEBUG] stone 1: None
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: None
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.2724527418613434 y = 35.92021179199219
+[DEBUG] stone 1: x = -0.0041535827331244946 y = 35.52764892578125
+[DEBUG] stone 2: None
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.5271698832511902 y = 35.54213333129883
+[DEBUG] stone 9: None
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.06647087633609772 y = 36.052452087402344
+[DEBUG] stone 1: x = -0.1957293301820755 y = 36.248695373535156
+[DEBUG] stone 2: x = 0.8421722650527954 y = 36.594722747802734
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.5271698832511902 y = 35.54213333129883
+[DEBUG] stone 9: x = 0.07476644963026047 y = 35.24890899658203
+[DEBUG] stone 10: None
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.06647087633609772 y = 36.052452087402344
+[DEBUG] stone 1: x = -0.1957293301820755 y = 36.248695373535156
+[DEBUG] stone 2: x = 0.8421722650527954 y = 36.594722747802734
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.5271698832511902 y = 35.54213333129883
+[DEBUG] stone 9: x = 0.07476644963026047 y = 35.24890899658203
+[DEBUG] stone 10: x = -0.8738600015640259 y = 37.01226806640625
+[DEBUG] stone 11: None
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.06647087633609772 y = 36.052452087402344
+[DEBUG] stone 1: x = -0.1957293301820755 y = 36.248695373535156
+[DEBUG] stone 2: x = 0.8421722650527954 y = 36.594722747802734
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.7492649555206299 y = 35.56108474731445
+[DEBUG] stone 9: x = -0.23482397198677063 y = 35.64492416381836
+[DEBUG] stone 10: x = -0.8738600015640259 y = 37.01226806640625
+[DEBUG] stone 11: x = 0.8399205207824707 y = 35.882537841796875
+[DEBUG] stone 12: None
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: x = 0.06647087633609772 y = 36.052452087402344
+[DEBUG] stone 1: x = -0.1957293301820755 y = 36.248695373535156
+[DEBUG] stone 2: x = 0.8421722650527954 y = 36.594722747802734
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.7492649555206299 y = 35.56108474731445
+[DEBUG] stone 9: x = -0.23482397198677063 y = 35.64492416381836
+[DEBUG] stone 10: x = -0.8738600015640259 y = 37.01226806640625
+[DEBUG] stone 11: x = 0.8399205207824707 y = 35.882537841796875
+[DEBUG] stone 12: x = 0.8738320469856262 y = 39.01311492919922
+[DEBUG] stone 13: None
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.787535548210144 y = 36.6594123840332
+[DEBUG] stone 2: x = 1.2657452821731567 y = 37.25395584106445
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: None
+[DEBUG] stone 8: x = -0.7492649555206299 y = 35.56108474731445
+[DEBUG] stone 9: x = -0.23482397198677063 y = 35.64492416381836
+[DEBUG] stone 10: x = -0.8738600015640259 y = 37.01226806640625
+[DEBUG] stone 11: x = 0.21141678094863892 y = 36.99250030517578
+[DEBUG] stone 12: x = 0.8738320469856262 y = 39.01311492919922
+[DEBUG] stone 13: x = 0.7898858785629272 y = 36.9956169128418
+[DEBUG] stone 14: None
+[DEBUG] stone 15: None
+[DEBUG] stone 0: None
+[DEBUG] stone 1: x = -0.787535548210144 y = 36.6594123840332
+[DEBUG] stone 2: x = 1.2657452821731567 y = 37.25395584106445
+[DEBUG] stone 3: None
+[DEBUG] stone 4: None
+[DEBUG] stone 5: None
+[DEBUG] stone 6: None
+[DEBUG] stone 7: x = -0.1482033133506775 y = 39.03239822387695
+[DEBUG] stone 8: x = -0.7492649555206299 y = 35.56108474731445
+[DEBUG] stone 9: x = -0.23482397198677063 y = 35.64492416381836
+[DEBUG] stone 10: x = -0.8738600015640259 y = 37.01226806640625
+[DEBUG] stone 11: x = 0.6736398935317993 y = 38.15298843383789
+[DEBUG] stone 12: x = 0.8738320469856262 y = 39.01311492919922
+[DEBUG] stone 13: x = 0.7898858785629272 y = 36.9956169128418
+[DEBUG] stone 14: x = -0.1770491749048233 y = 36.887264251708984
+[DEBUG] stone 15: None

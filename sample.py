@@ -3,36 +3,12 @@ from typing import List
 
 from dc3client import SocketClient
 from dc3client.models import Stones
-from nn.feature import generate_input_planes
-from nn.utility import get_torch_device, load_network
+from nn.learn.feature import generate_input_planes
+from nn.learn.utility import get_torch_device, load_network
 from policy_shot import generate_move_from_policy
-
-
-def convert_stones_to_list(stones: Stones) -> List[dict]:
-    result = [None] * 16  # 16要素のリストを作成し、全てをNoneで初期化
-    for i, coordinate in enumerate(stones.team0):
-        if coordinate.angle is not None and coordinate.position[0].x is not None and coordinate.position[0].y is not None:
-            data = {
-                "angle": coordinate.angle,
-                "angular_velocity": 0.0,
-                "linear_velocity": {"x": 0.0, "y": 0.0},
-                "position": {"x": coordinate.position[0].x, "y": coordinate.position[0].y}
-            }
-            result[i] = data
-
-    for i, coordinate in enumerate(stones.team1):
-        if coordinate.angle is not None and coordinate.position[0].x is not None and coordinate.position[0].y is not None:
-            data = {
-                "angle": coordinate.angle,
-                "angular_velocity": 0.0,
-                "linear_velocity": {"x": 0.0, "y": 0.0},
-                "position": {"x": coordinate.position[0].x, "y": coordinate.position[0].y}
-            }
-            result[i + 8] = data
-
-    return result
-    
-
+from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
+    scores_to_scorediff_for_team0, convert_team_stoi
+from common.print_console import print_stone_info_from_server
 
 
 @click.command()
@@ -41,7 +17,7 @@ def convert_stones_to_list(stones: Stones) -> List[dict]:
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="NewSL", help='AIname (default: True)')
-
+@click.option('--debug', type=bool, default=False, help='debug (default: False)')
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
     # 通信プロトコルの解説において、is_readyを受け取ってからreadyを返すまでに行うことを推奨しています。
@@ -67,6 +43,7 @@ def main(**kwargs):
     model = "./model/" + kwargs['model']
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
+    debug = kwargs['debug']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -138,11 +115,20 @@ def main(**kwargs):
             # StoneRotation.inturn : インターン = 時計回り
             # StoneRotation.counterclockwise : 反時計回り
             # StoneRotation.outturn : アウトターン = 反時計回り
+            # print(match_data.update_list[-1])
             stones = convert_stones_to_list(match_data.update_list[-1].state.stones)
-            inputplanes = generate_input_planes(stones, match_data.update_list[-1].state.shot)
-            shot_index = match_data.update_list[-1].state.shot
+            scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
+            end = match_data.update_list[-1].state.end
+            shot = match_data.update_list[-1].state.shot
+            hammer = convert_team_stoi(match_data.update_list[-1].state.hammer)
+            score_diff_for_team0 = scores_to_scorediff_for_team0(scores)
+            
+            # print(f"[INFO] stones: {stones}")
+            print_stone_info_from_server(stones, debug_on=debug)
+            
+            inputplanes = generate_input_planes(stones=stones, end=end, shot=shot, hammer=hammer, score_diff_for_team0=score_diff_for_team0)
 
-            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot_index)
+            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
     
             cli.move(x=selected_x, y=selected_y, rotation=selected_rotation)
         else:
@@ -152,17 +138,6 @@ def main(**kwargs):
     # 試合が終了したら、clientから試合データを取得します
     move_info = cli.get_move_info()
     update_list, trajectory_list = cli.get_update_and_trajectory(remove_trajectory)
-
-    '''# 試合データを保存します、
-    update_dict = {}
-
-    for update in update_list:
-        # updateをdict形式に変換します
-        update_dict = cli.convert_update(update, remove_trajectory)
-
-    # updateを保存します、どのように保存するかは任意です
-    with open("data.json", "w", encoding="UTF-8") as f:
-        json.dump(update_dict, f, indent=4)'''
 
 
 if __name__ == '__main__':

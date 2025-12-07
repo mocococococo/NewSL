@@ -3,7 +3,7 @@ import click
 from learning_param import BATCH_SIZE, EPOCHS
 from board.constant import BOARD_SIZE
 from nn.learn import train_on_cpu, train_on_gpu
-from nn.data_generator import generate_supervised_learning_data
+from nn.learn.data_generator import generate_supervised_learning_data
 
 @click.command()
 @click.option('--model-name', type=click.STRING, default="sl-model.bin", help="保存するモデルの名前の指定")
@@ -13,7 +13,7 @@ def train_main(model_name: str, use_gpu: bool):
     program_dir = Path(__file__).resolve().parent
     
     # 対戦データのlogファイルがあるディレクトリ
-    log_dir = "./LearnLog"
+    log_dir = "path to data directory."
     size = BOARD_SIZE
     
     print(f"start learning model {model_name} !!")
