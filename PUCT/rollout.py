@@ -34,7 +34,7 @@ def _end_score_diff_team0_minus_team1(stones) -> int:
     for i, p in enumerate(stones):
         if p is None:
             continue
-        x, y = float(p[0]), abs(float(p[1]))
+        x, y = float(p[0]), float(p[1])
         d2 = x * x + (y - Y_TEE) ** 2
         team = 0 if i < 8 else 1
         d = math.sqrt(d2)
@@ -120,4 +120,5 @@ def rollout_to_end_score(state: State, debug: bool = True) -> float:
         _dbg("[ROLLOUT] depth={} terminal_shot_index={} leaf_view_team={} raw={} v={}".format(
             depth, getattr(s, "shot_index", None), leaf_view_team, raw, v
         ))
+        
     return v

@@ -62,6 +62,17 @@ def get_policy(state: State) -> List[float]:
         raise RuntimeError("scores_dict is not set. Call set_policy_context() first.")
 
     stones_for_feature = _state_stones_to_feature_stones(state)
+    
+    # debug用表示
+    print("[POLICY] ------ Before Generate Input Planes -----")
+    for i, p in enumerate(stones_for_feature):
+        if p is None:
+            print(f"stone pos: None")
+        else:
+            if i < 8:
+                print(f"stone pos [team0]: x={p['position']['x']} y={p['position']['y']}")
+            else:
+                print(f"stone pos [team1]: x={p['position']['x']} y={p['position']['y']}")
 
     planes_np = generate_input_planes(
         stones=stones_for_feature,

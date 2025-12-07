@@ -5,6 +5,7 @@ from typing import List, Optional, Tuple
 from . import fast_simulator
 from .state import State
 from board.constant import BOARD_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, DCL2_YPOS_DIFF
+from policy_shot import index_to_shot
 
 N_ACTIONS = BOARD_SIZE * BOARD_SIZE * 2
 VEC_SIZE = BOARD_SIZE * BOARD_SIZE  # 1024
@@ -58,11 +59,16 @@ def simulator_step(state: State, action: int) -> State:
         return state
 
     vx, vy, spin = decode_action(action)
+    debug_vx, debug_vy, debug_spin = index_to_shot(action)
+    
+    print(f"[SIMULATOR_STEP] action={action} -> vx={vx:.3f} vy={vy:.3f} spin={spin}")
+    print(f"[SIMULATOR_STEP] DEBUG_SHOT   -> vx={debug_vx:.3f} vy={debug_vy:.3f} spin={debug_spin}")
     
     if DEBUG_SIM_INDEX:
         tb = _shot_to_teamblock_index(state.shot_index, state.hammer_team)
         tm = state.to_move()
         before_none = (state.stones[tb] is None)
+        print("------ DEBUG simulate_step Before Simulate -----")
         print(f"[SIMIDX] BEFORE shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none={before_none}")
     
     # print("------ DEBUG simulate_step Before Simulate -----")
@@ -70,20 +76,26 @@ def simulator_step(state: State, action: int) -> State:
     #     print(f"stone pos: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
     
     stones_shotorder = _teamblock_to_shotorder(list(state.stones), state.hammer_team)
+    
+    if DEBUG_SIM_INDEX:
+        print("[BEFORE] ------ DEBUG simulate_step Shotorder Before Simulate -----")
+        for i, p in enumerate(stones_shotorder):
+            print(f"stone pos [shot{i}]: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
 
     stones_in: List[Tuple[float, float]] = []
     for p in stones_shotorder:
         if p is None:
             stones_in.append((0.0, 0.0))
         else:
-            stones_in.append((float(p[0]), float(p[1]) + DCL2_YPOS_DIFF))
-
-    results = fast_simulator.simulate(stones_in, state.shot_index, (vx, vy, spin))
+            stones_in.append((float(p[0]), float(p[1]))) #+ DCL2_YPOS_DIFF))
+            
+    freeguard = (state.shot_index < 5)  # 先攻後攻合わせて最初の5投はフリーガードゾーンルール適用
+    results = fast_simulator.simulate(stones_in, state.shot_index, (vx, vy, spin), freeguard)
     # C++側は y>0 を「石あり」としている:contentReference[oaicite:3]{index=3}
     stones_out_shotorder: Stones16 = []
     for x, y in results:
-        if y > 0:        
-            y -= DCL2_YPOS_DIFF
+        if y > 0:
+            # y -= DCL2_YPOS_DIFF
             stones_out_shotorder.append((x, y))
         else:
             stones_out_shotorder.append(None)
@@ -91,6 +103,12 @@ def simulator_step(state: State, action: int) -> State:
     stones_out_teamblock = _shotorder_to_teamblock(stones_out_shotorder, state.hammer_team)
     
     if DEBUG_SIM_INDEX:
+        print("[AFTER] ------ DEBUG simulate_step Teamblock After Simulate -----")
+        for i, p in enumerate(stones_out_teamblock):
+            if i < 8:
+                print(f"stone pos [team0]: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
+            else:
+                print(f"stone pos [team1]: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
         tb = _shot_to_teamblock_index(state.shot_index, state.hammer_team)
         tm = state.to_move()
         after_none = (stones_out_teamblock[tb] is None)
@@ -141,7 +159,8 @@ def _shotorder_to_teamblock(stones_shotorder, hammer_team: int) -> Stones16:
     """
     投球順形式の stones を team-block 形式に変換する。
     hammer_team は後攻チーム番号 (0 or 1)。
-        例: hammer_team=0 でも、1 でも同じ動作
+        例: hammer_team=0 でも、1 でも同じ結果になるように
+             つまり、どちらのチームが後攻でも同じ team-block になる。
             shot_index=0 -> team0の0番
             shot_index=1 -> team0の1番
             shot_index=2 -> team0の2番

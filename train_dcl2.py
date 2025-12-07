@@ -8,7 +8,7 @@ from nn.learn.generator import generate_supervised_learning_data
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 @click.command()
-@click.option('--model-name', type=click.STRING, default="cai1000CP-32-9-LeaRate000", help="保存するモデルの名前の指定")
+@click.option('--model-name', type=click.STRING, default="cai1000CP-32-9-LeaRate000-2", help="保存するモデルの名前の指定")
 @click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
 def train_main(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ

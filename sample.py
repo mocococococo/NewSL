@@ -116,18 +116,17 @@ def main(**kwargs):
             # StoneRotation.counterclockwise : 反時計回り
             # StoneRotation.outturn : アウトターン = 反時計回り
             # print(match_data.update_list[-1])
-            stones = convert_stones_to_list(match_data.update_list[-1].state.stones, dcl2_on= not debug)
+            stones = convert_stones_to_list(match_data.update_list[-1].state.stones)
             scores = convert_scores_to_dict(match_data.update_list[-1].state.scores)
             end = match_data.update_list[-1].state.end
             shot = match_data.update_list[-1].state.shot
-            shot_team = convert_team_stoi(my_team)
             hammer = convert_team_stoi(match_data.update_list[-1].state.hammer)
             score_diff_for_team0 = scores_to_scorediff_for_team0(scores)
             
             # print(f"[INFO] stones: {stones}")
             print_stone_info_from_server(stones, debug_on=debug)
             
-            inputplanes = generate_input_planes(stones=stones, end=end, shot=shot, shot_team=shot_team, hammer=hammer, score_diff_for_team0=score_diff_for_team0)
+            inputplanes = generate_input_planes(stones=stones, end=end, shot=shot, hammer=hammer, score_diff_for_team0=score_diff_for_team0)
 
             selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
     

@@ -30,7 +30,7 @@ def puct_search(
     """
 
     dbg = Debugger(debug, every=debug_every)
-    dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} score_diff={root_state.score_diff}")
+    dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} shot_team={root_state.to_move()}, score_diff={root_state.score_diff}")
     dbg.log("[PUCT] " + summarize_stones(root_state.stones))
     
     root: Node = get_node(root_state)
@@ -95,9 +95,9 @@ def puct_search(
         for (n, a) in reversed(path):
             n.N += 1
             n.Nsa[a] += 1
+            v = -v              # ★ 先に反転：1手戻ったノード視点に合わせる
             n.W[a] += v
             n.Q[a] = n.W[a] / n.Nsa[a]
-            v = -v  # 1手戻る = 手番視点が反転
         dbg.toc("backprop")
         
         # たまに状況を出す（1行で済む形）

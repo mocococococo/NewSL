@@ -46,31 +46,25 @@ class State:
     def key(self, pos_scale: int = STATE_POS_SCALE) -> Tuple:
         """
         transposition 用キー。
-        - 浮動小数の誤差対策で座標を量子化
-        - 同一チーム内の石は同質として扱い、チームごとに座標をソートして正規化
+        - 浮動小数の誤差対策で座標を量子化する。
         """
         def q(v: float) -> int:
             return int(round(v * pos_scale))
 
-        team0 = []
-        team1 = []
-        for i, p in enumerate(self.stones):
+        stones_q = []
+        for p in self.stones:
             if p is None:
-                continue
-            xq, yq = q(p[0]), q(p[1])
-            (team0 if i < 8 else team1).append((xq, yq))
+                stones_q.append(None)
+            else:
+                stones_q.append((q(p[0]), q(p[1])))
 
-        team0.sort()
-        team1.sort()
-
-        # 状態同一性に影響する情報は全部入れる（end/shot/hammer/score_diff）
-        return (self.end, self.shot_index, self.to_move(), self.hammer_team, self.score_diff, tuple(team0), tuple(team1))
+        return (self.end, self.shot_index, self.to_move(), self.hammer_team, self.score_diff, tuple(stones_q))
     
     @staticmethod
     def initial(
         stones: List[Optional[Pos]],
         end: int,
-        hammer: Team,
+        hammer_team: Team,
         shot_index: int,
         score_diff: int
     ) -> 'State':
@@ -78,7 +72,7 @@ class State:
         return State(
             stones=tuple(stones),
             end=end,
-            hammer_team=hammer,
+            hammer_team=hammer_team,
             shot_index=shot_index,
             score_diff=score_diff
         )

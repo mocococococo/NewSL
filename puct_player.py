@@ -123,6 +123,13 @@ def main(**kwargs):
             hammer = convert_team_stoi(match_data.update_list[-1].state.hammer)
             score_diff_for_team0 = scores_to_scorediff_for_team0(scores)
             
+            pred = hammer if (shot % 2 == 1) else 1 - hammer  # あなたの現在の規則
+            pred_team = "team0" if pred == 0 else "team1"
+            if pred_team != next_team:
+                print(f"[TURN MISMATCH] shot={shot} hammer={hammer} pred={pred_team} next_team={next_team}")
+            else:
+                print(f"[TURN MATCH] shot={shot} hammer={hammer} pred={pred_team} next_team={next_team}")
+            
             root_state = set_root_state(
                 network=network,
                 stones=stones,

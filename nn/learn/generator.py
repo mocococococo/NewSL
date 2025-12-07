@@ -112,10 +112,10 @@ def generate_supervised_learning_data(
                 shot_team = convert_team_stoi(dcl2_log2['team'])
                 hammer = convert_team_stoi(dcl2_state['hammer'])
                 selected_move = dcl2_log2['move']
-                for stone in stones:
-                    if stone is None:
-                        continue
-                    stone['position']['y'] -= DCL2_YPOS_DIFF
+                # for stone in stones:
+                #     if stone is None:
+                #         continue
+                #     stone['position']['y'] -= DCL2_YPOS_DIFF
                 #if end == 0 and shot == 15:
                 #    print("stones: ", stones)
                 #    print("scores: ", scores)
@@ -124,8 +124,7 @@ def generate_supervised_learning_data(
                 #    print("selected_move: ", selected_move)
                 try:
                     if end < 10:
-                        planes = generate_input_planes(stones=stones, end=end, shot=shot, \
-                            shot_team=shot_team, hammer=hammer, score_diff_for_team0=scorediff_for_team0)
+                        planes = generate_input_planes(stones=stones, end=end, shot=shot, hammer=hammer, score_diff_for_team0=scorediff_for_team0)
                         input_data.append(planes)
                         policy = generate_target_data(selected_move)
                         policy_data.append(policy)

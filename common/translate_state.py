@@ -5,7 +5,7 @@ from board.constant import DCL2_YPOS_DIFF
 
 Pos = Tuple[float, float]
 
-def convert_stones_to_list(stones: Stones, dcl2_on: bool = True) -> List[dict]:
+def convert_stones_to_list(stones: Stones, dcl2_on: bool = False) -> List[dict]:
     result = [None] * 16  # 16要素のリストを作成し、全てをNoneで初期化
 
     for i, coordinate in enumerate(stones.team0):
