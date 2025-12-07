@@ -25,20 +25,6 @@ def set_policy_context(dual_net: DualNet, score_diff: int) -> None:
     _SCORE_DIFF = score_diff
 
 
-# def scores_list_to_dict(scores: List[Optional[Tuple[int, int]]]) -> Dict[str, List[int]]:
-#     """[(t0,t1) or None] 形式を {'team0':[...], 'team1':[...]} に変換"""
-#     team0: List[int] = []
-#     team1: List[int] = []
-#     for s in scores:
-#         if s is None:
-#             team0.append(0)
-#             team1.append(0)
-#         else:
-#             team0.append(int(s[0]))
-#             team1.append(int(s[1]))
-#     return {"team0": team0, "team1": team1}
-
-
 def _state_stones_to_feature_stones(state: State) -> List[Optional[dict]]:
     """State.stones (x,y or None) -> feature.pyが期待するdict形式に変換"""
     out: List[Optional[dict]] = []
@@ -64,15 +50,15 @@ def get_policy(state: State) -> List[float]:
     stones_for_feature = _state_stones_to_feature_stones(state)
     
     # debug用表示
-    print("[POLICY] ------ Before Generate Input Planes -----")
-    for i, p in enumerate(stones_for_feature):
-        if p is None:
-            print(f"stone pos: None")
-        else:
-            if i < 8:
-                print(f"stone pos [team0]: x={p['position']['x']} y={p['position']['y']}")
-            else:
-                print(f"stone pos [team1]: x={p['position']['x']} y={p['position']['y']}")
+    # print("[POLICY] ------ Before Generate Input Planes -----")
+    # for i, p in enumerate(stones_for_feature):
+    #     if p is None:
+    #         print(f"stone pos: None")
+    #     else:
+    #         if i < 8:
+    #             print(f"stone pos [team0]: x={p['position']['x']} y={p['position']['y']}")
+    #         else:
+    #             print(f"stone pos [team1]: x={p['position']['x']} y={p['position']['y']}")
 
     planes_np = generate_input_planes(
         stones=stones_for_feature,

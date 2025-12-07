@@ -5,11 +5,10 @@ from .state import State, is_end_terminal
 from .simulate import simulator_step
 from .policy import get_policy
 from board.constant import Y_TEE, R_HOUSE, STONE_RADIUS
-from .params import PUCT_DEBUG_SCORE, PUCT_DEBUG_SCORE_LIMIT
+from .params import PUCT_DEBUG_SCORE_FLAG, PUCT_DEBUG_SCORE_LIMIT
 
 
-_SCORE_DEBUG_ENV = PUCT_DEBUG_SCORE
-_SCORE_DEBUG = (_SCORE_DEBUG_ENV == "1")
+_SCORE_DEBUG = PUCT_DEBUG_SCORE_FLAG
 _SCORE_DEBUG_LIMIT = PUCT_DEBUG_SCORE_LIMIT
 _SCORE_DEBUG_COUNT = 0
 
@@ -96,7 +95,7 @@ def _to_move_defined_even_if_terminal(state: State) -> int:
     return 1 - last_mover
 
 
-def rollout_to_end_score(state: State, debug: bool = True) -> float:
+def rollout_to_end_score(state: State, debug: bool = False) -> float:
     """終端までプレイアウトし、返り値は「stateの手番視点」のスカラー"""
     global _SCORE_DEBUG
     if debug:
