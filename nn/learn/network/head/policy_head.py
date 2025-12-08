@@ -22,6 +22,7 @@ class PolicyHead(nn.Module):
         self.fc_layer1 = nn.Linear(BOARD_SIZE_X * BOARD_SIZE_Y, 2 * VX_SIZE * VY_SIZE)
         
         self.dropout = nn.Dropout(p=0.1)
+
         self.relu = nn.ReLU()
 
     def forward(self, input_plane: torch.Tensor) -> torch.Tensor:
@@ -32,5 +33,5 @@ class PolicyHead(nn.Module):
         reshape = hidden2.reshape(batch_size, height * width)
         # policy_out = self.fc_layer1(self.dropout(reshape))
         policy_out = self.fc_layer1(reshape)
-        
+
         return policy_out

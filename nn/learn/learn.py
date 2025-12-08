@@ -5,9 +5,10 @@ import glob
 import os
 import time
 import torch
-from nn.network.dual_net import DualNet
-from nn.loss import calculate_sl_policy_loss, calculate_value_loss
-from nn.mcts.utility import get_torch_device, print_learning_process, \
+
+from nn.learn.network.dual_net import DualNet
+from nn.learn.loss import calculate_sl_policy_loss, calculate_value_loss
+from nn.learn.utility import get_torch_device, print_learning_process, \
     print_evaluation_information, save_model, load_data_set, \
     split_train_test_set, print_learning_result
 

@@ -9,7 +9,6 @@ class PolicyHead(nn.Module):
     #Policy headの実装クラス。
     def __init__(self, channels: int, momentum: float=0.01):
         #Policy headの初期化処理。
-
         #channels (int): 共通ブロック部の畳み込み層のチャネル数。
         #momentum (float, optional): バッチ正則化層のモーメンタムパラメータ. Defaults to 0.01.
         super().__init__()
@@ -22,6 +21,7 @@ class PolicyHead(nn.Module):
         self.fc_layer1 = nn.Linear(BOARD_SIZE_X * BOARD_SIZE_Y, 2 * VX_SIZE * VY_SIZE)
         
         self.dropout = nn.Dropout(p=0.1)
+
         self.relu = nn.ReLU()
 
     def forward(self, input_plane: torch.Tensor) -> torch.Tensor:

@@ -6,9 +6,10 @@ import os
 import time
 import torch
 import numpy as np
-from nn.network.dual_net import DualNet
-from nn.loss import calculate_sl_policy_loss, calculate_value_loss
-from nn.mcts.utility import get_torch_device, print_learning_process, \
+
+from nn.learn.network.dual_net import DualNet
+from nn.learn.loss import calculate_sl_policy_loss, calculate_value_loss
+from nn.learn.utility import get_torch_device, print_learning_process, \
     print_evaluation_information, save_model, load_data_set, \
     split_train_test_set, print_learning_result, save_loss_history, make_json
 
@@ -261,4 +262,5 @@ def train_on_gpu(program_dir: str, batch_size: int, \
     
     # save_model(dual_net, os.path.join("model", f"{model_name}"))
     print("Finished Training on GPU.")
+    save_model(dual_net, os.path.join("model", f"{model_name}.bin"))
 

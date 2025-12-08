@@ -4,10 +4,10 @@ from typing import Tuple
 from torch import nn
 import torch
 
-from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, PLANES_SIZE
-from nn.network.res_block import ResidualBlock
-from nn.network.head.policy_head import PolicyHead
-from nn.network.head.value_head import ValueHead
+from board.constant import BOARD_SIZE, PLANES_SIZE
+from nn.learn.network.res_block import ResidualBlock
+from nn.learn.network.head.policy_head import PolicyHead
+from nn.learn.network.head.value_head import ValueHead
 
 
 class DualNet(nn.Module):
@@ -15,8 +15,8 @@ class DualNet(nn.Module):
         #Dual Networkの実装クラス
 
         super().__init__()
-        filters = 32  
-        blocks = 9    
+        filters = 32
+        blocks = 9
 
         self.device = device
 
@@ -42,7 +42,6 @@ class DualNet(nn.Module):
         #前向き伝搬処理を実行する。教師有り学習で利用する。
         policy, value = self.forward(input_plane)
         return policy, value
-
 
     def forward_with_softmax(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。
