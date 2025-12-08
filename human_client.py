@@ -3,7 +3,7 @@ from typing import List
 
 from dc3client import SocketClient
 from dc3client.models import Stones
-from nn.feature import discretization
+from nn.learn.feature import discretization
 from board.constant import X_MIN, X_MAX, Y_MIN, Y_MAX, STONE_RADIUS, Y_TEE, R_HOUSE, DCL2_YPOS_DIFF
 
 import matplotlib.pyplot as plt

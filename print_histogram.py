@@ -1,7 +1,7 @@
 import os
 import json
 import matplotlib.pyplot as plt
-from nn.feature import generate_input_planes, generate_target_data, generate_value_data
+from nn.learn.feature import generate_input_planes, generate_target_data, generate_value_data
 from board.constant import BOARD_SIZE
 
 DCL2_YPOS_DIFF = 21.0314998626709

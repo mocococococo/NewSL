@@ -11,7 +11,7 @@ from typing import List, NoReturn
 from pathlib import Path
 import numpy as np
 
-from nn.feature import generate_input_planes, generate_target_data, generate_value_data
+from nn.learn.feature import generate_input_planes, generate_target_data, generate_value_data
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 from board.constant import DCL2_YPOS_DIFF
 

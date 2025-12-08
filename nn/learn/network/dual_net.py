@@ -4,7 +4,7 @@ from typing import Tuple
 from torch import nn
 import torch
 
-from board.constant import BOARD_SIZE, PLANES_SIZE
+from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, PLANES_SIZE
 from nn.network.res_block import ResidualBlock
 from nn.network.head.policy_head import PolicyHead
 from nn.network.head.value_head import ValueHead
@@ -15,8 +15,8 @@ class DualNet(nn.Module):
         #Dual Networkの実装クラス
 
         super().__init__()
-        filters = 32
-        blocks = 9
+        filters = 32  
+        blocks = 9    
 
         self.device = device
 

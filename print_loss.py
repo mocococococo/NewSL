@@ -1,4 +1,4 @@
-from nn.utility import plot_loss_history
+from nn.mcts.utility import plot_loss_history
 
 if __name__ == "__main__":
     #file = input("input file name: ")

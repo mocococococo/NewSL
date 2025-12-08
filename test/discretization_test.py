@@ -1,6 +1,6 @@
 import numpy as np
 
-from nn.feature import discretization_velocity
+from nn.learn.feature import discretization_velocity
 from policy_shot import index_to_shot
 from board.constant import VX_SIZE, VY_SIZE
 

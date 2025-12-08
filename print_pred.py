@@ -18,8 +18,8 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 from nn.network.dual_net import DualNet
-from nn.feature import generate_input_planes, generate_target_data, generate_value_data
-from nn.utility import load_data_set, get_torch_device
+from nn.learn.feature import generate_input_planes, generate_target_data, generate_value_data
+from nn.mcts.utility import load_data_set, get_torch_device
 from board.constant import PLANES_SIZE, BOARD_SIZE
 from learning_param import BATCH_SIZE
 
