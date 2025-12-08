@@ -6,6 +6,7 @@ import os
 import time
 import torch
 import numpy as np
+
 from nn.learn.network.dual_net import DualNet
 from nn.learn.loss import calculate_sl_policy_loss, calculate_value_loss
 from nn.learn.utility import get_torch_device, print_learning_process, \
@@ -144,6 +145,7 @@ def train_on_gpu(program_dir: str, batch_size: int, \
     """
     # 学習データと検証用データの分割
     json_dir = make_json(model_name)
+    print(os.path.join(program_dir, "data", "sl_data_*.npz"))
     data_set = sorted(glob.glob(os.path.join(program_dir, "data", "sl_data_*.npz")))
     print("success to get data_set.")
     print(data_set)
@@ -246,6 +248,10 @@ def train_on_gpu(program_dir: str, batch_size: int, \
         print_evaluation_information(test_loss, epoch, test_iteration, testing_time)
         
         save_loss_history(loss_history, json_dir)
+            
+        save_model(dual_net, os.path.join("model", f"{model_name}_epoch{epoch}.bin"))
+        
+        dual_net.to(device)
 
         if epoch in LEARNING_SCHEDULE["learning_rate"]: #特定のエポックの回数（現在は5,8,10）の時、学習率を変更
             previous_lr = current_lr
@@ -254,6 +260,7 @@ def train_on_gpu(program_dir: str, batch_size: int, \
             current_lr = LEARNING_SCHEDULE["learning_rate"][epoch]
             print(f"Epoch {epoch}, learning rate has changed {previous_lr} -> {current_lr}")
     
+    # save_model(dual_net, os.path.join("model", f"{model_name}"))
+    print("Finished Training on GPU.")
     save_model(dual_net, os.path.join("model", f"{model_name}.bin"))
-    
 

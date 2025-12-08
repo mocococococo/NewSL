@@ -4,27 +4,51 @@ from typing import Tuple
 
 from nn.learn.network.dual_net import DualNet
 from dc3client.models import StoneRotation
-from board.constant import BOARD_SIZE, PLANES_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX
+from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, PLANES_SIZE, \
+                            VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
+                            VX_SIZE, VY_SIZE, VY_SHEET_MAX
 
 def generate_move_from_policy(network: DualNet, input, shot_index: int) -> Tuple[float, float, StoneRotation]:
-    input_data = torch.tensor(input.reshape(1, PLANES_SIZE, BOARD_SIZE, BOARD_SIZE)).to(network.device)
+    input_data = torch.tensor(input.reshape(1, PLANES_SIZE, BOARD_SIZE_Y, BOARD_SIZE_X)).to(network.device)
     policy, value = network.forward_with_softmax2(input_data)
-    policy = policy.reshape(BOARD_SIZE * BOARD_SIZE * 2).cpu()
+    policy = policy.reshape(VX_SIZE * VY_SIZE * 2).cpu()
     
     selected_index = np.argmax(policy)
 
     return index_to_shot(selected_index)
 
 def index_to_shot(index) -> Tuple[float, float, StoneRotation]:
-    rotation = StoneRotation.clockwise
-    if(index >= (BOARD_SIZE * BOARD_SIZE)):
+    """
+    1次元index（= 2回転 × VX_SIZE × VY_SIZE）から
+    セル中心の (vx, vy) と回転方向を復元する
+    """
+    board_len = VX_SIZE * VY_SIZE
+
+    # 回転（0: cw, 1: ccw）
+    if index >= board_len:
         rotation = StoneRotation.counterclockwise
-        index = index - (BOARD_SIZE * BOARD_SIZE)
-    
-    x_index = index % BOARD_SIZE
-    y_index = index // BOARD_SIZE
-    x_interval = (VX_MAX - VX_MIN) / (BOARD_SIZE - 1)
-    y_interval = (VY_MAX - VY_MIN) / (BOARD_SIZE - 1)
-    x = float(x_index * x_interval + VX_MIN)
-    y = float(y_index * y_interval + VY_MIN)
-    return x, y, rotation
+        cell = index - board_len
+    else:
+        rotation = StoneRotation.clockwise
+        cell = index
+
+    # セル座標 (vxi, vyi)
+    vxi = cell % VX_SIZE
+    vyi = cell // VX_SIZE
+
+    # セル幅
+    dvx = (VX_MAX - VX_MIN) / VX_SIZE
+    dvy = (VY_SHEET_MAX - VY_MIN) / (VY_SIZE - 5)
+    dvy_extra = (VY_MAX - VY_SHEET_MAX) / 5
+
+    # vx は均等：セル中心
+    vx = VX_MIN + (vxi + 0.5) * dvx
+
+    # vy は区間で分岐：セル中心
+    if vyi < (VY_SIZE - 5):
+        vy = VY_MIN + (vyi + 0.5) * dvy
+    else:
+        vy_idx2 = vyi - (VY_SIZE - 5)  # 0..4
+        vy = VY_SHEET_MAX + (vy_idx2 + 0.5) * dvy_extra
+
+    return float(vx), float(vy), rotation

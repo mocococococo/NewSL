@@ -41,27 +41,16 @@ class DualNet(nn.Module):
     def forward_for_sl(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。教師有り学習で利用する。
         policy, value = self.forward(input_plane)
-        batch_size = input_plane.shape[0]
-        policy_size = 2 * BOARD_SIZE * BOARD_SIZE
-        #print("batch_size: ", batch_size, "policy_size: ", policy_size)
-        policy = policy.view(batch_size, policy_size)
         return policy, value
-
 
     def forward_with_softmax(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。
         policy, value = self.forward(input_plane)
-        batch_size = input_plane.shape[0]
-        policy_size = 2 * BOARD_SIZE * BOARD_SIZE
-        #print("batch_size: ", batch_size, "policy_size: ", policy_size)
-        policy = policy.view(batch_size, policy_size)
         return self.softmax(policy), self.softmax(value)
 
     def forward_with_softmax2(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。
         policy, value = self.forward(input_plane)
-        policy_size = 2 * BOARD_SIZE * BOARD_SIZE
-        policy = policy.view(1, policy_size)
         return self.softmax(policy), self.softmax(value)
 
     def inference(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:

@@ -5,6 +5,7 @@ import glob
 import os
 import time
 import torch
+
 from nn.learn.network.dual_net import DualNet
 from nn.learn.loss import calculate_sl_policy_loss, calculate_value_loss
 from nn.learn.utility import get_torch_device, print_learning_process, \

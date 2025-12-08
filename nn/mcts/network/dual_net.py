@@ -4,7 +4,8 @@ from typing import Tuple
 from torch import nn
 import torch
 
-from board.constant import BOARD_SIZE, PLANES_SIZE
+
+from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, PLANES_SIZE
 from nn.mcts.network.res_block import ResidualBlock
 from nn.mcts.network.head.policy_head import PolicyHead
 from nn.mcts.network.head.value_head import ValueHead
@@ -25,9 +26,10 @@ class DualNet(nn.Module):
         self.bn_layer = nn.BatchNorm2d(num_features=filters)
         self.relu = nn.ReLU()
         self.blocks = make_common_blocks(blocks, filters)
-        self.policy_head = PolicyHead(board_size, filters)
-        self.value_head = ValueHead(board_size, filters)
+        self.policy_head = PolicyHead(filters)
+        self.value_head = ValueHead(filters)
 
+        self.softmax0 = nn.Softmax(dim=0)
         self.softmax = nn.Softmax(dim=1)
         self.softmax2 = nn.Softmax(dim=2)
 
@@ -40,27 +42,17 @@ class DualNet(nn.Module):
     def forward_for_sl(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。教師有り学習で利用する。
         policy, value = self.forward(input_plane)
-        batch_size = input_plane.shape[0]
-        policy_size = 2 * BOARD_SIZE * BOARD_SIZE
-        #print("batch_size: ", batch_size, "policy_size: ", policy_size)
-        policy = policy.view(batch_size, policy_size)
         return policy, value
 
 
     def forward_with_softmax(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。
         policy, value = self.forward(input_plane)
-        batch_size = input_plane.shape[0]
-        policy_size = 2 * BOARD_SIZE * BOARD_SIZE
-        #print("batch_size: ", batch_size, "policy_size: ", policy_size)
-        policy = policy.view(batch_size, policy_size)
         return self.softmax(policy), self.softmax(value)
 
     def forward_with_softmax2(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。
         policy, value = self.forward(input_plane)
-        policy_size = 2 * BOARD_SIZE * BOARD_SIZE
-        policy = policy.view(1, policy_size)
         return self.softmax(policy), self.softmax(value)
 
     def inference(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
