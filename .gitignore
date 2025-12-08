@@ -1,5 +1,11 @@
-Simulate_DigitalCurling3/
-LearnLog/
-data/
-*/log/
+/Simulate_DigitalCurling3
 __pycache__/
+/env
+/data
+/LearnLog
+/pybind
+*/log
+*.log
+/test/cai-vs-policy
+/test/cai-vs-puct
+/test/policy-vs-puct
