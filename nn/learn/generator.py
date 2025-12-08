@@ -11,6 +11,7 @@ from typing import List, NoReturn
 from pathlib import Path
 import numpy as np
 
+from common.translate_state import scores_to_scorediff_for_team0, convert_team_stoi
 from nn.learn.feature import generate_input_planes, generate_target_data, generate_value_data
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 
@@ -116,8 +117,8 @@ def generate_supervised_learning_data(
     print(f"start generate {data_size} data from {log_dir} to {program_dir}!")
     
     game_size = 0
-    ibox = np.zeros((2, 32, 56), dtype=int)
-    vbox = np.zeros((2, 32, 56), dtype=int)
+    # ibox = np.zeros((2, 32, 56), dtype=int)
+    # vbox = np.zeros((2, 32, 56), dtype=int)
 
     #print("log_dir: ", log_dir)
     """
@@ -148,8 +149,11 @@ def generate_supervised_learning_data(
                 dcl2_log2 = json.loads(dcl2_data[i+1])['log']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
                 scores = dcl2_json_data['log']['state']['scores']
+                scorediff_for_team0 = scores_to_scorediff_for_team0(scores)
                 end = dcl2_state['end']
                 shot = dcl2_state['shot']
+                shot_team = convert_team_stoi(dcl2_log2['team'])
+                hammer = convert_team_stoi(dcl2_state['hammer'])
                 selected_move = dcl2_log2['move']
                 #if end == 0 and shot == 15:
                 #    print("stones: ", stones)
@@ -159,13 +163,13 @@ def generate_supervised_learning_data(
                 #    print("selected_move: ", selected_move)
                 try:
                     if end < 10:
-                        planes = generate_input_planes(stones, scores, end, shot)
+                        planes = generate_input_planes(stones=stones, end=end, shot=shot, hammer=hammer, score_diff_for_team0=scorediff_for_team0)
                         input_data.append(planes)
                         
                         policy = generate_target_data(selected_move)
                         policy_data.append(policy)
                         
-                        value = generate_value_data(dcl2_json_data, end, shot)
+                        value = generate_value_data(scores=scores, end=end, shot_team=shot_team)
                         value_data.append(value)
                         
                         # --- 2. ★追加: 左右反転データの生成 ---
