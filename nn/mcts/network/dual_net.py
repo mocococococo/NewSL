@@ -5,14 +5,14 @@ from torch import nn
 import torch
 
 
-from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, PLANES_SIZE
+from board.constant import PLANES_SIZE
 from nn.mcts.network.res_block import ResidualBlock
 from nn.mcts.network.head.policy_head import PolicyHead
 from nn.mcts.network.head.value_head import ValueHead
 
 
 class DualNet(nn.Module):
-    def __init__(self, device: torch.device, board_size: int=BOARD_SIZE):
+    def __init__(self, device: torch.device):
         #Dual Networkの実装クラス
 
         super().__init__()

@@ -4,7 +4,7 @@ from typing import Tuple
 from torch import nn
 import torch
 
-from board.constant import BOARD_SIZE, PLANES_SIZE
+from board.constant import PLANES_SIZE
 from nn.learn.network.res_block import ResidualBlock
 from nn.learn.network.head.policy_head import PolicyHead
 from nn.learn.network.head.value_head import ValueHead
