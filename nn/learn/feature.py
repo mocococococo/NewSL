@@ -5,28 +5,60 @@ import math
 
 from typing import List, Optional, Tuple, Dict
 
-from board.constant import BOARD_SIZE, X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, PLANES_SIZE
+from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, STONE_RADIUS, \
+                            X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, \
+                            R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
+                            PLANES_SIZE, VX_SIZE, VY_SIZE, VY_SHEET_MAX
 
-def discretization(x: float, y: float, 
-                   xmin: float, xmax: float, 
-                   ymin: float, ymax: float) -> int:
+def discretization(x: float, y: float) -> int:
     """
-    ストーンの２次元座標の位置を１次元のインデックスに変換する
+    連続座標 (x,y) を BOARD_SIZE_X × BOARD_SIZE_Y 個のセルに割り当て、セルの1次元indexを返す
     """
-    x_clamped = max(xmin, min(x, xmax))
-    y_clamped = max(ymin, min(y, ymax))
+    # セル幅
+    dx = (X_MAX - X_MIN) / BOARD_SIZE_X
+    dy = (Y_MAX - Y_MIN) / BOARD_SIZE_Y
 
-    x_interval = (xmax - xmin) / (BOARD_SIZE - 1)
-    y_interval = (ymax - ymin) / (BOARD_SIZE - 1)
+    # clamp（境界ちょうども最後のセルに入れたいので X_MAX/Y_MAX を少し内側扱い）
+    x = max(X_MIN, min(x, X_MAX))
+    y = max(Y_MIN, min(y, Y_MAX))
 
-    x_index = int((x_clamped - xmin) / x_interval)
-    y_index = int((y_clamped - ymin) / y_interval)
+    # どのセルか（floor）
+    xi = int((x - X_MIN) / dx)
+    yi = int((y - Y_MIN) / dy)
 
-    x_index = max(0, min(x_index, BOARD_SIZE - 1))
-    y_index = max(0, min(y_index, BOARD_SIZE - 1))
+    # x==X_MAX 等で xi==BOARD_SIZE_X になり得るので丸める
+    xi = max(0, min(xi, BOARD_SIZE_X - 1))
+    yi = max(0, min(yi, BOARD_SIZE_Y - 1))
 
-    index = y_index * BOARD_SIZE + x_index
-    return index
+    return yi * BOARD_SIZE_X + xi
+
+def discretization_velocity(vx: float, vy: float) -> int:
+    """
+    連続速度 (vx,vy) を VX_SIZE × VY_SIZE 個のセルに割り当て、セルの1次元indexを返す
+    x 軸は VX_MIN から VX_MAXで均等に分割
+    y 軸は VY_MIN から VY_SHEET_MAX まで均等に VY_SIZE - 5 分割し、VY_SHEET_MAX から VY_MAX までは別途均等に 5 分割する
+    """
+    # セル幅
+    dvx = (VX_MAX - VX_MIN) / VX_SIZE
+    dvy = (VY_SHEET_MAX - VY_MIN) / (VY_SIZE - 5)
+    dvy_extra = (VY_MAX - VY_SHEET_MAX) / 5
+    
+    # clamp（境界ちょうども最後のセルに入れたいので VX_MAX/VY_MAX を少し内側扱い）
+    vx = max(VX_MIN, min(vx, VX_MAX))
+    vy = max(VY_MIN, min(vy, VY_MAX))
+    
+    # どのセルか（floor）
+    vxi = int((vx - VX_MIN) / dvx)
+    if vy <= VY_SHEET_MAX:
+        vyi = int((vy - VY_MIN) / dvy)
+    else:
+        vyi = (VY_SIZE - 5) + int((vy - VY_SHEET_MAX) / dvy_extra)
+        
+    # x==VX_MAX 等で vxi==VX_SIZE になり得るので丸める
+    vxi = max(0, min(vxi, VX_SIZE - 1))
+    vyi = max(0, min(vyi, VY_SIZE - 1))
+    
+    return vyi * VX_SIZE + vxi
 
 def is_house(x: float, y: float):
     """
@@ -34,8 +66,8 @@ def is_house(x: float, y: float):
     
     改良案: ストーンの半径を考慮してハウス内にあるかどうかを判定する
     """
-    distance = math.sqrt(x ** 2 + (y - Y_TEE) ** 2)
-    return distance <= R_HOUSE
+    distance = x ** 2 + (y - Y_TEE) ** 2
+    return distance <= (R_HOUSE + STONE_RADIUS) ** 2
  
 def sort_order_by_distance(order):
     """
@@ -123,7 +155,7 @@ def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, ham
         planes: 入力特徴平面 (np.ndarray) shape=(PLANES_SIZE, BOARD_SIZE, BOARD_SIZE)        
     """
     num_planes = PLANES_SIZE
-    planes = np.zeros(shape=(num_planes, BOARD_SIZE * BOARD_SIZE))
+    planes = np.zeros(shape=(num_planes, BOARD_SIZE_X * BOARD_SIZE_Y))
     
     # 空点
     planes[0][:] = 1
@@ -174,7 +206,7 @@ def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, ham
         y = float(stones[i]['position']['y'])
         
         # 1次元の位置を計算
-        index = discretization(x, y, X_MIN, X_MAX, Y_MIN, Y_MAX)
+        index = discretization(x, y)
         
         # ストーンが存在する位置は空点ではないので、空点平面を 0 にする
         planes[0][index] = 0
@@ -199,12 +231,12 @@ def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, ham
         j += 1
     
     # 最後に2次元の特徴平面を3次元に変換して返す
-    return planes.reshape(num_planes, BOARD_SIZE, BOARD_SIZE).astype(np.float32)
+    return planes.reshape(num_planes, BOARD_SIZE_Y, BOARD_SIZE_X).astype(np.float32)
 
 
 # Policy の正解データを作成する
 def generate_target_data(selected_move: dict) ->np.ndarray:
-    policy_plane = np.zeros(shape=(2, BOARD_SIZE * BOARD_SIZE))
+    policy_plane = np.zeros(shape=(2, VX_SIZE * VY_SIZE))
     vx = selected_move['velocity']['x']
     vy = selected_move['velocity']['y']
 
@@ -214,7 +246,7 @@ def generate_target_data(selected_move: dict) ->np.ndarray:
     else:
         policy_plane[1][vindex] = 1
     
-    return np.argmax(policy_plane.reshape((BOARD_SIZE * BOARD_SIZE) * 2).astype(np.int64))
+    return np.argmax(policy_plane.reshape((VX_SIZE * VY_SIZE) * 2).astype(np.int64))
 
 
 def generate_value_data(scores: Dict[str, List[Optional[int]]], end: int, shot_team: int) -> int:
