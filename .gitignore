@@ -6,3 +6,6 @@ __pycache__/
 /pybind
 */log
 *.log
+/test/cai-vs-policy
+/test/cai-vs-puct
+/test/policy-vs-puct

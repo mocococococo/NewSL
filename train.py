@@ -19,7 +19,7 @@ def train_main(model_name: str, use_gpu: bool):
     
     print(f"start learning model {model_name} !!")
     
-    generate_supervised_learning_data(program_dir, log_dir, data_size=10000)
+    # generate_supervised_learning_data(program_dir, log_dir, data_size=10000)
     # return
     if use_gpu:
         train_on_gpu(program_dir=program_dir, batch_size=BATCH_SIZE, epochs=EPOCHS, model_name=model_name)

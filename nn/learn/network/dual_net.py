@@ -15,8 +15,8 @@ class DualNet(nn.Module):
         #Dual Networkの実装クラス
 
         super().__init__()
-        filters = 32  
-        blocks = 9    
+        filters = 32
+        blocks = 9
 
         self.device = device
 
