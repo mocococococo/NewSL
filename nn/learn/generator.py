@@ -13,7 +13,6 @@ import numpy as np
 
 from nn.learn.feature import generate_input_planes, generate_target_data, generate_value_data
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
-from board.constant import DCL2_YPOS_DIFF
 
 def create_file_if_not_exist(file_path: str) -> NoReturn:
     """データ保存用のnpzファイルを作成する。
@@ -152,10 +151,6 @@ def generate_supervised_learning_data(
                 end = dcl2_state['end']
                 shot = dcl2_state['shot']
                 selected_move = dcl2_log2['move']
-                for stone in stones:
-                    if stone is None:
-                        continue
-                    stone['position']['y'] -= DCL2_YPOS_DIFF
                 #if end == 0 and shot == 15:
                 #    print("stones: ", stones)
                 #    print("scores: ", scores)
