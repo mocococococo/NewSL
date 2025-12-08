@@ -2,7 +2,7 @@
 
 #画像の一辺のサイズ
 BOARD_SIZE_X = 32
-BOARD_SIZE_Y = 56
+BOARD_SIZE_Y = 32
 #vx, vyの離散化数
 VX_SIZE = 32
 VY_SIZE = 25

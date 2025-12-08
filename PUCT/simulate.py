@@ -4,11 +4,11 @@ from typing import List, Optional, Tuple
 
 from . import fast_simulator
 from .state import State
-from board.constant import BOARD_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX
+from board.constant import VX_SIZE, VY_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX
 from policy_shot import index_to_shot
 
-N_ACTIONS = BOARD_SIZE * BOARD_SIZE * 2
-VEC_SIZE = BOARD_SIZE * BOARD_SIZE  # 1024
+N_ACTIONS = VX_SIZE * VY_SIZE * 2  # 2048
+VEC_SIZE = VX_SIZE * VY_SIZE  # 1024
 StonePos = Tuple[float, float]
 Stones16 = List[Optional[StonePos]]
 
@@ -44,11 +44,11 @@ def decode_action(action: int) -> Tuple[float, float, int]:
 
     spin = action // VEC_SIZE           # 0 or 1
     vindex = action % VEC_SIZE          # 0..1023
-    vx_i = vindex % BOARD_SIZE          # 0..31
-    vy_i = vindex // BOARD_SIZE         # 0..31
+    vx_i = vindex % VX_SIZE
+    vy_i = vindex // VX_SIZE
 
-    vx = _idx_to_value(vx_i, VX_MIN, VX_MAX, BOARD_SIZE)
-    vy = _idx_to_value(vy_i, VY_MIN, VY_MAX, BOARD_SIZE)
+    vx = _idx_to_value(vx_i, VX_MIN, VX_MAX, VX_SIZE)
+    vy = _idx_to_value(vy_i, VY_MIN, VY_MAX, VY_SIZE)
     return vx, vy, spin
 
 def simulator_step(state: State, action: int) -> State:

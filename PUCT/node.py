@@ -2,13 +2,11 @@
 from __future__ import annotations
 from typing import Dict, List, Optional, Iterable, Any
 
-from board.constant import BOARD_SIZE
+from board.constant import VX_SIZE, VY_SIZE
 from .state import State
 from .policy import get_policy
 
 # 行動空間： (vx, vy, spin) の全組合せを 0..2047 に潰す
-VX_SIZE = BOARD_SIZE
-VY_SIZE = BOARD_SIZE
 SPIN_SIZE = 2
 N_ACTIONS = VX_SIZE * VY_SIZE * SPIN_SIZE  # 2048
 
