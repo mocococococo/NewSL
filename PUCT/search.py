@@ -2,7 +2,7 @@ import time
 from typing import List, Tuple, Optional, Dict
 
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
-from nn.mcts.network.dual_net import DualNet
+from nn.network.dual_net import DualNet
 from .node import Node, get_node, argmax_over_actions
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action

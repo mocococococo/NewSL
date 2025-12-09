@@ -2,7 +2,7 @@ import click
 
 from dc3client import SocketClient
 from dc3client.models import StoneRotation
-from nn.learn.utility import get_torch_device, load_network
+from nn.utility import get_torch_device, load_network
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
     scores_to_scorediff_for_team0, convert_team_stoi
 

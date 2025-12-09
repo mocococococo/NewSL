@@ -5,13 +5,12 @@ import glob
 import os
 import time
 import torch
-import numpy as np
 
-from nn.learn.network.dual_net import DualNet
-from nn.learn.loss import calculate_sl_policy_loss, calculate_value_loss
-from nn.learn.utility import get_torch_device, print_learning_process, \
+from nn.network.dual_net import DualNet
+from nn.loss import calculate_sl_policy_loss, calculate_value_loss
+from nn.utility import get_torch_device, print_learning_process, \
     print_evaluation_information, save_model, load_data_set, \
-    split_train_test_set, print_learning_result, save_loss_history, make_json
+    split_train_test_set, save_loss_history, make_json
 
 from learning_param import SL_LEARNING_RATE, MOMENTUM, WEIGHT_DECAY, SL_VALUE_WEIGHT, LEARNING_SCHEDULE
 
@@ -249,7 +248,7 @@ def train_on_gpu(program_dir: str, batch_size: int, \
         
         save_loss_history(loss_history, json_dir)
             
-        save_model(dual_net, os.path.join("model", f"{model_name}_epoch{epoch}.bin"))
+        # save_model(dual_net, os.path.join("model", f"{model_name}_epoch{epoch}.bin"))
         
         dual_net.to(device)
 

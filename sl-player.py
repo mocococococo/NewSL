@@ -1,8 +1,8 @@
 import click
 
 from dc3client import SocketClient
-from nn.learn.feature import generate_input_planes
-from nn.learn.utility import get_torch_device, load_network
+from nn.feature import generate_input_planes
+from nn.utility import get_torch_device, load_network
 from policy_shot import generate_move_from_policy
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
     scores_to_scorediff_for_team0, convert_team_stoi

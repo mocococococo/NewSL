@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple
 
 from . import fast_simulator
 from .state import State
-from board.constant import VX_SIZE, VY_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX
+from board.constant import VX_SIZE, VY_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, VY_SHEET_MAX
 from policy_shot import index_to_shot
 
 N_ACTIONS = VX_SIZE * VY_SIZE * 2  # 2048
@@ -29,26 +29,40 @@ def _shot_to_teamblock_index(shot_index: int, hammer_team: int) -> int:
         return k
     return 8 + k
 
-def _idx_to_value(i: int, vmin: float, vmax: float, size: int) -> float:
-    # feature.py の discretization と逆対応になるように（size-1 で割る）
-    step = (vmax - vmin) / (size - 1)
-    return vmin + step * i
+def _vx_idx_to_value(vxi: int) -> float:
+    dvx = (VX_MAX - VX_MIN) / VX_SIZE
+    return VX_MIN + (vxi + 0.5) * dvx
+
+def _vy_idx_to_value(vyi: int) -> float:
+    # policy_shot と同じ：前半(VY_SIZE-5)は VY_MIN..VY_SHEET_MAX、後半5binは VY_SHEET_MAX..VY_MAX
+    dvy = (VY_SHEET_MAX - VY_MIN) / (VY_SIZE - 5)
+    dvy_extra = (VY_MAX - VY_SHEET_MAX) / 5
+
+    if vyi < (VY_SIZE - 5):
+        return VY_MIN + (vyi + 0.5) * dvy
+    else:
+        vy2 = vyi - (VY_SIZE - 5)  # 0..4
+        return VY_SHEET_MAX + (vy2 + 0.5) * dvy_extra
 
 def decode_action(action: int) -> Tuple[float, float, int]:
-    """
-    action(0..2047) -> (vx, vy, spin)
-    dual_net の (2,32,32) を view(2048) した並び（= spin面が先）に合わせる。
-    """
     if not (0 <= action < N_ACTIONS):
         raise ValueError(f"action out of range: {action}")
 
-    spin = action // VEC_SIZE           # 0 or 1
-    vindex = action % VEC_SIZE          # 0..1023
-    vx_i = vindex % VX_SIZE
-    vy_i = vindex // VX_SIZE
+    board_len = VX_SIZE * VY_SIZE  # 1024
 
-    vx = _idx_to_value(vx_i, VX_MIN, VX_MAX, VX_SIZE)
-    vy = _idx_to_value(vy_i, VY_MIN, VY_MAX, VY_SIZE)
+    # spin: 0=cw, 1=ccw（policy_shot と同じ並び）
+    if action >= board_len:
+        spin = 1
+        cell = action - board_len
+    else:
+        spin = 0
+        cell = action
+
+    vxi = cell % VX_SIZE
+    vyi = cell // VX_SIZE
+
+    vx = _vx_idx_to_value(vxi)
+    vy = _vy_idx_to_value(vyi)
     return vx, vy, spin
 
 def simulator_step(state: State, action: int) -> State:

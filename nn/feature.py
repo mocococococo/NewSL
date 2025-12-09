@@ -1,10 +1,8 @@
 """ニューラルネットワークの入力特徴生成処理
 """
 import numpy as np
-import math
 
 from typing import List, Optional, Tuple, Dict
-
 from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, STONE_RADIUS, \
                             X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, \
                             R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
@@ -60,7 +58,7 @@ def discretization_velocity(vx: float, vy: float) -> int:
     
     return vyi * VX_SIZE + vxi
 
-def is_house(x: float, y: float):
+def is_house(x: float, y: float) -> bool:
     """
     現状: ストーンの中心の座標がハウス内にあるかどうかを判定している
     
@@ -141,6 +139,7 @@ planes[52] : ティーからの距離順に並び替えたストーン16
 
 """
 """jsonファイルの['log']['simulator_storage']['stones']と['log']['shot']を入力し、PLANES_SIZEの特徴平面を出力する。"""
+
 def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, hammer: int, score_diff_for_team0: int) -> np.ndarray:
     """
     入力特徴の生成を行う
@@ -239,8 +238,7 @@ def generate_target_data(selected_move: dict) ->np.ndarray:
     policy_plane = np.zeros(shape=(2, VX_SIZE * VY_SIZE))
     vx = selected_move['velocity']['x']
     vy = selected_move['velocity']['y']
-
-    vindex = discretization(vx, vy, VX_MIN, VX_MAX, VY_MIN, VY_MAX)
+    vindex = discretization_velocity(vx, vy)
     if selected_move['rotation'] == "cw":
         policy_plane[0][vindex] = 1
     else:

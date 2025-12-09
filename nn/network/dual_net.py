@@ -5,9 +5,9 @@ from torch import nn
 import torch
 
 from board.constant import PLANES_SIZE
-from nn.learn.network.res_block import ResidualBlock
-from nn.learn.network.head.policy_head import PolicyHead
-from nn.learn.network.head.value_head import ValueHead
+from nn.network.res_block import ResidualBlock
+from nn.network.head.policy_head import PolicyHead
+from nn.network.head.value_head import ValueHead
 
 
 class DualNet(nn.Module):

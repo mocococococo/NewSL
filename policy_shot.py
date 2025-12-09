@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from typing import Tuple
 
-from nn.learn.network.dual_net import DualNet
+from nn.network.dual_net import DualNet
 from dc3client.models import StoneRotation
 from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, PLANES_SIZE, \
                             VX_MIN, VX_MAX, VY_MIN, VY_MAX, \

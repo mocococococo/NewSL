@@ -2,13 +2,13 @@ import glob
 import os
 import click
 from learning_param import BATCH_SIZE, EPOCHS
-from nn.learn.learn_dcl2 import train_on_cpu, train_on_gpu
-from nn.learn.generator import generate_supervised_learning_data
+from nn.learn import train_on_cpu, train_on_gpu
+from nn.generator import generate_supervised_learning_data
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 @click.command()
-@click.option('--model-name', type=click.STRING, default="cai1000CP-32-9-LeaRate000", help="保存するモデルの名前の指定")
+@click.option('--model-name', type=click.STRING, default="cai10000CP-32-9-LeaRate000-vx32-vy25", help="保存するモデルの名前の指定")
 @click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
 def train_main(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ
@@ -19,7 +19,7 @@ def train_main(model_name: str, use_gpu: bool):
     
     print(f"start learning model {model_name} !!")
     
-    generate_supervised_learning_data(program_dir, log_dir, data_size=1000)
+    generate_supervised_learning_data(program_dir, log_dir, data_size=10000)
     # return
     if use_gpu:
         train_on_gpu(program_dir=program_dir, batch_size=BATCH_SIZE, epochs=EPOCHS, model_name=model_name)

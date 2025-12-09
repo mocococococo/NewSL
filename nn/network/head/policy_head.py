@@ -5,6 +5,7 @@ from torch import nn
 
 from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, VX_SIZE, VY_SIZE
 
+
 class PolicyHead(nn.Module):
     #Policy headの実装クラス。
     def __init__(self, channels: int, momentum: float=0.01):

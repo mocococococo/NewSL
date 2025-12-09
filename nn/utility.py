@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from common.print_console import print_err
-from nn.learn.network.dual_net import DualNet
+from nn.network.dual_net import DualNet
 from learning_param import EPOCHS
 
 

@@ -5,9 +5,9 @@ from typing import List, Optional, Tuple, Dict, Any
 import numpy as np
 import torch
 
-from nn.mcts.feature import generate_input_planes
-from nn.mcts.network.dual_net import DualNet
-from board.constant import VX_SIZE, VY_SIZE, PLANES_SIZE
+from nn.feature import generate_input_planes
+from nn.network.dual_net import DualNet
+from board.constant import VX_SIZE, VY_SIZE, PLANES_SIZE, BOARD_SIZE_X, BOARD_SIZE_Y
 from .state import State
 
 # 32*32*2=2048
@@ -68,7 +68,7 @@ def get_policy(state: State) -> List[float]:
         score_diff_for_team0=_SCORE_DIFF
     )  # (PLANES_SIZE, 32, 32) float32 :contentReference[oaicite:4]{index=4}
 
-    input_data = torch.tensor(planes_np.reshape(1, PLANES_SIZE, VX_SIZE, VY_SIZE))
+    input_data = torch.tensor(planes_np.reshape(1, PLANES_SIZE, BOARD_SIZE_Y, BOARD_SIZE_X))
 
     _DUAL_NET.eval()
     with torch.no_grad():
