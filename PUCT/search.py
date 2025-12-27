@@ -17,7 +17,6 @@ def puct_search(
     root_state: State,
     max_simulations: int = DEFAULT_MAX_SIMULATIONS,
     cpuct: float = DEFAULT_CPUCT,
-    time_limit_sec: Optional[float] = DEFAULT_TIME_LIMIT_SEC,
     debug: bool = False,              # 追加
     debug_every: int = 10,            # 追加（10回に1回出力）
     debug_topk: int = 5,              # 追加（上位k手を表示）    
@@ -28,6 +27,7 @@ def puct_search(
     - time_limit_sec: 時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
     """
+    time_limit_sec = DEFAULT_TIME_LIMIT_SEC[root_state.shot_index]
 
     dbg = Debugger(debug, every=debug_every)
     dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} shot_team={root_state.to_move()}, score_diff={root_state.score_diff}")
@@ -95,9 +95,9 @@ def puct_search(
         for (n, a) in reversed(path):
             n.N += 1
             n.Nsa[a] += 1
-            v = -v              # ★ 先に反転：1手戻ったノード視点に合わせる
             n.W[a] += v
             n.Q[a] = n.W[a] / n.Nsa[a]
+            v = -v
         dbg.toc("backprop")
         
         # たまに状況を出す（1行で済む形）

@@ -46,11 +46,27 @@ class team:
         self.match_second += 1
         
     def get_winrate(self):
+        if self.match_first == 0 and self.match_second != 0:
+            return 0.0, \
+                self.win_second * 100 / self.match_second, \
+                self.win_second * 100 / self.match_second
+        if self.match_second == 0 and self.match_first != 0:
+            return self.win_first * 100 / self.match_first, \
+                    0.0, \
+                    self.win_first * 100 / self.match_first
         return self.win_first * 100 / self.match_first, \
                 self.win_second * 100 / self.match_second, \
                 (self.win_first + self.win_second) * 100 / (self.match_first + self.match_second)
                 
     def get_score(self):
+        if self.match_first == 0 and self.match_second != 0:
+            return 0.0, \
+                self.score_second / self.match_second, \
+                self.score_second / self.match_second
+        if self.match_second == 0 and self.match_first != 0:
+            return self.score_first / self.match_first, \
+                    0.0, \
+                    self.score_first / self.match_first
         return self.score_first / self.match_first, \
                 self.score_second / self.match_second, \
                 (self.score_first + self.score_second) / (self.match_first + self.match_second)
@@ -164,7 +180,8 @@ def calc_winrate(log_dir: str, teamA:str, teamB: str):
 
 if __name__ == "__main__":
     dir = "./log"
-    # dir = "./cai-vs-policy"
+    # dir = "./sl-vs-puct-wintable"
     teamA = "PUCT_NewSL"
-    teamB = "CAI-chan"
+    # teamB = "CAI-chan"
+    teamB = "NewSL"
     calc_winrate(dir, teamA, teamB)
