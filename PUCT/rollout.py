@@ -1,10 +1,11 @@
 # rollout.py
 import math
 
+from board.constant import Y_TEE, R_HOUSE, STONE_RADIUS
 from .state import State, is_end_terminal
 from .simulate import simulator_step
 from .policy import get_policy
-from board.constant import Y_TEE, R_HOUSE, STONE_RADIUS
+from .wintable import WIN_TABLE
 from .params import PUCT_DEBUG_SCORE_FLAG, PUCT_DEBUG_SCORE_LIMIT
 
 
@@ -17,8 +18,8 @@ def _dbg(msg: str) -> None:
     global _SCORE_DEBUG_COUNT
     if not _SCORE_DEBUG:
         return
-    if _SCORE_DEBUG_COUNT >= _SCORE_DEBUG_LIMIT:
-        return
+    # if _SCORE_DEBUG_COUNT >= _SCORE_DEBUG_LIMIT:
+    #     return
     _SCORE_DEBUG_COUNT += 1
     print(msg)
 
@@ -84,15 +85,17 @@ def _end_score_diff_team0_minus_team1(stones) -> int:
 
 
 def _to_move_defined_even_if_terminal(state: State) -> int:
-    """終端でも「次に手番になるはずだったチーム」を定義して返す"""
-    if not state.is_end_terminal():
-        return state.to_move()
-    # shot_index==16 の想定。最後に投げたのは (shot_index-1)。
-    last_shot = state.shot_index - 1
-    h = state.hammer_team
-    nh = 1 - h
-    last_mover = nh if (last_shot % 2 == 0) else h
-    return 1 - last_mover
+    """終端でも『直前に投げたチーム』を定義して返す（= 直前手番視点）"""
+    if state.is_end_terminal():
+        # 最後に投げたのは (shot_index-1)
+        last_shot = state.shot_index - 1
+        h = state.hammer_team
+        nh = 1 - h
+        last_mover = nh if (last_shot % 2 == 0) else h
+        return last_mover
+
+    # 非終端：いま次に投げるチーム(state.to_move)の逆が「直前に投げたチーム」
+    return 1 - state.to_move()
 
 
 def rollout_to_end_score(state: State, debug: bool = False) -> float:
@@ -112,12 +115,45 @@ def rollout_to_end_score(state: State, debug: bool = False) -> float:
         depth += 1
 
     raw = _end_score_diff_team0_minus_team1(s.stones)
-    diff01 = raw / 8.0
-    v = float(diff01 if leaf_view_team == 0 else -diff01)
 
-    if _SCORE_DEBUG:
-        _dbg("[ROLLOUT] depth={} terminal_shot_index={} leaf_view_team={} raw={} v={}".format(
-            depth, getattr(s, "shot_index", None), leaf_view_team, raw, v
-        ))
+    # leaf_view_team 視点へ変換
+    score_end = raw if leaf_view_team == 0 else -raw
+    score_diff_leaf = s.score_diff if leaf_view_team == 0 else -s.score_diff
+
+    # 「このエンドで leaf_view_team がハンマーだったか」
+    had_hammer_this_end = (leaf_view_team == s.hammer_team)
+
+    v = score_to_winvalue(s.end, score_end, score_diff_leaf, had_hammer_this_end)
+
+    # if _SCORE_DEBUG:
+    _dbg("[ROLLOUT] depth={} terminal_shot_index={} leaf_view_team={} raw={} v={}".format(
+        depth, getattr(s, "shot_index", None), leaf_view_team, raw, v
+    ))
         
     return v
+
+def score_to_winvalue(end: int, score: int, score_diff: int, had_hammer_this_end: bool) -> float:
+    """
+    score: このエンドの得点差（チーム視点）
+    score_diff: エンド開始時点までの累積得点差（チーム視点）
+    had_hammer_this_end: このエンド開始時点で自分がハンマーだったか
+    """
+    if score > 0:
+        next_is_hammer = "non-hammer"
+    elif score < 0:
+        next_is_hammer = "hammer"
+    else:
+        # ブランクはハンマー保持
+        next_is_hammer = "hammer" if had_hammer_this_end else "non-hammer"
+
+    score_index = max(min(score + score_diff, 8), -8) + 8
+    winvalue = WIN_TABLE[next_is_hammer][end + 1][score_index]  # 次エンド開始時点 :contentReference[oaicite:4]{index=4}
+    if winvalue is None:
+        if score + score_diff > 0:
+            return 1.0
+        elif score + score_diff < 0:
+            return -1.0
+        else:
+            raise ValueError("Unexpected: winvalue is None but score+score_diff == 0")
+
+    return winvalue * 2 - 1.0
