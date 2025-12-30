@@ -8,7 +8,8 @@ from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
 from .policy import get_policy, set_policy_context
 from .rollout import rollout_to_end_score
-from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, DEFAULT_TIME_LIMIT_SEC
+from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, \
+    DEFAULT_TIME_LIMIT_SEC, DEFAULT_TIME_LIMIT_SEC_LIST
 
 from .debugger import Debugger, summarize_stones, policy_stats, format_topk_policy, format_topk_root_visits
 
@@ -27,7 +28,9 @@ def puct_search(
     - time_limit_sec: 時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
     """
-    time_limit_sec = DEFAULT_TIME_LIMIT_SEC[root_state.shot_index]
+    time_limit_sec = DEFAULT_TIME_LIMIT_SEC #\
+        # if root_state.shot_index % 2 == 0 \
+        # else DEFAULT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
 
     dbg = Debugger(debug, every=debug_every)
     dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} shot_team={root_state.to_move()}, score_diff={root_state.score_diff}")

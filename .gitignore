@@ -1,7 +1,7 @@
 __pycache__/
 /env
 /data
-/data_10000_batchsize256
+/archive
 /LearnLog
 /pybind
 */log

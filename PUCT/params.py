@@ -4,7 +4,8 @@ from __future__ import annotations
 # 探索
 DEFAULT_MAX_SIMULATIONS = 20000
 DEFAULT_CPUCT = 1.0
-DEFAULT_TIME_LIMIT_SEC = {
+DEFAULT_TIME_LIMIT_SEC = 2.6
+DEFAULT_TIME_LIMIT_SEC_LIST = {
     0: 2.0,
     1: 2.0,
     2: 2.0,

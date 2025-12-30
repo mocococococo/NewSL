@@ -6,7 +6,7 @@ port0=10000
 port1=10001
 
 # N 回自己対戦させる
-for i in {1..98}; do
+for i in {1..100}; do
     echo "Round $i"
     # バックグラウンドでサーバーを立ち上げる
     ./server.exe &
