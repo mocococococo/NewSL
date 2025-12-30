@@ -149,18 +149,14 @@ def generate_supervised_learning_data(
                 dcl2_log2 = json.loads(dcl2_data[i+1])['log']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
                 scores = dcl2_json_data['log']['state']['scores']
-                scorediff_for_team0 = scores_to_scorediff_for_team0(scores)
                 end = dcl2_state['end']
+                scorediff_for_team0 = scores_to_scorediff_for_team0(scores, end=end)
+                # print(f"scores: {scores}, end: {end}, scorediff_for_team0: {scorediff_for_team0}")
                 shot = dcl2_state['shot']
                 shot_team = convert_team_stoi(dcl2_log2['team'])
                 hammer = convert_team_stoi(dcl2_state['hammer'])
                 selected_move = dcl2_log2['move']
-                #if end == 0 and shot == 15:
-                #    print("stones: ", stones)
-                #    print("scores: ", scores)
-                #    print("end: ", end)
-                #    print("shot: ", shot)
-                #    print("selected_move: ", selected_move)
+                
                 try:
                     if end < 10:
                         planes = generate_input_planes(stones=stones, end=end, shot=shot, hammer=hammer, score_diff_for_team0=scorediff_for_team0)
