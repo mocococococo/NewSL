@@ -149,8 +149,9 @@ def generate_supervised_learning_data(
                 dcl2_log2 = json.loads(dcl2_data[i+1])['log']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
                 scores = dcl2_json_data['log']['state']['scores']
+                scores_for_scorediff = dcl2_state['scores']
                 end = dcl2_state['end']
-                scorediff_for_team0 = scores_to_scorediff_for_team0(scores, end=end)
+                scorediff_for_team0 = scores_to_scorediff_for_team0(scores_for_scorediff)
                 # print(f"scores: {scores}, end: {end}, scorediff_for_team0: {scorediff_for_team0}")
                 shot = dcl2_state['shot']
                 shot_team = convert_team_stoi(dcl2_log2['team'])
