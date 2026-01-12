@@ -180,7 +180,10 @@ def calc_winrate(log_dir: str, teamA:str, teamB: str):
 
 if __name__ == "__main__":
     dir = "./log"
-    # dir = "./cai-vs-puct-wintable-75000-2.6pershot"
+    # dir = "./cai-vs-puct-wintable-70000"
+    dir = "./cai-vs-puct-wintable-75000-2.6pershot"
+    # dir = "./cai-vs-puct-wintable-cai-70000"
+    # dir = "./cai-vs-puct-wintable-cai-75000-2.6pershot"
     teamA = "PUCT_NewSL"
     teamB = "CAI-chan"
     # teamB = "NewSL"

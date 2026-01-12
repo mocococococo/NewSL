@@ -2,11 +2,11 @@
 json_file="config.json"
 
 # 新しいポート番号
-port0=10000
-port1=10001
+port0=10001
+port1=10000
 
 # N 回自己対戦させる
-for i in {1..4}; do
+for i in {1..1}; do
     echo "Round $i"
     # バックグラウンドでサーバーを立ち上げる
     ./server.exe &
