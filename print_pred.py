@@ -20,9 +20,10 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 from nn.network.dual_net import DualNet
+from common.translate_state import convert_team_stoi, scores_to_scorediff_for_team0
 from nn.feature import generate_input_planes, generate_target_data, generate_value_data
 from nn.utility import load_data_set, get_torch_device
-from board.constant import PLANES_SIZE, BOARD_SIZE
+from board.constant import PLANES_SIZE, BOARD_SIZE_Y, BOARD_SIZE_X
 from learning_param import BATCH_SIZE
 
 
@@ -105,18 +106,25 @@ def main(data_size: int, model: str, log_dir: str, gpu: bool):
                 dcl2_log2 = json.loads(dcl2_data[i+1])['log']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
                 scores = dcl2_json_data['log']['state']['scores']
+                scores_for_scorediff = dcl2_state['scores']
                 end = dcl2_state['end']
+                scorediff_for_team0 = scores_to_scorediff_for_team0(scores_for_scorediff)
+                # print(f"scores: {scores}, end: {end}, scorediff_for_team0: {scorediff_for_team0}")
                 shot = dcl2_state['shot']
-                team = dcl2_log2['team']
+                shot_team = convert_team_stoi(dcl2_log2['team'])
+                hammer = convert_team_stoi(dcl2_state['hammer'])
                 selected_move = dcl2_log2['move']
                 input_planes = generate_input_planes(
                     stones=stones,
-                    scores=scores,
                     end=end,
                     shot=shot,
+                    hammer=hammer,
+                    score_diff_for_team0=scorediff_for_team0
                 )
-                input_data = torch.tensor(input_planes.reshape(1, PLANES_SIZE, BOARD_SIZE, BOARD_SIZE), dtype=torch.float32).to(device)
-                value_data = generate_value_data(dcl2_json_data, end, shot)
+                input_data = torch.tensor(input_planes.reshape(
+                    1, PLANES_SIZE, BOARD_SIZE_Y, BOARD_SIZE_X
+                ), dtype=torch.float32).to(device)
+                value_data = generate_value_data(scores=scores, end=end, shot_team=shot_team)
                 policy, value = net.forward_with_softmax2(input_data)
                 
                 if shot == 15:
