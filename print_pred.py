@@ -17,9 +17,11 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
+from pathlib import Path
+
 from nn.network.dual_net import DualNet
-from nn.learn.feature import generate_input_planes, generate_target_data, generate_value_data
-from nn.mcts.utility import load_data_set, get_torch_device
+from nn.feature import generate_input_planes, generate_target_data, generate_value_data
+from nn.utility import load_data_set, get_torch_device
 from board.constant import PLANES_SIZE, BOARD_SIZE
 from learning_param import BATCH_SIZE
 
@@ -49,13 +51,13 @@ def print_histogram(value_data):
 @click.option(
     "--model",
     type=str,
-    default="model/cai40000CP-96-15-16shot-5to5.bin",
+    default="model/cai70000CP-32-9-LeaRate100-vx32-vy25-batchsize512.bin",
     help="学習済みモデルファイル (.pt / .bin)"
 )
 @click.option(
     "--log_dir",
     type=str,
-    default="../LearnLog/cai",
+    default=str(Path(__file__).resolve().parent / "LearnLog" / "cai"),
     help="評価用データの glob パターン (例: data_dcl2/sl_data_*.npz)"
 )
 @click.option(
