@@ -52,7 +52,7 @@ def print_histogram(value_data):
 @click.option(
     "--model",
     type=str,
-    default="model/cai70000CP-32-9-LeaRate100-vx32-vy25-batchsize512.bin",
+    default=str(Path(__file__).resolve().parent / "model" / "cai70000CP-32-9-LeaRate100-vx32-vy25-batchsize512.bin"),
     help="学習済みモデルファイル (.pt / .bin)"
 )
 @click.option(

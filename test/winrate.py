@@ -90,8 +90,8 @@ def calc_winrate(log_dir: str, teamA:str, teamB: str):
     
     matchs = count_subdirectories(log_dir)
     for one_log in os.listdir(log_dir):
-#        if game_count > 99:
-#            break
+        # if game_count > 99:
+        #     break
         if os.path.isdir(os.path.join(log_dir, one_log)):
             dcl2_path = os.path.join(log_dir, one_log, "game.dcl2")
             if not os.path.exists(dcl2_path):
@@ -181,9 +181,10 @@ def calc_winrate(log_dir: str, teamA:str, teamB: str):
 if __name__ == "__main__":
     dir = "./log"
     # dir = "./cai-vs-puct-wintable-70000"
-    dir = "./cai-vs-puct-wintable-75000-2.6pershot"
+    # dir = "./cai-vs-puct-wintable-75000-2.6pershot"
     # dir = "./cai-vs-puct-wintable-cai-70000"
     # dir = "./cai-vs-puct-wintable-cai-75000-2.6pershot"
+    # dir = "./cai-vs-puct-wintable-10000"
     teamA = "PUCT_NewSL"
     teamB = "CAI-chan"
     # teamB = "NewSL"

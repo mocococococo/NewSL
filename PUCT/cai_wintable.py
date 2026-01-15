@@ -52,12 +52,12 @@ WIN_TABLE = {
         ],
         10: [
             None, None, None, None, None, None, None, None,
-            0.000,
+            0.185,
             None, None, None, None, None, None, None, None,
         ],
         11: [
             None, None, None, None, None, None, None, None,
-            None,
+            0.185,
             None, None, None, None, None, None, None, None,
         ],
     },
@@ -114,12 +114,12 @@ WIN_TABLE = {
         ],
         10: [
             None, None, None, None, None, None, None, None,
-            1.000,
+            0.815,
             None, None, None, None, None, None, None, None,
         ],
         11: [
             None, None, None, None, None, None, None, None,
-            None,
+            0.815,
             None, None, None, None, None, None, None, None,
         ],
     },
