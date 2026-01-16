@@ -3,8 +3,8 @@
 import os
 import json
 import shutil
-from typing import List, NoReturn
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 class team:
     def __init__(self, name: str):
@@ -85,6 +85,9 @@ def calc_winrate(log_dir: str, teamA:str, teamB: str):
     teamA = team(teamA)
     teamB = team(teamB)
     
+    history_x = []
+    history_wr = []
+    
     game_count = 0
     error_count = 0
     
@@ -161,6 +164,10 @@ def calc_winrate(log_dir: str, teamA:str, teamB: str):
                         else:
                             print(one_log, ": winner is team1, but team info is invalid")
                             print(f": team0 : {team0}, team1 : {team1}")
+            # 累積勝率を積む
+            _, _, total_wr = teamA.get_winrate()
+            history_x.append(game_count)
+            history_wr.append(total_wr)
         else:
             # print(one_log, ": not directory")
             continue
@@ -177,15 +184,49 @@ def calc_winrate(log_dir: str, teamA:str, teamB: str):
     #print(f"{teamB.name} lose : {teamB.lose_first}, {teamB.lose_second}, {teamB.lose_first + teamB.lose_second}")
     print(f"{teamB.name} score : {teamB.get_score()[0]:.2f}, {teamB.get_score()[1]:.2f}, {teamB.get_score()[2]:.2f}")
     #print(f"{teamB.name} time : {teamB.get_time()[0]:.2f}, {teamB.get_time()[1]:.2f}, {teamB.get_time()[2]:.2f}")
+    
+    return history_x, history_wr
+
+def plot_winrate_history(x, y, teamA_name: str, teamB_name: str, out_path="winrate.png", moving_avg_window: int = 0):
+    plt.figure()
+    plt.plot(x, y, label="winrate (%)")
+
+    if moving_avg_window and moving_avg_window > 1 and len(y) >= moving_avg_window:
+        # 単純移動平均（端は描画しない）
+        ma = []
+        mx = []
+        s = 0.0
+        for i, v in enumerate(y):
+            s += v
+            if i >= moving_avg_window:
+                s -= y[i - moving_avg_window]
+            if i >= moving_avg_window - 1:
+                ma.append(s / moving_avg_window)
+                mx.append(x[i])
+        plt.plot(mx, ma, label=f"moving avg ({moving_avg_window})")
+
+    plt.xlabel("match count")
+    plt.ylabel("teamA winrate (%)")
+    plt.title(f"{teamA_name} vs {teamB_name} winrate transition")
+    plt.ylim(0, 100)
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=200)
 
 if __name__ == "__main__":
     dir = "./log"
-    # dir = "./cai-vs-puct-wintable-70000"
-    # dir = "./cai-vs-puct-wintable-75000-2.6pershot"
-    # dir = "./cai-vs-puct-wintable-cai-70000"
-    # dir = "./cai-vs-puct-wintable-cai-75000-2.6pershot"
-    # dir = "./cai-vs-puct-wintable-10000"
+    dir = "./cai-vs-puct-wintable-10000-ver2.1"
     teamA = "PUCT_NewSL"
     teamB = "CAI-chan"
     # teamB = "NewSL"
-    calc_winrate(dir, teamA, teamB)
+    x, wr = calc_winrate(dir, teamA, teamB)
+
+    plot_winrate_history(
+        x, wr,
+        teamA_name=teamA,
+        teamB_name=teamB,
+        out_path=f"winrate_{Path(dir).name}.png",
+        moving_avg_window=50,
+    )
+    print("saved: winrate.png")
