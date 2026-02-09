@@ -9,7 +9,7 @@ from .simulate import simulator_step, decode_action
 from .policy import get_policy, set_policy_context
 from .rollout import rollout_to_end_score
 from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, \
-    DEFAULT_TIME_LIMIT_SEC, DEFAULT_TIME_LIMIT_SEC_LIST
+    DEFAULT_TIME_LIMIT_SEC#, DEFAULT_TIME_LIMIT_SEC_LIST
 
 from .debugger import Debugger, summarize_stones, policy_stats, format_topk_policy, format_topk_root_visits
 
