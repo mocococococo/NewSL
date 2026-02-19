@@ -208,7 +208,7 @@ def plot_winrate_history(x, y, teamA_name: str, teamB_name: str, out_path="winra
     plt.xlabel("match count")
     plt.ylabel("teamA winrate (%)")
     plt.title(f"{teamA_name} vs {teamB_name} winrate transition")
-    plt.ylim(0, 100)
+    plt.ylim(0, 110)
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
@@ -216,8 +216,8 @@ def plot_winrate_history(x, y, teamA_name: str, teamB_name: str, out_path="winra
 
 if __name__ == "__main__":
     dir = "./log"
-    dir = "./cai-vs-puct-wintable-10000-ver2.1"
-    teamA = "PUCT_NewSL"
+    # dir = "./cai-vs-puct-wintable-10000-ver2.1"
+    teamA = "MCTS_NewSL"
     teamB = "CAI-chan"
     # teamB = "NewSL"
     x, wr = calc_winrate(dir, teamA, teamB)
