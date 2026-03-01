@@ -3,7 +3,7 @@ from typing import List, Tuple, Optional, Dict
 
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
 from nn.network.dual_net import DualNet
-from .node import Node, get_node, argmax_over_actions
+from .node import Node, get_node, argmax_over_actions, clear_node_table, node_table_size, peek_node
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
 from .policy import get_policy_and_value, set_policy_context
@@ -53,6 +53,9 @@ def mcts_search(
     - time_limit_sec: 時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
     """
+    # 最初にノードテーブルをクリア
+    clear_node_table()
+    
     time_limit_sec = DEFAULT_TIME_LIMIT_SEC #\
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
@@ -92,6 +95,8 @@ def mcts_search(
         
         while node.is_expanded() and (not is_end_terminal(state)) and select_depth < max_depth:
             assert node.P is not None and node.Q is not None and node.Nsa is not None
+            
+            node.maybe_widen()
             
             a = argmax_over_actions(
                 node.actions,
@@ -146,6 +151,20 @@ def mcts_search(
 
     # 最終手
     assert root.Nsa is not None
+    
+    visited_children = 0
+    expanded_children = 0
+
+    for a in root.actions:
+        if root.Nsa[a] <= 0:
+            continue
+        visited_children += 1
+
+        child_state = simulator_step(root_state, a)   # 1投進めた局面
+        child_node = peek_node(child_state)           # ※新規作成しない
+        if child_node is not None and child_node.is_expanded():
+            expanded_children += 1
+            
     best_action_id = argmax_over_actions(root.actions, key=lambda a: root.Nsa[a])
     best_action = decode_action(best_action_id)
     
@@ -159,7 +178,8 @@ def mcts_search(
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
     print("-----------------------------------------------------")
-    print(f"PUCT search simulations: {sims}, time: {elapsed_time:.2f} sec")
+    print(f"PUCT search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
+    print(f"PUCT root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
     print("-----------------------------------------------------")
     
     return best_action

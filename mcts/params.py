@@ -28,7 +28,12 @@ DEFAULT_TIME_LIMIT_SEC_LIST = {
 ROLLOUT_USE_GREEDY_POLICY = True  # Trueならargmax(policy)、Falseならサンプルなどに拡張
 
 # State.key 量子化
-STATE_POS_SCALE = 1000            # 座標をround(v*scale)して整数化
+STATE_POS_SCALE = 100            # 座標をround(v*scale)して整数化
+
+TOPK_INIT = 10 # rollout初手の候補数
+TOPK_MAX = 256 # rollout途中以降の最大候補数
+PW_C = 8.0 # Progressive Widening の C 定数
+PW_ALPHA = 0.5 # Progressive Widening の alpha 指数
 
 PUCT_DEBUG_SCORE_FLAG = False  # スコアデバッグ有効化フラグ
 PUCT_DEBUG_SCORE_LIMIT = 30  # スコアデバッグ出力上限
