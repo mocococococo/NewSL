@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Iterable, Any
 from board.constant import VX_SIZE, VY_SIZE
 from .state import State
 from .policy import get_policy
+from .params import TOPK_INIT, TOPK_MAX, PW_C, PW_ALPHA
 
 # 行動空間： (vx, vy, spin) の全組合せを 0..2047 に潰す
 SPIN_SIZE = 2
@@ -16,6 +17,20 @@ ALL_ACTIONS: List[int] = list(range(N_ACTIONS))
 # 木（transposition用）
 _NODE_TABLE: Dict[tuple, "Node"] = {}
 
+def clear_node_table() -> None:
+    """puct_search() 1回分の探索が終わったら木を破棄したい用途。"""
+    _NODE_TABLE.clear()
+    
+def node_table_size() -> int:
+    """現在 _NODE_TABLE に保持されているノード数（=到達した局面数）"""
+    return len(_NODE_TABLE)
+
+def peek_node(state):
+    """
+    _NODE_TABLE に既に存在するノードだけ返す（無ければNone）。
+    ※ get_node(state) と違って新規作成しない
+    """
+    return _NODE_TABLE.get(state.key(), None)
 
 def argmax_over_actions(actions: Iterable[int], key):
     """actions の中で key(a) が最大の a を返す（同値は先に出た方）"""
@@ -46,6 +61,25 @@ class Node:
         self.Nsa: Optional[List[int]] = None   # len=2048
         self.W: Optional[List[float]] = None   # len=2048
         self.Q: Optional[List[float]] = None   # len=2048
+        
+        self._policy_order: Optional[List[int]] = None  # Policyの降順 action list
+        
+    def maybe_widen(self) -> None:
+        """
+        Progressive Widening:
+        ノード訪問回数Nに応じて、actions（候補手）を方策順に増やす。
+        """
+        if self._policy_order is None:
+            return
+
+        # 例: target = TOPK_INIT + PW_C * N^PW_ALPHA
+        target = TOPK_INIT + int(PW_C * (self.N ** PW_ALPHA))
+        if target > TOPK_MAX:
+            target = TOPK_MAX
+        if target <= len(self.actions):
+            return
+
+        self.actions = self._policy_order[:target]
 
     def is_expanded(self) -> bool:
         return self.P is not None
@@ -93,6 +127,12 @@ class Node:
         self.Nsa = [0] * N_ACTIONS
         self.W = [0.0] * N_ACTIONS
         self.Q = [0.0] * N_ACTIONS
+        
+        # Pの大きい順に action を並べる
+        self._policy_order = sorted(range(N_ACTIONS), key=lambda a: self.P[a], reverse=True)
+        
+        k0 = TOPK_INIT if TOPK_INIT < TOPK_MAX else TOPK_MAX
+        self.actions = self._policy_order[:k0]
 
 
 def get_node(state) -> Node:
