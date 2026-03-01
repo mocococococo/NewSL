@@ -5,6 +5,7 @@ import json
 import shutil
 from pathlib import Path
 import matplotlib.pyplot as plt
+import numpy as np
 
 class team:
     def __init__(self, name: str):
@@ -208,15 +209,16 @@ def plot_winrate_history(x, y, teamA_name: str, teamB_name: str, out_path="winra
     plt.xlabel("match count")
     plt.ylabel("teamA winrate (%)")
     plt.title(f"{teamA_name} vs {teamB_name} winrate transition")
-    plt.ylim(0, 100)
-    plt.grid(True)
+    plt.ylim(0, 110)
+    plt.yticks(np.arange(0, 101, 10))
+    plt.grid(True, which="major")
     plt.legend()
     plt.tight_layout()
     plt.savefig(out_path, dpi=200)
 
 if __name__ == "__main__":
     dir = "./log"
-    dir = "./cai-vs-puct-wintable-10000-ver2.1"
+    # dir = "./cai-vs-puct-wintable-10000-ver2.1"
     teamA = "PUCT_NewSL"
     teamB = "CAI-chan"
     # teamB = "NewSL"
