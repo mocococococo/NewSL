@@ -178,8 +178,8 @@ def mcts_search(
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
     print("-----------------------------------------------------")
-    print(f"PUCT search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
-    print(f"PUCT root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
+    print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
+    print(f"MCTS root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
     print("-----------------------------------------------------")
     
     return best_action

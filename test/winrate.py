@@ -220,9 +220,9 @@ if __name__ == "__main__":
     dir = "./log"
     # dir = "./cai-vs-puct-wintable-10000-ver2.1"
     teamA = "MCTS_NewSL"
-    teamA = "PUCT_NewSL"
-    teamB = "CAI-chan"
-    # teamB = "NewSL"
+    # teamA = "PUCT_NewSL"
+    # teamB = "CAI-chan"
+    teamB = "Jiritsu"
     x, wr = calc_winrate(dir, teamA, teamB)
 
     plot_winrate_history(
