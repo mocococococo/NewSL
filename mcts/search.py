@@ -1,4 +1,6 @@
 import time
+from datetime import datetime
+from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
@@ -15,6 +17,14 @@ from .debugger import Debugger, summarize_stones, policy_stats, format_topk_poli
 
 VALUE_CLASS_OFFSET = 8
 
+def _emit_lines(lines: List[str], log_path: Optional[str]) -> None:
+    if not log_path:
+        return
+    p = Path(log_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with p.open("a", encoding="utf-8") as f:
+        for line in lines:
+            f.write(line + "\n")
 
 def _value_probs_to_winvalue(state: State, value_probs: List[float]) -> float:
     """
@@ -46,6 +56,7 @@ def mcts_search(
     debug: bool = False,              # 追加
     debug_every: int = 10,            # 追加（10回に1回出力）
     debug_topk: int = 5,              # 追加（上位k手を表示）    
+    stats_log_path: Optional[str] = None,
 ) -> Tuple[float, float, int]:
     """
     PUCTで探索して最善手(action_id: 0..2047)を返す。
@@ -177,6 +188,15 @@ def mcts_search(
     
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
+    lines = [
+        "-----------------------------------------------------",
+        f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]",
+        f"shot={root_state.shot_index} end={root_state.end} hammer={root_state.hammer_team} score_diff={root_state.score_diff}",
+        f"simulations={sims} elapsed={elapsed_time:.2f}sec nodes={node_table_size()}",
+        f"root_children visited={visited_children} expanded={expanded_children} candidates={len(root.actions)}",
+        "-----------------------------------------------------",
+    ]
+    _emit_lines(lines, stats_log_path)
     print("-----------------------------------------------------")
     print(f"PUCT search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
     print(f"PUCT root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
