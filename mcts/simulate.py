@@ -1,10 +1,12 @@
 # simulator_step.py
 from __future__ import annotations
 from typing import List, Optional, Tuple
+import numpy as np
 
 from . import fast_simulator
 from .state import State
 from board.constant import VX_SIZE, VY_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, VY_SHEET_MAX
+from .params import STDDV_SPEED, STDDV_ANGLE
 from policy_shot import index_to_shot
 
 N_ACTIONS = VX_SIZE * VY_SIZE * 2  # 2048
@@ -65,6 +67,17 @@ def decode_action(action: int) -> Tuple[float, float, int]:
     vy = _vy_idx_to_value(vyi)
     return vx, vy, spin
 
+def _add_noise_to_vector(x: float, y: float, stddev_speed: float, stddev_angle: float) -> Tuple[float, float]:
+    magnitude = np.sqrt(x ** 2 + y ** 2)
+    angle = np.arctan2(y, x)
+
+    noisy_magnitude = magnitude + np.random.normal(0.0, stddev_speed)
+    noisy_angle = angle + np.random.normal(0.0, stddev_angle)
+
+    new_x = noisy_magnitude * np.cos(noisy_angle)
+    new_y = noisy_magnitude * np.sin(noisy_angle)
+    return float(new_x), float(new_y)
+
 def simulator_step(state: State, action: int) -> State:
     """
     1手進める。スコア計算やエンド更新はここではしない（shot_indexだけ進める）。
@@ -73,6 +86,7 @@ def simulator_step(state: State, action: int) -> State:
         return state
 
     vx, vy, spin = decode_action(action)
+    vx, vy = _add_noise_to_vector(vx, vy, STDDV_SPEED, STDDV_ANGLE)
     debug_vx, debug_vy, debug_spin = index_to_shot(action)
     
     if DEBUG_SIM_INDEX:

@@ -218,11 +218,14 @@ def plot_winrate_history(x, y, teamA_name: str, teamB_name: str, out_path="winra
 
 if __name__ == "__main__":
     dir = "./log"
-    # dir = "./cai-vs-puct-wintable-10000-ver2.1"
-    teamA = "MCTS_NewSL"
-    teamA = "PUCT_NewSL"
-    teamB = "CAI-chan"
+    # dir = "./shot-vs-nshot-winrate-avg"
+    # teamA = "MCTS_NewSL"
+    teamA = "NewSL_SHOT"
+    # teamA = "PUCT_NewSL"
+    # teamB = "CAI-chan"
     # teamB = "NewSL"
+    # teamB = "Jiritsu"
+    teamB = "SHOT"
     x, wr = calc_winrate(dir, teamA, teamB)
 
     plot_winrate_history(
