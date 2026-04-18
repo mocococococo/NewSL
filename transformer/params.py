@@ -1,7 +1,7 @@
 """Transformer ネットワーク用のハイパーパラメータ定義。
 
-ネットワーク本体では値を直接持たず、このファイルの
-TransformerNetworkConfig を import して使う。
+`network.py` と `feature.py` が同じ値を参照することで、入力特徴量の
+shape とネットワークの期待 shape がずれないようにする。
 """
 
 from __future__ import annotations
@@ -15,20 +15,24 @@ from board.constant import VX_SIZE, VY_SIZE
 ActivationName = Literal["relu", "gelu"]
 
 
+MAX_STONES = 16
+STONE_FEAT_DIM = 5
+GAME_FEAT_DIM = 4
+END_NORM_MAX = 9.0
+SHOT_NORM_MAX = 15.0
+SCORE_DIFF_CLIP = 8.0
+
+
 @dataclass(frozen=True)
 class TransformerNetworkConfig:
-    """TransformerNetwork の設定値。
-
-    別の学習スクリプトや実験用パラメータファイルから、この config を作って
-    TransformerNetwork に渡す想定。
-    """
+    """TransformerNetwork の設定値。"""
 
     # 入出力特徴量
-    stone_feat_dim: int = 5
-    game_feat_dim: int = 3
+    stone_feat_dim: int = STONE_FEAT_DIM
+    game_feat_dim: int = GAME_FEAT_DIM
     action_dim: int = 2 * VX_SIZE * VY_SIZE
     value_dim: int = 17
-    max_stones: int = 16
+    max_stones: int = MAX_STONES
 
     # Transformer 本体
     d_model: int = 256
@@ -58,6 +62,12 @@ def make_transformer_config(**overrides: object) -> TransformerNetworkConfig:
 
 __all__ = [
     "ActivationName",
+    "MAX_STONES",
+    "STONE_FEAT_DIM",
+    "GAME_FEAT_DIM",
+    "END_NORM_MAX",
+    "SHOT_NORM_MAX",
+    "SCORE_DIFF_CLIP",
     "TransformerNetworkConfig",
     "DEFAULT_TRANSFORMER_CONFIG",
     "make_transformer_config",
