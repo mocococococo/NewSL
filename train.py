@@ -5,6 +5,8 @@ from pathlib import Path
 from learning_param import BATCH_SIZE, EPOCHS
 from nn.learn import train_on_cpu, train_on_gpu
 from nn.generator import generate_supervised_learning_data
+from transformer.learn import train
+from transformer.generater import generate_data
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
@@ -26,6 +28,28 @@ def train_main(model_name: str, use_gpu: bool):
     else :
         train_on_cpu(program_dir=program_dir, batch_size=BATCH_SIZE, epochs=EPOCHS, model_name=model_name)
     print(f"finish learning model {model_name} !!")
+
+@click.command()
+@click.option('--model-name', type=click.STRING, default="transformer-sl-model", help="保存するモデルの名前の指定")
+@click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
+def train_transformer_main(model_name: str, use_gpu: bool):
+    # プログラムのディレクトリ
+    program_dir = str(Path(__file__).resolve().parent)
+    log_path = str(Path(__file__).resolve().parent / "LearnLog" / "cai")
+    
+    print(f"start learning transformer model {model_name} !!")
+    
+    generate_data(
+        log_path=log_path,
+        save_path=Path(__file__).resolve().parents[0] / "data",
+        data_size=1000,
+        target_end=9,
+        target_shot=15,
+    )
+    
+    train(program_dir=program_dir, batch_size=BATCH_SIZE, epochs=EPOCHS, model_name=model_name, use_gpu=use_gpu)
+    
+    print(f"finish learning transformer model {model_name} !!")
 
 if __name__ == "__main__":
     train_main()
