@@ -21,6 +21,17 @@ from transformer.params import (
 TransformerDataSet = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
 
 
+def get_torch_device(use_gpu: bool) -> torch.device:
+    """学習に使う torch.device を返す。"""
+
+    if use_gpu:
+        if not torch.cuda.is_available():
+            print("CUDA が使えないため CPU で学習します。")
+            return torch.device("cpu")
+        return torch.device("cuda")
+    return torch.device("cpu")
+
+
 def _calculate_losses(
     loss: dict[str, float],
     iteration: int,
@@ -65,17 +76,6 @@ def print_evaluation_information(
     print(f"Test {epoch} : loss = {loss:6f}, time = {testing_time:3f} seconds.")
     print(f"\tpolicy loss : {policy_loss:6f}")
     print(f"\tvalue loss  : {value_loss:6f}")
-
-
-def get_torch_device(use_gpu: bool) -> torch.device:
-    """学習に使う torch.device を返す。"""
-
-    if use_gpu:
-        if not torch.cuda.is_available():
-            print("CUDA が使えないため CPU で学習します。")
-            return torch.device("cpu")
-        return torch.device("cuda")
-    return torch.device("cpu")
 
 
 def load_transformer_data_set(path: str | Path) -> TransformerDataSet:

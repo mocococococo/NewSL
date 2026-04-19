@@ -150,7 +150,8 @@ def generate_data(
     value_data = []
     
     device = get_torch_device(use_gpu=use_gpu)
-    network = load_network(model, use_gpu=use_gpu)
+    model_path = Path(__file__).resolve().parents[1] / "model" / model
+    network = load_network(model_path, use_gpu=use_gpu)
     network.to(device)
 
     for one_log in os.listdir(log_path):

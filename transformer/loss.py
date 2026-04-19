@@ -24,7 +24,9 @@ def calculate_kld_loss(
     if logits.dim() < 2:
         raise ValueError(f"logits must have at least 2 dims, got {logits.dim()}")
 
-    target_distribution = target_distribution.to(dtype=logits.dtype, device=logits.device)
+    # AMP 中でも分布の検証と log 計算は float32 で行い、丸め誤差を抑える。
+    logits = logits.float()
+    target_distribution = target_distribution.to(dtype=torch.float32, device=logits.device)
     if not torch.isfinite(target_distribution).all():
         raise ValueError("target_distribution contains non-finite values")
     if (target_distribution < 0).any():

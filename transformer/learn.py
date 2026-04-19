@@ -39,7 +39,7 @@ def train(
     use_gpu: bool = True,
 ) -> None:
     """TransformerNetwork を教師あり学習する。"""
-
+    torch.set_grad_enabled(True)
     program_dir = Path(program_dir)
     loss_history_path = make_loss_history_path(program_dir, model_name)
 

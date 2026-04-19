@@ -5,7 +5,7 @@
 SL_LEARNING_RATE = 0.01
 
 # ミニバッチサイズ
-BATCH_SIZE = 1024
+BATCH_SIZE = 32
 
 # 学習器のモーメンタムパラメータ
 MOMENTUM=0.9
@@ -25,7 +25,7 @@ LEARNING_SCHEDULE = {
 }
 
 # npzファイル1つに格納するデータの個数
-DATA_SET_SIZE = BATCH_SIZE * 200
+DATA_SET_SIZE = BATCH_SIZE * 2
 
 # Policyのlossに対するValueのlossの重み比率
 """Valueは使用しない"""
