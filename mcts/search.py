@@ -237,7 +237,7 @@ def set_root_state(
     hammer_team: int,
     transformer_network: Optional[TransformerNetwork] = None,
     debug: bool = False,
-    use_transformer_for_shot15: bool = False,
+    use_transformer: bool = False,
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
@@ -263,7 +263,7 @@ def set_root_state(
         network,
         score_diff,
         transformer_net=transformer_network,
-        use_transformer_for_shot15=use_transformer_for_shot15,
+        use_transformer=use_transformer,
     )
 
     return State.initial(

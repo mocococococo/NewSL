@@ -11,33 +11,33 @@ from . import transformer_policy
 from .state import State
 
 
-_USE_TRANSFORMER_FOR_SHOT15 = False
+_USE_TRANSFORMER = False
 
 
 def set_policy_context(
     dual_net: DualNet,
     score_diff: int,
     transformer_net: TransformerNetwork | None = None,
-    use_transformer_for_shot15: bool = False,
+    use_transformer: bool = False,
 ) -> None:
     """CNN / Transformer の推論 context をまとめてセットする。"""
 
-    global _USE_TRANSFORMER_FOR_SHOT15
+    global _USE_TRANSFORMER
 
-    if use_transformer_for_shot15 and transformer_net is None:
+    if use_transformer and transformer_net is None:
         raise RuntimeError(
-            "transformer_net must be provided when use_transformer_for_shot15 is True."
+            "transformer_net must be provided when use_transformer is True."
         )
 
     cnn_policy.set_policy_context(dual_net, score_diff)
     transformer_policy.set_policy_context(transformer_net, score_diff)
-    _USE_TRANSFORMER_FOR_SHOT15 = use_transformer_for_shot15
+    _USE_TRANSFORMER = use_transformer
 
 
 def _should_use_transformer(state: State) -> bool:
     """この局面で Transformer を使うかどうかを返す。"""
 
-    return _USE_TRANSFORMER_FOR_SHOT15 and state.shot_index == 15
+    return _USE_TRANSFORMER and state.shot_index == 15
 
 
 def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:

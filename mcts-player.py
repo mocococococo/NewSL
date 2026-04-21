@@ -19,7 +19,7 @@ from mcts.search import set_root_state, mcts_search
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="MCTS_NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
-@click.option('--use_transformer_for_shot15', type=bool, default=False, help='use_transformer_for_shot15 (default: False)')
+@click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -48,7 +48,7 @@ def main(**kwargs):
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
     debug = kwargs['debug']
-    use_transformer_for_shot15 = kwargs['use_transformer_for_shot15']
+    use_transformer = kwargs['use_transformer']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -79,7 +79,7 @@ def main(**kwargs):
     network = load_network(model, use_gpu=use_gpu)
     network.to(device)
     transformer_network = None
-    if use_transformer_for_shot15:
+    if use_transformer:
         if not transformer_model.exists():
             raise FileNotFoundError(f"transformer model not found: {transformer_model}")
         transformer_network = load_transformer_network(transformer_model, use_gpu=use_gpu)
@@ -141,7 +141,7 @@ def main(**kwargs):
                 hammer_team=hammer,
                 transformer_network=transformer_network,
                 debug=debug,
-                use_transformer_for_shot15=use_transformer_for_shot15,
+                use_transformer=use_transformer,
             )
             vx, vy, spin = mcts_search(root_state, debug=debug)
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
