@@ -10,6 +10,7 @@ from typing import List, Tuple
 import numpy as np
 import torch
 
+from transformer.network import TransformerNetwork
 from transformer.params import (
     DEFAULT_TRANSFORMER_CONFIG,
     GAME_FEAT_DIM,
@@ -177,6 +178,27 @@ def split_train_test_set(
     return train_data_set, test_data_set
 
 
+def load_transformer_network(
+    model_file_path: str | Path,
+    use_gpu: bool,
+) -> TransformerNetwork:
+    """学習済み TransformerNetwork を読み込んで返す。"""
+
+    device = get_torch_device(use_gpu=use_gpu)
+    model_path = Path(model_file_path)
+    if not model_path.exists():
+        raise FileNotFoundError(f"model file not found: {model_path}")
+
+    network = TransformerNetwork()
+    state_dict = torch.load(model_path, map_location=device)
+    network.load_state_dict(state_dict)
+    network.to(device)
+    network.eval()
+
+    print(f"Success to load {model_path}.")
+    return network
+
+
 def save_model(network: torch.nn.Module, path: str | Path) -> None:
     """モデルの state_dict を保存する。"""
 
@@ -210,6 +232,7 @@ def save_loss_history(loss_history: dict[str, list[float]], path: str | Path) ->
 __all__ = [
     "TransformerDataSet",
     "get_torch_device",
+    "load_transformer_network",
     "load_transformer_data_set",
     "print_learning_process",
     "print_evaluation_information",

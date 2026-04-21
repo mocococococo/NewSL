@@ -1,8 +1,10 @@
 import click
+from pathlib import Path
 
 from dc3client import SocketClient
 from dc3client.models import StoneRotation
 from nn.utility import get_torch_device, load_network
+from transformer.utility import load_transformer_network
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
     scores_to_scorediff_for_team0, convert_team_stoi
 
@@ -13,9 +15,11 @@ from mcts.search import set_root_state, mcts_search
 @click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
+@click.option('--transformer_model', type=str, default="Transformer.bin", help='Transformer model name (default: Transformer.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="MCTS_NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
+@click.option('--use_transformer_for_shot15', type=bool, default=False, help='use_transformer_for_shot15 (default: False)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -39,10 +43,12 @@ def main(**kwargs):
     #   cli.get_new_game()
     host = kwargs['host']
     port = kwargs['port']
-    model = "./model/" + kwargs['model']
+    model = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['model']
+    transformer_model = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['transformer_model']
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
     debug = kwargs['debug']
+    use_transformer_for_shot15 = kwargs['use_transformer_for_shot15']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -72,7 +78,12 @@ def main(**kwargs):
     device = get_torch_device(use_gpu=use_gpu)
     network = load_network(model, use_gpu=use_gpu)
     network.to(device)
-                      
+    transformer_network = None
+    if use_transformer_for_shot15:
+        if not transformer_model.exists():
+            raise FileNotFoundError(f"transformer model not found: {transformer_model}")
+        transformer_network = load_transformer_network(transformer_model, use_gpu=use_gpu)
+        
     is_ready_message = cli.convert_is_ready(is_ready)
 
     # 試合を開始します
@@ -128,7 +139,9 @@ def main(**kwargs):
                 end=end,
                 shot_index=shot,
                 hammer_team=hammer,
-                debug=debug
+                transformer_network=transformer_network,
+                debug=debug,
+                use_transformer_for_shot15=use_transformer_for_shot15,
             )
             vx, vy, spin = mcts_search(root_state, debug=debug)
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise

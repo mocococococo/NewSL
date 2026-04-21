@@ -4,7 +4,7 @@ import math
 from board.constant import Y_TEE, R_HOUSE, STONE_RADIUS
 from .state import State, is_end_terminal
 from .simulate import simulator_step
-from .policy import get_policy
+from .hybrid_policy import get_policy
 from .wintable import WIN_TABLE
 from .params import PUCT_DEBUG_SCORE_FLAG, PUCT_DEBUG_SCORE_LIMIT
 

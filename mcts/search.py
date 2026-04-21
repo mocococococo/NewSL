@@ -5,10 +5,11 @@ from typing import List, Tuple, Optional, Dict, Union
 
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
 from nn.network.dual_net import DualNet
+from transformer.network import TransformerNetwork
 from .node import Node, get_node, argmax_over_actions, clear_node_table, node_table_size, peek_node
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
-from .policy import get_policy_and_value, set_policy_context
+from .hybrid_policy import get_policy_and_value, set_policy_context
 from .rollout import rollout_to_end_score, score_to_winvalue, _end_score_diff_team0_minus_team1
 from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, \
     DEFAULT_TIME_LIMIT_SEC, DEFAULT_TIME_LIMIT_SEC_LIST, DEFAULT_MAX_DEPTH
@@ -234,7 +235,9 @@ def set_root_state(
     end: int,
     shot_index: int,
     hammer_team: int,
-    debug: bool = False
+    transformer_network: Optional[TransformerNetwork] = None,
+    debug: bool = False,
+    use_transformer_for_shot15: bool = False,
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
@@ -256,7 +259,12 @@ def set_root_state(
         
 
     # policy側のグローバルに network と scores_dict をセット
-    set_policy_context(network, score_diff)
+    set_policy_context(
+        network,
+        score_diff,
+        transformer_net=transformer_network,
+        use_transformer_for_shot15=use_transformer_for_shot15,
+    )
 
     return State.initial(
         stones=stones16,
