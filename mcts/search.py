@@ -238,6 +238,8 @@ def set_root_state(
     transformer_network: Optional[TransformerNetwork] = None,
     debug: bool = False,
     use_transformer: bool = False,
+    transformer_target_end: int = 9,
+    transformer_target_shot: int = 15,
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
@@ -264,6 +266,8 @@ def set_root_state(
         score_diff,
         transformer_net=transformer_network,
         use_transformer=use_transformer,
+        transformer_target_end=transformer_target_end,
+        transformer_target_shot=transformer_target_shot,
     )
 
     return State.initial(

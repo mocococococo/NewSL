@@ -20,6 +20,8 @@ from mcts.search import set_root_state, mcts_search
 @click.option('--name', type=str, default="MCTS_NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
+@click.option('--transformer_target_end', type=int, default=9, help='transformer_target_end (default: 9)')
+@click.option('--transformer_target_shot', type=int, default=15, help='transformer_target_shot (default: 15)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -49,6 +51,8 @@ def main(**kwargs):
     cli_name = kwargs['name']
     debug = kwargs['debug']
     use_transformer = kwargs['use_transformer']
+    transformer_target_end = kwargs['transformer_target_end']
+    transformer_target_shot = kwargs['transformer_target_shot']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -142,6 +146,8 @@ def main(**kwargs):
                 transformer_network=transformer_network,
                 debug=debug,
                 use_transformer=use_transformer,
+                transformer_target_end=transformer_target_end,
+                transformer_target_shot=transformer_target_shot,
             )
             vx, vy, spin = mcts_search(root_state, debug=debug)
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
