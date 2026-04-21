@@ -39,14 +39,14 @@ def train_transformer_main(model_name: str, use_gpu: bool):
     
     print(f"start learning transformer model {model_name} !!")
     
-    # generate_data(
-    #     log_path=log_path,
-    #     save_path=Path(__file__).resolve().parents[0] / "data",
-    #     data_size=100,
-    #     target_end=9,
-    #     target_shot=15,
-    #     model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin"
-    # )
+    generate_data(
+        log_path=log_path,
+        save_path=Path(__file__).resolve().parents[0] / "data",
+        data_size=70000,
+        target_end=9,
+        target_shot=15,
+        model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin"
+    )
     
     train(program_dir=program_dir, batch_size=BATCH_SIZE, epochs=EPOCHS, model_name=model_name, use_gpu=use_gpu)
     
