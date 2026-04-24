@@ -35,16 +35,16 @@ def train_main(model_name: str, use_gpu: bool):
 def train_transformer_main(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ
     program_dir = str(Path(__file__).resolve().parent)
-    log_path = str(Path(__file__).resolve().parent / "LearnLog" / "cai")
+    log_path = str("D:/all")
     
     print(f"start learning transformer model {model_name} !!")
     
     generate_data(
         log_path=log_path,
         save_path=Path(__file__).resolve().parents[0] / "data",
-        data_size=70000,
-        target_end=9,
-        target_shot=15,
+        data_size=14,
+        target_end=[i for i in range(10)],
+        target_shot=[15],
         model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin"
     )
     

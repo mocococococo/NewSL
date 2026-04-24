@@ -11,6 +11,7 @@ import os
 import sys
 import json
 from pathlib import Path
+from typing import List
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -135,8 +136,8 @@ def generate_data(
     log_path: str = "path/to/dcl2/records",
     save_path: str = "path/to/save/data",
     data_size: int = 1000,
-    target_end: int = 9,
-    target_shot: int = 15,
+    target_end: List[int] = [i for i in range(10)],
+    target_shot: List[int] = [15],
     model: str = "path/to/shot16/model",
     use_gpu: bool = True,
 ) -> None:
@@ -182,7 +183,7 @@ def generate_data(
                 # print(f"scores: {scores}, end: {end}, scorediff_for_team0: {scorediff_for_team0}")
                 shot = dcl2_state['shot']
                 hammer = convert_team_stoi(dcl2_state['hammer'])
-                if not ((end == target_end) and (shot == target_shot)):
+                if not ((end in target_end) and (shot in target_shot)):
                     continue
             except KeyError:
                 continue
@@ -275,8 +276,8 @@ if __name__ == "__main__":
         log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "jiritsu-vs-silicon",
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=1000,
-        target_end=9,
-        target_shot=15,
+        target_end=[i for i in range(10)],
+        target_shot=[15],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_gpu=True
     )

@@ -80,7 +80,7 @@ def mcts_search(
     # 最初にノードテーブルをクリア
     clear_node_table()
     
-    time_limit_sec = DEFAULT_TIME_LIMIT_SEC #\
+    time_limit_sec = None #DEFAULT_TIME_LIMIT_SEC #\
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
