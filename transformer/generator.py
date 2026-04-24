@@ -10,8 +10,9 @@ import copy
 import os
 import sys
 import json
+import random
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -140,6 +141,9 @@ def generate_data(
     target_shot: List[int] = [15],
     model: str = "path/to/shot16/model",
     use_gpu: bool = True,
+    shuffle_seed: int = 0,
+    chunk_index: int = 0,
+    chunk_size: Optional[int] = None,
 ) -> None:
     log_size = 0
     log_counter = 1
@@ -155,7 +159,30 @@ def generate_data(
     network = load_network(model_path, use_gpu=use_gpu)
     network.to(device)
 
-    for one_log in os.listdir(log_path):
+    log_files = os.listdir(log_path)
+
+    rng = random.Random(shuffle_seed)
+    shuffled_log_files = rng.sample(log_files, len(log_files))
+
+    if chunk_size is not None:
+        if chunk_size <= 0:
+            raise ValueError(f"chunk_size must be positive, got {chunk_size}")
+        if chunk_index < 0:
+            raise ValueError(f"chunk_index must be non-negative, got {chunk_index}")
+
+        chunk_start = chunk_index * chunk_size
+        chunk_end = min(chunk_start + chunk_size, len(shuffled_log_files))
+        target_log_files = shuffled_log_files[chunk_start:chunk_end]
+
+        print(
+            f"chunk {chunk_index}: "
+            f"logs[{chunk_start}:{chunk_end}] "
+            f"= {len(target_log_files)} files"
+        )
+    else:
+        target_log_files = shuffled_log_files
+
+    for one_log in target_log_files:
         if not os.path.isdir(os.path.join(log_path, one_log)):
             continue
         if log_size >= data_size:
@@ -242,7 +269,7 @@ def generate_data(
                 _save_data(os.path.join
                         (
                             save_path,
-                            f"sl_data_{data_counter}"
+                            f"sl_data_chunk{chunk_index}_{data_counter}"
                         ),
                     stones_data,
                     games_data,
@@ -266,18 +293,21 @@ def generate_data(
     n_batches = len(value_data) // BATCH_SIZE
     print("n_batches: ", n_batches)
     if n_batches > 0:
-        _save_data(os.path.join(save_path, f"sl_data_{data_counter}"), \
+        _save_data(os.path.join(save_path, f"sl_data_chunk{chunk_index}_{data_counter}"), \
             stones_data[0:n_batches*BATCH_SIZE], games_data[0:n_batches*BATCH_SIZE], \
             stone_masks_data[0:n_batches*BATCH_SIZE], policy_data[0:n_batches*BATCH_SIZE], \
             value_data[0:n_batches*BATCH_SIZE], log_counter)
     
 if __name__ == "__main__":
     generate_data(
-        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "jiritsu-vs-silicon",
+        log_path=Path("D:/all"),
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=1000,
         target_end=[i for i in range(10)],
         target_shot=[15],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
-        use_gpu=True
+        use_gpu=True,
+        shuffle_seed=12345,
+        chunk_index=0,
+        chunk_size=BATCH_SIZE
     )
