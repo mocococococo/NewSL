@@ -6,6 +6,7 @@ import copy
 import os
 import sys
 import json
+import random
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -157,7 +158,8 @@ def main(
     cnn_score_avg = [0 for _ in range(data_size)]
     transformer_score_avg = [0 for _ in range(data_size)]
 
-    for one_log in os.listdir(log_path):
+    log_files = os.listdir(log_path)
+    for one_log in random.sample(log_files, len(log_files)):
         if not os.path.isdir(os.path.join(log_path, one_log)):
             continue
         if position_count >= data_size:
@@ -300,11 +302,11 @@ def main(
 
 if __name__ == "__main__":
     main(
-        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "cai",
+        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[0] / "data",
         cnn_model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
-        transformer_model="transformer-sl-9-15-model.bin",
-        data_size=10,
+        transformer_model="transformer-sl16-model-140000data.bin",
+        data_size=100,
         target_end=9,
         target_shot=15,
         use_gpu=True,
