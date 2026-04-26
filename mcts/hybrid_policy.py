@@ -54,7 +54,9 @@ def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
     """局面に応じて CNN / Transformer の推論を切り替える。"""
 
     if _should_use_transformer(state):
+        print("Using Transformer policy and value")
         return transformer_policy.get_policy_and_value(state)
+    print("Using CNN policy and value")
     return cnn_policy.get_policy_and_value(state)
 
 
@@ -62,5 +64,7 @@ def get_policy(state: State) -> List[float]:
     """局面に応じて CNN / Transformer の policy 推論を切り替える。"""
 
     if _should_use_transformer(state):
+        print("Using Transformer policy")
         return transformer_policy.get_policy(state)
+    print("Using CNN policy")
     return cnn_policy.get_policy(state)
