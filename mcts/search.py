@@ -238,8 +238,8 @@ def set_root_state(
     transformer_network: Optional[TransformerNetwork] = None,
     debug: bool = False,
     use_transformer: bool = False,
-    transformer_target_end: int = 9,
-    transformer_target_shot: int = 15,
+    transformer_target_end: List[int] = [9],  # transformerのターゲットとするエンド（複数指定可）
+    transformer_target_shot: List[int] = [15]  # transformerのターゲットとするショット（複数指定可）
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。

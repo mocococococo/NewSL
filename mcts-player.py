@@ -21,7 +21,8 @@ from mcts.search import set_root_state, mcts_search
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
 @click.option('--transformer_target_end', type=int, default=9, help='transformer_target_end (default: 9)')
-@click.option('--transformer_target_shot', type=int, default=15, help='transformer_target_shot (default: 15)')
+@click.option('--transformer_target_end', type=int, multiple=True, default=(9,), help='transformer_target_end (default: 9). Can specify multiple values.')
+@click.option('--transformer_target_shot', type=int, multiple=True, default=(15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -51,8 +52,8 @@ def main(**kwargs):
     cli_name = kwargs['name']
     debug = kwargs['debug']
     use_transformer = kwargs['use_transformer']
-    transformer_target_end = kwargs['transformer_target_end']
-    transformer_target_shot = kwargs['transformer_target_shot']
+    transformer_target_end = [kwargs['transformer_target_end']]
+    transformer_target_shot = [kwargs['transformer_target_shot']]
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。

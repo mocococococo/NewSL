@@ -21,8 +21,8 @@ def set_policy_context(
     score_diff: int,
     transformer_net: TransformerNetwork | None = None,
     use_transformer: bool = False,
-    transformer_target_end: int = 9,
-    transformer_target_shot: int = 15,
+    transformer_target_end: List[int] = [9],
+    transformer_target_shot: List[int] = [15],
 ) -> None:
     """CNN / Transformer の推論 context をまとめてセットする。"""
 
@@ -45,8 +45,8 @@ def _should_use_transformer(state: State) -> bool:
 
     return (
         _USE_TRANSFORMER
-        and state.end == _TRANSFORMER_TARGET_END
-        and state.shot_index == _TRANSFORMER_TARGET_SHOT
+        and state.end in _TRANSFORMER_TARGET_END
+        and state.shot_index in _TRANSFORMER_TARGET_SHOT
     )
 
 
