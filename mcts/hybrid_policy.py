@@ -1,7 +1,7 @@
 # hybrid_policy.py
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
@@ -12,8 +12,9 @@ from .state import State
 
 
 _USE_TRANSFORMER = False
-_TRANSFORMER_TARGET_END = 9
-_TRANSFORMER_TARGET_SHOT = 15
+_TRANSFORMER_TARGET_END = (9,)
+_TRANSFORMER_TARGET_SHOT = (15,)
+_LOGGED_END_SHOTS: Set[Tuple[int, int]] = set()
 
 
 def set_policy_context(
@@ -21,8 +22,8 @@ def set_policy_context(
     score_diff: int,
     transformer_net: TransformerNetwork | None = None,
     use_transformer: bool = False,
-    transformer_target_end: List[int] = [9],
-    transformer_target_shot: List[int] = [15],
+    transformer_target_end: Tuple[int, ...] = (9,),  # transformerのターゲットとするエンド（複数指定可）
+    transformer_target_shot: Tuple[int, ...] = (15,),  # transformerのターゲットとするショット（複数指定可）
 ) -> None:
     """CNN / Transformer の推論 context をまとめてセットする。"""
 
@@ -50,13 +51,33 @@ def _should_use_transformer(state: State) -> bool:
     )
 
 
+def reset_policy_selection_log() -> None:
+    """mcts_search ごとにネットワーク選択ログをリセットする。"""
+
+    _LOGGED_END_SHOTS.clear()
+
+
+def _log_selected_policy_once(state: State, selected_policy: str) -> None:
+    """同じ end / shot に対するログを 1 回だけ出す。"""
+
+    key = (state.end, state.shot_index)
+    if key in _LOGGED_END_SHOTS:
+        return
+
+    _LOGGED_END_SHOTS.add(key)
+    print(
+        f"[HYBRID] Using {selected_policy} "
+        f"(end={state.end}, shot={state.shot_index})"
+    )
+
+
 def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
     """局面に応じて CNN / Transformer の推論を切り替える。"""
 
     if _should_use_transformer(state):
-        print("Using Transformer policy and value")
+        _log_selected_policy_once(state, "Transformer")
         return transformer_policy.get_policy_and_value(state)
-    print("Using CNN policy and value")
+    _log_selected_policy_once(state, "CNN")
     return cnn_policy.get_policy_and_value(state)
 
 
@@ -64,7 +85,7 @@ def get_policy(state: State) -> List[float]:
     """局面に応じて CNN / Transformer の policy 推論を切り替える。"""
 
     if _should_use_transformer(state):
-        print("Using Transformer policy")
+        _log_selected_policy_once(state, "Transformer")
         return transformer_policy.get_policy(state)
-    print("Using CNN policy")
+    _log_selected_policy_once(state, "CNN")
     return cnn_policy.get_policy(state)

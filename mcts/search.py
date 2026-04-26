@@ -9,7 +9,7 @@ from transformer.network import TransformerNetwork
 from .node import Node, get_node, argmax_over_actions, clear_node_table, node_table_size, peek_node
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
-from .hybrid_policy import get_policy_and_value, set_policy_context
+from .hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
 from .rollout import rollout_to_end_score, score_to_winvalue, _end_score_diff_team0_minus_team1
 from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, \
     DEFAULT_TIME_LIMIT_SEC, DEFAULT_TIME_LIMIT_SEC_LIST, DEFAULT_MAX_DEPTH
@@ -79,8 +79,9 @@ def mcts_search(
     """
     # 最初にノードテーブルをクリア
     clear_node_table()
+    reset_policy_selection_log()
     
-    time_limit_sec = None #DEFAULT_TIME_LIMIT_SEC #\
+    time_limit_sec = DEFAULT_TIME_LIMIT_SEC
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
@@ -238,8 +239,8 @@ def set_root_state(
     transformer_network: Optional[TransformerNetwork] = None,
     debug: bool = False,
     use_transformer: bool = False,
-    transformer_target_end: List[int] = [9],  # transformerのターゲットとするエンド（複数指定可）
-    transformer_target_shot: List[int] = [15]  # transformerのターゲットとするショット（複数指定可）
+    transformer_target_end: Tuple[int, ...] = (9,),  # transformerのターゲットとするエンド（複数指定可）
+    transformer_target_shot: Tuple[int, ...] = (15,),  # transformerのターゲットとするショット（複数指定可）
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
