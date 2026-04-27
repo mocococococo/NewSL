@@ -12,6 +12,7 @@ from experiment_cnn_vs_transformer_9_15 import save_result_plot
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_TARGET_PATH = ROOT_DIR / "experiment" / "data"
+REQUIRED_POSITION_KEYS = ("cnn_mean_score", "transformer_mean_score")
 
 
 def load_scores_from_json(json_path: Path) -> tuple[np.ndarray, np.ndarray]:
@@ -48,18 +49,43 @@ def load_scores_from_json(json_path: Path) -> tuple[np.ndarray, np.ndarray]:
     return cnn_scores, transformer_scores
 
 
+def json_matches_schema(json_path: Path) -> bool:
+    """Return True when the json looks like a score experiment output."""
+
+    try:
+        with json_path.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    positions = data.get("positions")
+    if not isinstance(positions, list) or len(positions) == 0:
+        return False
+
+    first_row = positions[0]
+    if not isinstance(first_row, dict):
+        return False
+
+    return all(key in first_row for key in REQUIRED_POSITION_KEYS)
+
+
 def resolve_json_paths(target_path: Path) -> list[Path]:
-    """入力がディレクトリなら全 json、ファイルならその 1 件を返す。"""
+    """Resolve score experiment json files from a file or directory."""
 
     if target_path.is_file():
         if target_path.suffix.lower() != ".json":
             raise ValueError(f"{target_path} is not a json file")
+        if not json_matches_schema(target_path):
+            raise ValueError(f"{target_path} is not a score experiment json file")
         return [target_path]
 
     if target_path.is_dir():
-        json_paths = sorted(target_path.glob("*.json"))
+        json_paths = sorted(
+            json_path for json_path in target_path.glob("*.json")
+            if json_matches_schema(json_path)
+        )
         if len(json_paths) == 0:
-            raise ValueError(f"No json files found in {target_path}")
+            raise ValueError(f"No score experiment json files found in {target_path}")
         return json_paths
 
     raise FileNotFoundError(f"{target_path} does not exist")

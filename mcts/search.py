@@ -239,7 +239,7 @@ def set_root_state(
     transformer_network: Optional[TransformerNetwork] = None,
     debug: bool = False,
     use_transformer: bool = False,
-    transformer_target_end: Tuple[int, ...] = (9,),  # transformerのターゲットとするエンド（複数指定可）
+    transformer_target_end: Tuple[int, ...] = (9, 10),  # transformerのターゲットとするエンド（複数指定可）
     transformer_target_shot: Tuple[int, ...] = (15,),  # transformerのターゲットとするショット（複数指定可）
 ) -> State:
     """

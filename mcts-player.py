@@ -20,7 +20,7 @@ from mcts.search import set_root_state, mcts_search
 @click.option('--name', type=str, default="MCTS_NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
-@click.option('--transformer_target_end', type=int, multiple=True, default=(9,), help='transformer_target_end (default: 9). Can specify multiple values.')
+@click.option('--transformer_target_end', type=int, multiple=True, default=(9, 10), help='transformer_target_end (default: 9). Can specify multiple values.')
 @click.option('--transformer_target_shot', type=int, multiple=True, default=(15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
 
 def main(**kwargs):
