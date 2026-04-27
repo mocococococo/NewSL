@@ -409,7 +409,7 @@ if __name__ == "__main__":
         save_path=Path(__file__).resolve().parents[0] / "data",
         cnn_model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         transformer_model="transformer-sl16-model-140000data.bin",
-        data_size=10,
+        data_size=5000,
         target_end=9,
         target_shot=15,
         use_gpu=True,
