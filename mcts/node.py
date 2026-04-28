@@ -50,11 +50,13 @@ class Node:
     search.py が参照するフィールド/メソッドをそのまま用意する。
     """
 
-    def __init__(self, state: State):
+    def __init__(self, state: State, use_progressive_widening: bool = True):
         self.state = state
+        self.use_progressive_widening = use_progressive_widening
 
         self.N: int = 0
         self.actions: List[int] = ALL_ACTIONS
+        self.children: Dict[int, "Node"] = {}
 
         # 展開後に埋まる
         self.P: Optional[List[float]] = None   # len=2048
@@ -69,6 +71,8 @@ class Node:
         Progressive Widening:
         ノード訪問回数Nに応じて、actions（候補手）を方策順に増やす。
         """
+        if not self.use_progressive_widening:
+            return
         if self._policy_order is None:
             return
 
@@ -131,17 +135,56 @@ class Node:
         # Pの大きい順に action を並べる
         self._policy_order = sorted(range(N_ACTIONS), key=lambda a: self.P[a], reverse=True)
         
-        k0 = TOPK_INIT if TOPK_INIT < TOPK_MAX else TOPK_MAX
-        self.actions = self._policy_order[:k0]
+        if self.use_progressive_widening:
+            k0 = TOPK_INIT if TOPK_INIT < TOPK_MAX else TOPK_MAX
+            self.actions = self._policy_order[:k0]
+        else:
+            self.actions = list(self._policy_order)
 
 
-def get_node(state) -> Node:
+def get_node(state, use_progressive_widening: bool = True) -> Node:
     """
     同一局面（state.key()が同じ）なら同じNodeを返す。
     """
     k = state.key()
     n = _NODE_TABLE.get(k)
     if n is None:
-        n = Node(state)
+        n = Node(state, use_progressive_widening=use_progressive_widening)
         _NODE_TABLE[k] = n
+    elif n.use_progressive_widening != use_progressive_widening:
+        raise ValueError("Node for the same state was requested with conflicting Progressive Widening settings.")
     return n
+
+
+def get_child_node(
+    parent: Node,
+    action: int,
+    child_state: State,
+    use_transposition_table: bool = True,
+) -> Node:
+    child = parent.children.get(action)
+    if child is not None:
+        return child
+
+    if use_transposition_table:
+        child = get_node(child_state, use_progressive_widening=parent.use_progressive_widening)
+    else:
+        child = Node(child_state, use_progressive_widening=parent.use_progressive_widening)
+
+    parent.children[action] = child
+    return child
+
+
+def count_reachable_nodes(root: Node) -> int:
+    seen = set()
+    stack = [root]
+
+    while stack:
+        node = stack.pop()
+        node_id = id(node)
+        if node_id in seen:
+            continue
+        seen.add(node_id)
+        stack.extend(node.children.values())
+
+    return len(seen)

@@ -16,6 +16,8 @@ from mcts.search import set_root_state, mcts_search
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="MCTS_NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
+@click.option('--use_progressive_widening', type=bool, default=True, help='use Progressive Widening (default: True)')
+@click.option('--use_transposition_table', type=bool, default=True, help='use Transposition Table (default: True)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -43,6 +45,8 @@ def main(**kwargs):
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
     debug = kwargs['debug']
+    use_progressive_widening = kwargs['use_progressive_widening']
+    use_transposition_table = kwargs['use_transposition_table']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -130,7 +134,12 @@ def main(**kwargs):
                 hammer_team=hammer,
                 debug=debug
             )
-            vx, vy, spin = mcts_search(root_state, debug=debug)
+            vx, vy, spin = mcts_search(
+                root_state,
+                debug=debug,
+                use_progressive_widening=use_progressive_widening,
+                use_transposition_table=use_transposition_table,
+            )
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
 
             cli.move(x=vx, y=vy, rotation=spin)
