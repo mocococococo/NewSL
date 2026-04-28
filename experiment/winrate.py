@@ -35,6 +35,7 @@ N_VALUE_CLASSES = DEFAULT_TRANSFORMER_CONFIG.value_dim
 RESULT_WIN_IDX = 0
 RESULT_DRAW_IDX = 1
 RESULT_LOSE_IDX = 2
+ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER = ("<=-2", "-1", "0", "+1", ">=+2")
 
 
 def encode_action(vx: float, vy: float, spin: int) -> int:
@@ -148,6 +149,58 @@ def build_output_stem(
     )
 
 
+def score_diff_for_team_view(score_diff_for_team0: int, team: int) -> int:
+    return score_diff_for_team0 if team == 0 else -score_diff_for_team0
+
+
+def bucket_root_view_score_diff(score_diff: int) -> str:
+    if score_diff <= -2:
+        return "<=-2"
+    if score_diff == -1:
+        return "-1"
+    if score_diff == 0:
+        return "0"
+    if score_diff == 1:
+        return "+1"
+    return ">=+2"
+
+
+def build_bucket_trial_summary(counts: np.ndarray, num_positions: int, x_repeats: int) -> dict:
+    total_trials = int(num_positions * x_repeats)
+    win_count = int(counts[RESULT_WIN_IDX])
+    draw_count = int(counts[RESULT_DRAW_IDX])
+    lose_count = int(counts[RESULT_LOSE_IDX])
+
+    if total_trials == 0:
+        return {
+            "num_positions": int(num_positions),
+            "total_trials": 0,
+            "result_mean_over_all_trials": 0.0,
+            "win_count": 0,
+            "draw_count": 0,
+            "lose_count": 0,
+            "win_rate_over_all_trials": 0.0,
+            "draw_rate_over_all_trials": 0.0,
+            "lose_rate_over_all_trials": 0.0,
+        }
+
+    win_rate = win_count / total_trials
+    draw_rate = draw_count / total_trials
+    lose_rate = lose_count / total_trials
+
+    return {
+        "num_positions": int(num_positions),
+        "total_trials": total_trials,
+        "result_mean_over_all_trials": float(win_rate - lose_rate),
+        "win_count": win_count,
+        "draw_count": draw_count,
+        "lose_count": lose_count,
+        "win_rate_over_all_trials": float(win_rate),
+        "draw_rate_over_all_trials": float(draw_rate),
+        "lose_rate_over_all_trials": float(lose_rate),
+    }
+
+
 def main(
     log_path: str = "path/to/dcl2/records",
     save_path: str = "path/to/save/data",
@@ -177,6 +230,13 @@ def main(
     transformer_result_means_x = [0.0 for _ in range(data_size)]
     cnn_counts_x = np.zeros((data_size, 3), dtype=np.int32)
     transformer_counts_x = np.zeros((data_size, 3), dtype=np.int32)
+    bucket_position_counts = {label: 0 for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER}
+    bucket_cnn_counts = {
+        label: np.zeros(3, dtype=np.int32) for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER
+    }
+    bucket_transformer_counts = {
+        label: np.zeros(3, dtype=np.int32) for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER
+    }
 
     log_files = os.listdir(log_path)
     for one_log in random.sample(log_files, len(log_files)):
@@ -226,15 +286,22 @@ def main(
                 debug=False,
                 use_transformer=False,
             )
+            root_view_team = int(root.to_move())
+            root_view_score_diff_before_shot = score_diff_for_team_view(
+                scorediff_for_team0,
+                root_view_team,
+            )
+            root_view_score_diff_bucket = bucket_root_view_score_diff(
+                root_view_score_diff_before_shot
+            )
             vx, vy, spin = mcts_search(root_state=root)
             encoded_action = encode_action(vx, vy, spin)
             # X回実行して win / draw / lose の件数を集計する
             for i in range(X):
                 final_state = simulator_step(root, encoded_action)
                 raw_score = _end_score_diff_team0_minus_team1(final_state.stones)
-                score_from_root_view = raw_score if root.to_move() == 0 else -raw_score
-                total_score_from_root_view = scorediff_for_team0 if root.to_move() == 0 else -scorediff_for_team0
-                total_score_from_root_view += score_from_root_view
+                score_from_root_view = score_diff_for_team_view(raw_score, root_view_team)
+                total_score_from_root_view = root_view_score_diff_before_shot + score_from_root_view
                 
                 # 勝敗判定
                 if total_score_from_root_view > 0:
@@ -266,9 +333,8 @@ def main(
             for i in range(X):
                 final_state = simulator_step(root, encoded_action)
                 raw_score = _end_score_diff_team0_minus_team1(final_state.stones)
-                score_from_root_view = raw_score if root.to_move() == 0 else -raw_score
-                total_score_from_root_view = scorediff_for_team0 if root.to_move() == 0 else -scorediff_for_team0
-                total_score_from_root_view += score_from_root_view
+                score_from_root_view = score_diff_for_team_view(raw_score, root_view_team)
+                total_score_from_root_view = root_view_score_diff_before_shot + score_from_root_view
                 
                 # 勝敗判定
                 if total_score_from_root_view > 0:
@@ -281,7 +347,9 @@ def main(
             transformer_draw_rate_x = float(transformer_counts_x[score_index][RESULT_DRAW_IDX] / X)
             transformer_lose_rate_x = float(transformer_counts_x[score_index][RESULT_LOSE_IDX] / X)
             transformer_result_means_x[score_index] = transformer_win_rate_x - transformer_lose_rate_x
-            
+            bucket_position_counts[root_view_score_diff_bucket] += 1
+            bucket_cnn_counts[root_view_score_diff_bucket] += cnn_counts_x[score_index]
+            bucket_transformer_counts[root_view_score_diff_bucket] += transformer_counts_x[score_index]
 
             # 結果を保存するための行を追加
             result_rows.append(
@@ -291,7 +359,10 @@ def main(
                     "end": int(end),
                     "shot": int(shot),
                     "hammer": int(hammer),
+                    "root_view_team": root_view_team,
                     "score_diff_for_team0": int(scorediff_for_team0),
+                    "root_view_score_diff_before_shot": int(root_view_score_diff_before_shot),
+                    "root_view_score_diff_bucket": root_view_score_diff_bucket,
                     "cnn_result_mean_x": float(cnn_result_means_x[score_index]),
                     "cnn_win_count_x": int(cnn_counts_x[score_index][RESULT_WIN_IDX]),
                     "cnn_draw_count_x": int(cnn_counts_x[score_index][RESULT_DRAW_IDX]),
@@ -324,6 +395,20 @@ def main(
     cnn_rates_x_np = cnn_counts_np.astype(np.float32) / float(X)
     transformer_rates_x_np = transformer_counts_np.astype(np.float32) / float(X)
     total_trials_all_positions = position_count * X
+    root_view_score_diff_bucket_summary = {}
+    for bucket_label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER:
+        root_view_score_diff_bucket_summary[bucket_label] = {
+            "cnn": build_bucket_trial_summary(
+                bucket_cnn_counts[bucket_label],
+                bucket_position_counts[bucket_label],
+                X,
+            ),
+            "transformer": build_bucket_trial_summary(
+                bucket_transformer_counts[bucket_label],
+                bucket_position_counts[bucket_label],
+                X,
+            ),
+        }
 
     summary = {
         "num_positions": int(position_count),
@@ -357,6 +442,8 @@ def main(
         "transformer_better_by_result_mean_x_count": int(np.sum(diff_result_means_x_np > 0.0)),
         "cnn_better_by_result_mean_x_count": int(np.sum(diff_result_means_x_np < 0.0)),
         "tie_by_result_mean_x_count": int(np.sum(diff_result_means_x_np == 0.0)),
+        "root_view_score_diff_bucket_order": list(ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER),
+        "root_view_score_diff_bucket_summary": root_view_score_diff_bucket_summary,
     }
 
     output_stem = build_output_stem(target_end, target_shot, data_size, X)
@@ -401,6 +488,23 @@ def main(
     print(f"Transformer better by result_mean_x count : {summary['transformer_better_by_result_mean_x_count']}")
     print(f"CNN better by result_mean_x count         : {summary['cnn_better_by_result_mean_x_count']}")
     print(f"Tie by result_mean_x count                : {summary['tie_by_result_mean_x_count']}")
+    print("")
+    print("root_view_score_diff_before_shot bucket summary (all trials in each bucket)")
+    for bucket_label in summary["root_view_score_diff_bucket_order"]:
+        bucket_summary = summary["root_view_score_diff_bucket_summary"][bucket_label]
+        cnn_bucket = bucket_summary["cnn"]
+        transformer_bucket = bucket_summary["transformer"]
+        print(
+            f"bucket {bucket_label:>4} positions={cnn_bucket['num_positions']:4d} trials={cnn_bucket['total_trials']:5d} "
+            f"| CNN result_mean={cnn_bucket['result_mean_over_all_trials']:.4f} "
+            f"win/draw/lose={cnn_bucket['win_rate_over_all_trials']:.4f},"
+            f"{cnn_bucket['draw_rate_over_all_trials']:.4f},"
+            f"{cnn_bucket['lose_rate_over_all_trials']:.4f} "
+            f"| T result_mean={transformer_bucket['result_mean_over_all_trials']:.4f} "
+            f"win/draw/lose={transformer_bucket['win_rate_over_all_trials']:.4f},"
+            f"{transformer_bucket['draw_rate_over_all_trials']:.4f},"
+            f"{transformer_bucket['lose_rate_over_all_trials']:.4f}"
+        )
 
 
 if __name__ == "__main__":
@@ -409,7 +513,7 @@ if __name__ == "__main__":
         save_path=Path(__file__).resolve().parents[0] / "data",
         cnn_model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         transformer_model="transformer-sl16-model-140000data.bin",
-        data_size=5000,
+        data_size=10,
         target_end=9,
         target_shot=15,
         use_gpu=True,

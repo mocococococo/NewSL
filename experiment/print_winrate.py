@@ -11,6 +11,10 @@ import numpy as np
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_TARGET_PATH = ROOT_DIR / "experiment" / "data"
 REQUIRED_POSITION_KEYS = ("cnn_result_mean_x", "transformer_result_mean_x")
+RESULT_WIN_IDX = 0
+RESULT_DRAW_IDX = 1
+RESULT_LOSE_IDX = 2
+ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER = ("<=-2", "-1", "0", "+1", ">=+2")
 
 
 def save_result_plot(
@@ -68,7 +72,184 @@ def save_result_plot(
     plt.close(figure)
 
 
-def load_result_means_from_json(json_path: Path) -> tuple[np.ndarray, np.ndarray, dict]:
+def score_diff_for_team_view(score_diff_for_team0: int, team: int) -> int:
+    return score_diff_for_team0 if team == 0 else -score_diff_for_team0
+
+
+def to_move_team(shot_index: int, hammer_team: int) -> int:
+    return hammer_team if (shot_index % 2 == 1) else 1 - hammer_team
+
+
+def bucket_root_view_score_diff(score_diff: int) -> str:
+    if score_diff <= -2:
+        return "<=-2"
+    if score_diff == -1:
+        return "-1"
+    if score_diff == 0:
+        return "0"
+    if score_diff == 1:
+        return "+1"
+    return ">=+2"
+
+
+def summarize_bucket_counts(counts: np.ndarray, num_positions: int) -> dict:
+    total_trials = int(np.sum(counts))
+    win_count = int(counts[RESULT_WIN_IDX])
+    draw_count = int(counts[RESULT_DRAW_IDX])
+    lose_count = int(counts[RESULT_LOSE_IDX])
+
+    if total_trials == 0:
+        return {
+            "num_positions": int(num_positions),
+            "total_trials": 0,
+            "result_mean_over_all_trials": 0.0,
+            "win_count": 0,
+            "draw_count": 0,
+            "lose_count": 0,
+            "win_rate_over_all_trials": 0.0,
+            "draw_rate_over_all_trials": 0.0,
+            "lose_rate_over_all_trials": 0.0,
+        }
+
+    win_rate = win_count / total_trials
+    draw_rate = draw_count / total_trials
+    lose_rate = lose_count / total_trials
+
+    return {
+        "num_positions": int(num_positions),
+        "total_trials": total_trials,
+        "result_mean_over_all_trials": float(win_rate - lose_rate),
+        "win_count": win_count,
+        "draw_count": draw_count,
+        "lose_count": lose_count,
+        "win_rate_over_all_trials": float(win_rate),
+        "draw_rate_over_all_trials": float(draw_rate),
+        "lose_rate_over_all_trials": float(lose_rate),
+    }
+
+
+def infer_root_view_team(row: dict) -> int:
+    if "root_view_team" in row:
+        return int(row["root_view_team"])
+
+    shot_index = int(row["shot"])
+    hammer_team = int(row["hammer"])
+    return to_move_team(shot_index, hammer_team)
+
+
+def extract_model_counts(row: dict, model_prefix: str, execution_repeats_x: int | None) -> np.ndarray:
+    count_keys = (
+        f"{model_prefix}_win_count_x",
+        f"{model_prefix}_draw_count_x",
+        f"{model_prefix}_lose_count_x",
+    )
+    if all(key in row for key in count_keys):
+        return np.asarray([int(row[key]) for key in count_keys], dtype=np.int64)
+
+    if execution_repeats_x is None:
+        raise ValueError(
+            f"Row does not contain {model_prefix} count fields and execution_repeats_x is unavailable"
+        )
+
+    rate_keys = (
+        f"{model_prefix}_win_rate_x",
+        f"{model_prefix}_draw_rate_x",
+        f"{model_prefix}_lose_rate_x",
+    )
+    if not all(key in row for key in rate_keys):
+        raise ValueError(
+            f"Row does not contain {model_prefix} count fields or rate fields required for fallback"
+        )
+
+    counts = np.asarray(
+        [int(round(float(row[key]) * execution_repeats_x)) for key in rate_keys],
+        dtype=np.int64,
+    )
+    delta = int(execution_repeats_x - int(np.sum(counts)))
+    counts[RESULT_DRAW_IDX] += delta
+    return counts
+
+
+def rebuild_bucket_summary_from_positions(
+    positions: list[dict],
+    execution_repeats_x: int | None,
+) -> dict[str, dict[str, dict]]:
+    bucket_position_counts = {label: 0 for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER}
+    bucket_counts = {
+        "cnn": {
+            label: np.zeros(3, dtype=np.int64) for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER
+        },
+        "transformer": {
+            label: np.zeros(3, dtype=np.int64) for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER
+        },
+    }
+
+    for row in positions:
+        root_view_team = infer_root_view_team(row)
+        if "root_view_score_diff_before_shot" in row:
+            root_view_score_diff_before_shot = int(row["root_view_score_diff_before_shot"])
+        else:
+            root_view_score_diff_before_shot = score_diff_for_team_view(
+                int(row["score_diff_for_team0"]),
+                root_view_team,
+            )
+
+        bucket_label = row.get("root_view_score_diff_bucket")
+        if bucket_label is None:
+            bucket_label = bucket_root_view_score_diff(root_view_score_diff_before_shot)
+        if bucket_label not in bucket_position_counts:
+            continue
+
+        bucket_position_counts[bucket_label] += 1
+        bucket_counts["cnn"][bucket_label] += extract_model_counts(
+            row,
+            "cnn",
+            execution_repeats_x,
+        )
+        bucket_counts["transformer"][bucket_label] += extract_model_counts(
+            row,
+            "transformer",
+            execution_repeats_x,
+        )
+
+    bucket_summary = {}
+    for bucket_label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER:
+        bucket_summary[bucket_label] = {
+            "cnn": summarize_bucket_counts(
+                bucket_counts["cnn"][bucket_label],
+                bucket_position_counts[bucket_label],
+            ),
+            "transformer": summarize_bucket_counts(
+                bucket_counts["transformer"][bucket_label],
+                bucket_position_counts[bucket_label],
+            ),
+        }
+    return bucket_summary
+
+
+def resolve_bucket_summary(
+    summary: dict,
+    positions: list[dict],
+) -> tuple[list[str], dict[str, dict[str, dict]]] | None:
+    bucket_summary = summary.get("root_view_score_diff_bucket_summary")
+    if isinstance(bucket_summary, dict):
+        bucket_order = summary.get("root_view_score_diff_bucket_order", list(ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER))
+        bucket_order = [str(label) for label in bucket_order]
+        return bucket_order, bucket_summary
+
+    execution_repeats_x = summary.get("execution_repeats_x")
+    if execution_repeats_x is not None:
+        execution_repeats_x = int(execution_repeats_x)
+
+    try:
+        rebuilt_summary = rebuild_bucket_summary_from_positions(positions, execution_repeats_x)
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    return list(ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER), rebuilt_summary
+
+
+def load_result_means_from_json(json_path: Path) -> tuple[np.ndarray, np.ndarray, dict, list[dict]]:
     """Load result_mean_x arrays and summary from a json file."""
 
     with json_path.open("r", encoding="utf-8") as file:
@@ -103,7 +284,7 @@ def load_result_means_from_json(json_path: Path) -> tuple[np.ndarray, np.ndarray
     if not isinstance(summary, dict):
         summary = {}
 
-    return cnn_result_means_x, transformer_result_means_x, summary
+    return cnn_result_means_x, transformer_result_means_x, summary, positions
 
 
 def json_matches_schema(json_path: Path) -> bool:
@@ -148,20 +329,20 @@ def resolve_json_paths(target_path: Path) -> list[Path]:
     raise FileNotFoundError(f"{target_path} does not exist")
 
 
-def render_png_from_json(json_path: Path) -> tuple[Path, dict]:
+def render_png_from_json(json_path: Path) -> tuple[Path, dict, list[dict]]:
     """Render a png file from one experiment json file."""
 
-    cnn_result_means_x, transformer_result_means_x, summary = load_result_means_from_json(json_path)
+    cnn_result_means_x, transformer_result_means_x, summary, positions = load_result_means_from_json(json_path)
     png_path = json_path.with_suffix(".png")
     save_result_plot(png_path, cnn_result_means_x, transformer_result_means_x)
-    return png_path, summary
+    return png_path, summary, positions
 
 
-def print_summary(summary: dict) -> None:
+def print_summary(summary: dict, positions: list[dict]) -> None:
     """Print a concise summary when the expected keys exist."""
 
-    if not summary:
-        return
+    if not isinstance(summary, dict):
+        summary = {}
 
     keys = [
         "num_positions",
@@ -179,35 +360,58 @@ def print_summary(summary: dict) -> None:
         "cnn_better_by_result_mean_x_count",
         "tie_by_result_mean_x_count",
     ]
-    if not all(key in summary for key in keys):
+    if all(key in summary for key in keys):
+        print(f"  num_positions: {summary['num_positions']}")
+        print(f"  execution_repeats_x: {summary['execution_repeats_x']}")
+        print(f"  log_size result_mean_x CNN: {summary['log_size_result_mean_x_cnn']:.6f}")
+        print(f"  log_size result_mean_x Transformer: {summary['log_size_result_mean_x_transformer']:.6f}")
+        print(
+            "  log_size diff result_mean_x (T - CNN): "
+            f"{summary['log_size_diff_result_mean_x_transformer_minus_cnn']:.6f}"
+        )
+        print(
+            "  log_size win/draw/lose CNN: "
+            f"{summary['log_size_win_rate_x_cnn']:.6f}, "
+            f"{summary['log_size_draw_rate_x_cnn']:.6f}, "
+            f"{summary['log_size_lose_rate_x_cnn']:.6f}"
+        )
+        print(
+            "  log_size win/draw/lose Transformer: "
+            f"{summary['log_size_win_rate_x_transformer']:.6f}, "
+            f"{summary['log_size_draw_rate_x_transformer']:.6f}, "
+            f"{summary['log_size_lose_rate_x_transformer']:.6f}"
+        )
+        print(
+            "  better/tie by result_mean_x (T, CNN, tie): "
+            f"{summary['transformer_better_by_result_mean_x_count']}, "
+            f"{summary['cnn_better_by_result_mean_x_count']}, "
+            f"{summary['tie_by_result_mean_x_count']}"
+        )
+
+    bucket_summary_data = resolve_bucket_summary(summary, positions)
+    if bucket_summary_data is None:
         return
 
-    print(f"  num_positions: {summary['num_positions']}")
-    print(f"  execution_repeats_x: {summary['execution_repeats_x']}")
-    print(f"  log_size result_mean_x CNN: {summary['log_size_result_mean_x_cnn']:.6f}")
-    print(f"  log_size result_mean_x Transformer: {summary['log_size_result_mean_x_transformer']:.6f}")
-    print(
-        "  log_size diff result_mean_x (T - CNN): "
-        f"{summary['log_size_diff_result_mean_x_transformer_minus_cnn']:.6f}"
-    )
-    print(
-        "  log_size win/draw/lose CNN: "
-        f"{summary['log_size_win_rate_x_cnn']:.6f}, "
-        f"{summary['log_size_draw_rate_x_cnn']:.6f}, "
-        f"{summary['log_size_lose_rate_x_cnn']:.6f}"
-    )
-    print(
-        "  log_size win/draw/lose Transformer: "
-        f"{summary['log_size_win_rate_x_transformer']:.6f}, "
-        f"{summary['log_size_draw_rate_x_transformer']:.6f}, "
-        f"{summary['log_size_lose_rate_x_transformer']:.6f}"
-    )
-    print(
-        "  better/tie by result_mean_x (T, CNN, tie): "
-        f"{summary['transformer_better_by_result_mean_x_count']}, "
-        f"{summary['cnn_better_by_result_mean_x_count']}, "
-        f"{summary['tie_by_result_mean_x_count']}"
-    )
+    bucket_order, bucket_summary = bucket_summary_data
+    print("  root_view_score_diff_before_shot bucket summary:")
+    for bucket_label in bucket_order:
+        bucket_value = bucket_summary.get(bucket_label)
+        if not isinstance(bucket_value, dict):
+            continue
+        cnn_bucket = bucket_value.get("cnn", {})
+        transformer_bucket = bucket_value.get("transformer", {})
+        print(
+            f"    bucket {bucket_label:>4} positions={int(cnn_bucket.get('num_positions', 0)):4d} "
+            f"trials={int(cnn_bucket.get('total_trials', 0)):5d} "
+            f"| CNN result_mean={float(cnn_bucket.get('result_mean_over_all_trials', 0.0)):.4f} "
+            f"win/draw/lose={float(cnn_bucket.get('win_rate_over_all_trials', 0.0)):.4f},"
+            f"{float(cnn_bucket.get('draw_rate_over_all_trials', 0.0)):.4f},"
+            f"{float(cnn_bucket.get('lose_rate_over_all_trials', 0.0)):.4f} "
+            f"| T result_mean={float(transformer_bucket.get('result_mean_over_all_trials', 0.0)):.4f} "
+            f"win/draw/lose={float(transformer_bucket.get('win_rate_over_all_trials', 0.0)):.4f},"
+            f"{float(transformer_bucket.get('draw_rate_over_all_trials', 0.0)):.4f},"
+            f"{float(transformer_bucket.get('lose_rate_over_all_trials', 0.0)):.4f}"
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -229,9 +433,9 @@ def main() -> None:
 
     json_paths = resolve_json_paths(target_path)
     for json_path in json_paths:
-        png_path, summary = render_png_from_json(json_path)
+        png_path, summary, positions = render_png_from_json(json_path)
         print(f"saved: {png_path}")
-        print_summary(summary)
+        print_summary(summary, positions)
 
 
 if __name__ == "__main__":
