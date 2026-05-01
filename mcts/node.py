@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Iterable, Any
 
 from board.constant import VX_SIZE, VY_SIZE
 from .state import State
-from .policy import get_policy
+from .hybrid_policy import get_policy
 from .params import TOPK_INIT, TOPK_MAX, PW_C, PW_ALPHA
 
 # 行動空間： (vx, vy, spin) の全組合せを 0..2047 に潰す

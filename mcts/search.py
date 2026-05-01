@@ -1,21 +1,25 @@
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Union
 
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
 from nn.network.dual_net import DualNet
+from transformer.network import TransformerNetwork
 from .node import Node, get_node, argmax_over_actions, clear_node_table, node_table_size, peek_node
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
-from .policy import get_policy_and_value, set_policy_context
-from .rollout import rollout_to_end_score, score_to_winvalue
+from .hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
+from .rollout import rollout_to_end_score, score_to_winvalue, _end_score_diff_team0_minus_team1
 from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, \
     DEFAULT_TIME_LIMIT_SEC, DEFAULT_TIME_LIMIT_SEC_LIST, DEFAULT_MAX_DEPTH
 
 from .debugger import Debugger, summarize_stones, policy_stats, format_topk_policy, format_topk_root_visits
 
 VALUE_CLASS_OFFSET = 8
+
+SearchAction = Tuple[float, float, int]
+SearchDataResult = Tuple[SearchAction, List[int], List[int]]
 
 def _emit_lines(lines: List[str], log_path: Optional[str]) -> None:
     if not log_path:
@@ -48,6 +52,14 @@ def _value_probs_to_winvalue(state: State, value_probs: List[float]) -> float:
     return expected_v
 
 
+def _terminal_score_class_from_root_view(root_state: State, terminal_state: State) -> int:
+    raw_score = _end_score_diff_team0_minus_team1(terminal_state.stones)
+    root_team = root_state.to_move()
+    score = raw_score if root_team == 0 else -raw_score
+    score = max(-VALUE_CLASS_OFFSET, min(VALUE_CLASS_OFFSET, score))
+    return score + VALUE_CLASS_OFFSET
+
+
 def mcts_search(
     root_state: State,
     max_simulations: int = DEFAULT_MAX_SIMULATIONS,
@@ -57,7 +69,8 @@ def mcts_search(
     debug_every: int = 10,            # 追加（10回に1回出力）
     debug_topk: int = 5,              # 追加（上位k手を表示）    
     stats_log_path: Optional[str] = None,
-) -> Tuple[float, float, int]:
+    is_create_data: bool = False
+) -> Union[SearchAction, SearchDataResult]:
     """
     PUCTで探索して最善手(action_id: 0..2047)を返す。
     - max_simulations: シミュレーション回数上限
@@ -66,10 +79,14 @@ def mcts_search(
     """
     # 最初にノードテーブルをクリア
     clear_node_table()
+    reset_policy_selection_log()
     
-    time_limit_sec = DEFAULT_TIME_LIMIT_SEC #\
+    time_limit_sec = DEFAULT_TIME_LIMIT_SEC
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
+    if is_create_data:
+        value_list = [0 for _ in range(17)]
+        time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
 
     dbg = Debugger(debug, every=debug_every)
     dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} shot_team={root_state.to_move()}, score_diff={root_state.score_diff}")
@@ -141,6 +158,10 @@ def mcts_search(
             v = -float(v_to_move)  # rolloutは相手視点でやる（v_to_moveはstateの手番視点なので符号反転）
         dbg.toc("rollout")
 
+        if is_create_data and is_end_terminal(state):
+            score_class = _terminal_score_class_from_root_view(root_state, state)
+            value_list[score_class] += 1
+
         # 4) Backprop (手番反転のため符号反転)
         dbg.tic("backprop")
         for (n, a) in reversed(path):
@@ -196,11 +217,15 @@ def mcts_search(
         f"root_children visited={visited_children} expanded={expanded_children} candidates={len(root.actions)}",
         "-----------------------------------------------------",
     ]
-    _emit_lines(lines, stats_log_path)
+    if is_create_data:
+        _emit_lines(lines, stats_log_path)
     print("-----------------------------------------------------")
     print(f"PUCT search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
     print(f"PUCT root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
     print("-----------------------------------------------------")
+
+    if is_create_data:
+        return best_action, root.Nsa.copy(), value_list
     
     return best_action
 
@@ -211,7 +236,11 @@ def set_root_state(
     end: int,
     shot_index: int,
     hammer_team: int,
-    debug: bool = False
+    transformer_network: Optional[TransformerNetwork] = None,
+    debug: bool = False,
+    use_transformer: bool = False,
+    transformer_target_end: Tuple[int, ...] = (9, 10),  # transformerのターゲットとするエンド（複数指定可）
+    transformer_target_shot: Tuple[int, ...] = (15,),  # transformerのターゲットとするショット（複数指定可）
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
@@ -233,7 +262,14 @@ def set_root_state(
         
 
     # policy側のグローバルに network と scores_dict をセット
-    set_policy_context(network, score_diff)
+    set_policy_context(
+        network,
+        score_diff,
+        transformer_net=transformer_network,
+        use_transformer=use_transformer,
+        transformer_target_end=transformer_target_end,
+        transformer_target_shot=transformer_target_shot,
+    )
 
     return State.initial(
         stones=stones16,
