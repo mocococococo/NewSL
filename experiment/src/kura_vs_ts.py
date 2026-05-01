@@ -78,6 +78,9 @@ from mcts.state import State
 from nn.utility import get_torch_device
 from transformer.utility import load_transformer_network
 
+# PNG 描画とコンソール表示は、保存済み JSON から再生成するスクリプトと共有する。
+from kura_vs_ts_report import print_kura_vs_ts_summary, save_result_plot
+
 
 RESULT_WIN_IDX = 0
 RESULT_DRAW_IDX = 1
@@ -137,7 +140,7 @@ def _shot_team_to_name(shot_team: int) -> str:
         return "team0"
     if shot_team == 1:
         return "team1"
-    raise ValueError(f"shot_team must be 0 or 1, got {shot_team}")
+    raise ValueError(f"shot_team は 0 または 1 である必要があります: {shot_team}")
 
 
 def _prepare_stones_for_kura(
@@ -304,7 +307,7 @@ class KuraShot15Searcher:
         shot_team: int,
     ) -> KuraSearchResult:
         if shot != 15:
-            raise ValueError("KuraShot15Searcher only implements Kura shot == 15 search.")
+            raise ValueError("KuraShot15Searcher は shot == 15 の探索だけに対応しています。")
 
         stones_list, my_team = _prepare_stones_for_kura(stones, shot, shot_team)
         probs = self._policy_probs(stones_list, end, shot, my_team)
@@ -335,7 +338,7 @@ class KuraShot15Searcher:
                 best_move = (vx, vy, rotation, spin)
 
         if best_action_index is None or best_mean is None or best_move is None:
-            raise RuntimeError("Kura search produced no candidate action.")
+            raise RuntimeError("Kura の探索で候補手が生成されませんでした。")
 
         vx, vy, rotation, spin = best_move
         return KuraSearchResult(
@@ -348,63 +351,12 @@ class KuraShot15Searcher:
         )
 
 
-def save_result_plot(
-    save_file_path: Path,
-    kura_result_means_x: np.ndarray,
-    transformer_result_means_x: np.ndarray,
-) -> None:
-    import matplotlib.pyplot as plt
-
-    indices = np.arange(len(kura_result_means_x))
-    diff_scores = transformer_result_means_x - kura_result_means_x
-    if len(indices) == 0:
-        raise ValueError("kura_result_means_x and transformer_result_means_x must not be empty")
-    x_max = len(indices) - 1
-
-    figure, (ax_score, ax_diff) = plt.subplots(2, 1, figsize=(12, 8))
-
-    x_tick_step = max(1, int(np.ceil((x_max + 1) / 20)))
-    x_ticks = np.arange(0, x_max + 1, x_tick_step)
-    if x_ticks[-1] != x_max:
-        x_ticks = np.append(x_ticks, x_max)
-
-    ax_score.plot(indices, kura_result_means_x, label="Kura", linewidth=1.0, alpha=0.5)
-    ax_score.plot(indices, transformer_result_means_x, label="Transformer", linewidth=1.0, alpha=0.5)
-    ax_score.set_ylabel("Result Mean Over X Runs")
-    ax_score.set_title("Kura vs Transformer")
-    ax_score.set_ylim(-1, 1)
-    ax_score.grid(True, alpha=0.3)
-    ax_score.legend()
-    if x_max == 0:
-        ax_score.set_xlim(-0.5, 0.5)
-        ax_score.set_xticks([0])
-    else:
-        ax_score.set_xlim(0, x_max)
-        ax_score.set_xticks(x_ticks)
-    ax_score.set_xlabel("Position Index")
-
-    ax_diff.plot(indices, diff_scores, color="tab:green", linewidth=1.0, alpha=0.6)
-    ax_diff.axhline(0.0, color="black", linewidth=1.0, alpha=0.6)
-    ax_diff.set_xlabel("Position Index")
-    ax_diff.set_ylabel("Result Mean Diff")
-    ax_diff.set_title("Transformer - Kura")
-    ax_diff.grid(True, alpha=0.3)
-    if x_max == 0:
-        ax_diff.set_xlim(-0.5, 0.5)
-        ax_diff.set_xticks([0])
-    else:
-        ax_diff.set_xlim(0, x_max)
-        ax_diff.set_xticks(x_ticks)
-
-    figure.tight_layout()
-    figure.savefig(save_file_path, dpi=150)
-    plt.close(figure)
-
-
 def save_position_json(
     save_file_path: Path,
     position_result: dict,
 ) -> None:
+    """1局面分の Kura / NewSL の結果を、1つの JSON ファイルとして保存する。"""
+
     save_file_path.parent.mkdir(parents=True, exist_ok=True)
     save_file_path.write_text(
         json.dumps(
@@ -422,6 +374,8 @@ def build_output_stem(
     data_size: int,
     x_repeats: int,
 ) -> str:
+    """end/shot/data_size/X から、PNG名とJSONディレクトリ名の共通stemを作る。"""
+
     return (
         f"kura_vs_transformer_end{target_end}_shot{target_shot}"
         f"_winrate_datasize{data_size}_x{x_repeats}"
@@ -429,6 +383,8 @@ def build_output_stem(
 
 
 def release_position_memory(use_gpu: bool) -> None:
+    """1局面の処理後に、不要な Python / CUDA メモリを解放する。"""
+
     gc.collect()
     if use_gpu and torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -451,6 +407,8 @@ def bucket_root_view_score_diff(score_diff: int) -> str:
 
 
 def build_bucket_trial_summary(counts: np.ndarray, num_positions: int, x_repeats: int) -> dict:
+    """score_diff bucket 内の全試行結果を、表示用の summary 形式にまとめる。"""
+
     total_trials = int(num_positions * x_repeats)
     win_count = int(counts[RESULT_WIN_IDX])
     draw_count = int(counts[RESULT_DRAW_IDX])
@@ -495,6 +453,8 @@ def evaluate_continuous_action(
     root_view_team: int,
     root_view_score_diff_before_shot: int,
 ) -> tuple[np.ndarray, float, float, float, float]:
+    """1つの連続ショットを X 回評価し、勝ち/引き分け/負けの統計を返す。"""
+
     counts = np.zeros(3, dtype=np.int32)
     for _ in range(x_repeats):
         final_state = simulator_step_continuous(root_state, vx, vy, spin)
@@ -527,18 +487,22 @@ def main(
     use_gpu: bool = False,
     X: int = 100,
 ) -> None:
+    """Kura と NewSL のショットを比較し、局面別 JSON と集計 PNG を保存する。"""
+
     if target_shot != 15:
-        raise ValueError("This Kura comparison implements only target_shot=15.")
+        raise ValueError("この Kura 比較実験は target_shot=15 のみに対応しています。")
 
     position_count = 0
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=True)
+
+    # PNG は experiment/data 直下、局面別 JSON は stem 名のディレクトリ配下に保存する。
     output_stem = build_output_stem(target_end, target_shot, data_size, X)
     json_dir = save_dir / output_stem
     if json_dir.exists() and any(json_dir.glob("*.json")):
         print(
-            "Existing per-position json files may be overwritten; "
-            f"stale files are not removed: {json_dir}"
+            "既存の局面別 JSON が上書きされる可能性があります。"
+            f"古いファイルは自動削除しません: {json_dir}"
         )
     json_dir.mkdir(parents=True, exist_ok=True)
     png_path = save_dir / f"{output_stem}.png"
@@ -557,6 +521,7 @@ def main(
         rel_keep=KURA_REL_KEEP,
     )
 
+    # 各 JSON に共通で入れる実験条件。局面ごとの値とは分けて保存する。
     experiment_metadata = {
         "target_end": int(target_end),
         "target_shot": int(target_shot),
@@ -585,6 +550,7 @@ def main(
         label: np.zeros(3, dtype=np.int64) for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER
     }
 
+    # ログをランダム順に走査し、指定 end/shot に一致する局面を data_size 件まで集める。
     log_files = os.listdir(log_path)
     for one_log in random.sample(log_files, len(log_files)):
         if not os.path.isdir(os.path.join(log_path, one_log)):
@@ -621,6 +587,7 @@ def main(
             except KeyError:
                 continue
 
+            # ここから1局面分の探索と評価を行う。
             score_index = position_count
             root_state = State.initial(
                 stones=stones_listdict_to_xy16(stones),
@@ -660,6 +627,7 @@ def main(
                 root_view_score_diff_before_shot=root_view_score_diff_before_shot,
             )
 
+            # NewSL 側は transformer network を使って MCTS の根を作り、1手を選ぶ。
             transformer_root = set_root_state(
                 network=None,
                 stones=stones,
@@ -693,6 +661,7 @@ def main(
                 root_view_score_diff_before_shot=root_view_score_diff_before_shot,
             )
 
+            # PNG と summary に必要な軽量な値だけを保持する。
             kura_result_means_x.append(float(kura_result_mean))
             transformer_result_means_x.append(float(transformer_result_mean))
             kura_total_counts += kura_counts
@@ -712,6 +681,7 @@ def main(
                 tie_by_result_mean_x_count += 1
                 better_by_result_mean_x = "tie"
 
+            # メモリを圧迫しないよう、1局面の詳細は即座に JSON へ保存する。
             position_result = {
                 "experiment": experiment_metadata,
                 "position": {
@@ -765,6 +735,7 @@ def main(
             save_position_json(position_json_path, position_result)
             position_count += 1
 
+            # 次の局面へ進む前に、大きい一時オブジェクトを明示的に解放する。
             del (
                 position_result,
                 position_json_path,
@@ -785,9 +756,10 @@ def main(
 
     if position_count == 0:
         raise RuntimeError(
-            f"No positions found for end={target_end}, shot={target_shot} in {log_path}"
+            f"{log_path} に end={target_end}, shot={target_shot} の局面が見つかりませんでした。"
         )
 
+    # 最後に、逐次集計してきた値から kura_vs_ts_report.py 用の summary を作る。
     kura_result_means_x_np = np.array(kura_result_means_x, dtype=np.float32)
     transformer_result_means_x_np = np.array(transformer_result_means_x, dtype=np.float32)
     diff_result_means_x_np = transformer_result_means_x_np - kura_result_means_x_np
@@ -880,60 +852,9 @@ def main(
         "root_view_score_diff_bucket_summary": root_view_score_diff_bucket_summary,
     }
 
+    # 描画とコンソール表示は、再描画スクリプトと共通の関数を使う。
     save_result_plot(png_path, kura_result_means_x_np, transformer_result_means_x_np)
-
-    print("")
-    print(f"Saved position json files to {json_dir}")
-    print(f"Saved plot to {png_path}")
-    print(f"num_positions                : {summary['num_positions']}")
-    print(f"execution_repeats_x         : {summary['execution_repeats_x']}")
-    print(f"log_size result_mean_x Kura : {summary['log_size_result_mean_x_kura']:.6f}")
-    print(f"log_size result_mean_x T    : {summary['log_size_result_mean_x_transformer']:.6f}")
-    print(f"log_size diff (T - Kura)    : {summary['log_size_diff_result_mean_x_transformer_minus_kura']:.6f}")
-    print(
-        "log_size win/draw/lose Kura: "
-        f"{summary['log_size_win_rate_x_kura']:.6f}, "
-        f"{summary['log_size_draw_rate_x_kura']:.6f}, "
-        f"{summary['log_size_lose_rate_x_kura']:.6f}"
-    )
-    print(
-        "log_size win/draw/lose T   : "
-        f"{summary['log_size_win_rate_x_transformer']:.6f}, "
-        f"{summary['log_size_draw_rate_x_transformer']:.6f}, "
-        f"{summary['log_size_lose_rate_x_transformer']:.6f}"
-    )
-    print(
-        "all_trials win/draw/lose Kura: "
-        f"{summary['all_trials_win_count_kura']}, "
-        f"{summary['all_trials_draw_count_kura']}, "
-        f"{summary['all_trials_lose_count_kura']}"
-    )
-    print(
-        "all_trials win/draw/lose T   : "
-        f"{summary['all_trials_win_count_transformer']}, "
-        f"{summary['all_trials_draw_count_transformer']}, "
-        f"{summary['all_trials_lose_count_transformer']}"
-    )
-    print(f"Transformer better by result_mean_x count : {summary['transformer_better_by_result_mean_x_count']}")
-    print(f"Kura better by result_mean_x count        : {summary['kura_better_by_result_mean_x_count']}")
-    print(f"Tie by result_mean_x count                : {summary['tie_by_result_mean_x_count']}")
-    print("")
-    print("root_view_score_diff_before_shot bucket summary (all trials in each bucket)")
-    for bucket_label in summary["root_view_score_diff_bucket_order"]:
-        bucket_summary = summary["root_view_score_diff_bucket_summary"][bucket_label]
-        kura_bucket = bucket_summary["kura"]
-        transformer_bucket = bucket_summary["transformer"]
-        print(
-            f"bucket {bucket_label:>4} positions={kura_bucket['num_positions']:4d} trials={kura_bucket['total_trials']:5d} "
-            f"| Kura result_mean={kura_bucket['result_mean_over_all_trials']:.4f} "
-            f"win/draw/lose={kura_bucket['win_rate_over_all_trials']:.4f},"
-            f"{kura_bucket['draw_rate_over_all_trials']:.4f},"
-            f"{kura_bucket['lose_rate_over_all_trials']:.4f} "
-            f"| T result_mean={transformer_bucket['result_mean_over_all_trials']:.4f} "
-            f"win/draw/lose={transformer_bucket['win_rate_over_all_trials']:.4f},"
-            f"{transformer_bucket['draw_rate_over_all_trials']:.4f},"
-            f"{transformer_bucket['lose_rate_over_all_trials']:.4f}"
-        )
+    print_kura_vs_ts_summary(json_dir, png_path, summary)
 
 
 if __name__ == "__main__":
@@ -942,7 +863,7 @@ if __name__ == "__main__":
         save_path=Path(__file__).resolve().parents[1] / "data",
         transformer_model="transformer-sl16-model-140000data.bin",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
-        data_size=10000,
+        data_size=5,
         target_end=9,
         target_shot=15,
         use_gpu=False,
