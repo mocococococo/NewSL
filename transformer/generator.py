@@ -137,7 +137,7 @@ def generate_data(
     log_path: str = "path/to/dcl2/records",
     save_path: str = "path/to/save/data",
     data_size: int = 1000,
-    target_end: List[int] = [i for i in range(10)],
+    target_end: int = 9,
     target_shot: List[int] = [15],
     model: str = "path/to/shot16/model",
     use_gpu: bool = True,
@@ -204,90 +204,112 @@ def generate_data(
             try:
                 dcl2_state = json.loads(dcl2_data[i])['log']['state']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
-                scores_for_scorediff = dcl2_state['scores']
-                end = dcl2_state['end']
-                scorediff_for_team0 = scores_to_scorediff_for_team0(scores_for_scorediff)
-                # print(f"scores: {scores}, end: {end}, scorediff_for_team0: {scorediff_for_team0}")
                 shot = dcl2_state['shot']
                 hammer = convert_team_stoi(dcl2_state['hammer'])
-                if not ((end in target_end) and (shot in target_shot)):
+                if not shot in target_shot:
                     continue
             except KeyError:
                 continue
-
-            root = set_root_state(
-                network=network,
-                stones=stones,
-                score_diff=scorediff_for_team0,
-                end=end,
-                shot_index=shot,
-                hammer_team=hammer
-            )
-            # Transformer 用の stone/game/mask 特徴量を生成する。
-            stones_feature, game_feature, stone_mask = generate_input_features(
-                stones=stones,
-                end=end,
-                shot=shot,
-                hammer=hammer,
-                score_diff_for_team0=scorediff_for_team0
-            )
-            # 探索して、action, policy_target, value_target を得る
-            _, policy_target, value_target = mcts_search(root_state=root, is_create_data=True)
-            policy_distribution = _normalize_distribution(policy_target, N_ACTIONS, "policy_target")
-            value_distribution = _normalize_distribution(value_target, N_VALUE_CLASSES, "value_target")
-
-            # 生成した特徴量と target 分布を保存する。
-            stones_data.append(stones_feature)
-            games_data.append(game_feature)
-            stone_masks_data.append(stone_mask)
-            policy_data.append(policy_distribution)
-            value_data.append(value_distribution)
-
-            mirrored_stones = _mirror_stones_x(stones)
-            flipped_stones_feature, flipped_game_feature, flipped_stone_mask = generate_input_features(
-                stones=mirrored_stones,
-                end=end,
-                shot=shot,
-                hammer=hammer,
-                score_diff_for_team0=scorediff_for_team0
-            )
-            flipped_policy_target = _flip_policy_target(policy_target)
-            flipped_policy_distribution = _normalize_distribution(
-                flipped_policy_target,
-                N_ACTIONS,
-                "flipped_policy_target",
-            )
-            stones_data.append(flipped_stones_feature)
-            games_data.append(flipped_game_feature)
-            stone_masks_data.append(flipped_stone_mask)
-            policy_data.append(flipped_policy_distribution)
-            value_data.append(value_distribution.copy())
-
-            # 生成したデータを保存するコード
-            if len(value_data) >= DATA_SET_SIZE:
-                print(f"sl_data{data_counter}")
-                _save_data(os.path.join
-                        (
-                            save_path,
-                            f"sl_data_chunk{chunk_index}_{data_counter}"
-                        ),
-                    stones_data,
-                    games_data,
-                    stone_masks_data,
-                    policy_data,
-                    value_data,
-                    log_counter
-                )
-                stones_data = stones_data[DATA_SET_SIZE:]
-                games_data = games_data[DATA_SET_SIZE:]
-                stone_masks_data = stone_masks_data[DATA_SET_SIZE:]
-                policy_data = policy_data[DATA_SET_SIZE:]
-                value_data = value_data[DATA_SET_SIZE:]
-                log_counter = 1
-                data_counter += 1
-                print("data counter: ", data_counter)
             
-            log_counter += 1
+            # データ拡張を行う
+            for j in range(-8, 9):
+                end = target_end
+                expanded_score_diff = j
+                scorediff_for_shot_team = expanded_score_diff if hammer == 0 else -expanded_score_diff                
+                
+                # まず、絶対に勝てない局面を排除する
+                # シートに残っているストーンの数を数える
+                max_possible_end_score = 1
+                for k in range(len(stones[hammer])):
+                    if stones[hammer][k] is not None:
+                        max_possible_end_score += 1
+                
+                # 現在のスコア差と、シート上のストーンの数から、絶対に勝てない局面を排除する
+                if max_possible_end_score + scorediff_for_shot_team < 0:
+                    continue
+
+                # 勝てる可能性が少しでもある局面について、探索を行って教師データを生成する
+                root = set_root_state(
+                    network=network,
+                    stones=stones,
+                    score_diff=expanded_score_diff,
+                    end=end,
+                    shot_index=shot,
+                    hammer_team=hammer
+                )
+                # Transformer 用の stone/game/mask 特徴量を生成する。
+                stones_feature, game_feature, stone_mask = generate_input_features(
+                    stones=stones,
+                    end=end,
+                    shot=shot,
+                    hammer=hammer,
+                    score_diff_for_team0=expanded_score_diff
+                )
+                # 探索して、action, policy_target, value_target を得る
+                _, policy_target, value_target = mcts_search(root_state=root, is_create_data=True)
+                policy_distribution = _normalize_distribution(policy_target, N_ACTIONS, "policy_target")
+                value_distribution = _normalize_distribution(value_target, N_VALUE_CLASSES, "value_target")
+                
+                for k in range(len(value_target)):
+                    if value_target[k] > 0:
+                        max_possible_end_score = k - (N_VALUE_CLASSES // 2)
+                
+                # 実行時枝刈りで、絶対に勝てない局面を排除する
+                if max_possible_end_score + scorediff_for_shot_team < 0:
+                    continue
+
+                # 生成した特徴量と target 分布を保存する。
+                stones_data.append(stones_feature)
+                games_data.append(game_feature)
+                stone_masks_data.append(stone_mask)
+                policy_data.append(policy_distribution)
+                value_data.append(value_distribution)
+
+                mirrored_stones = _mirror_stones_x(stones)
+                flipped_stones_feature, flipped_game_feature, flipped_stone_mask = generate_input_features(
+                    stones=mirrored_stones,
+                    end=end,
+                    shot=shot,
+                    hammer=hammer,
+                    score_diff_for_team0=expanded_score_diff
+                )
+                flipped_policy_target = _flip_policy_target(policy_target)
+                flipped_policy_distribution = _normalize_distribution(
+                    flipped_policy_target,
+                    N_ACTIONS,
+                    "flipped_policy_target",
+                )
+                stones_data.append(flipped_stones_feature)
+                games_data.append(flipped_game_feature)
+                stone_masks_data.append(flipped_stone_mask)
+                policy_data.append(flipped_policy_distribution)
+                value_data.append(value_distribution.copy())
+
+                # 生成したデータを保存するコード
+                if len(value_data) >= DATA_SET_SIZE:
+                    print(f"sl_data{data_counter}")
+                    _save_data(os.path.join
+                            (
+                                save_path,
+                                f"sl_data_chunk{chunk_index}_{data_counter}"
+                            ),
+                        stones_data,
+                        games_data,
+                        stone_masks_data,
+                        policy_data,
+                        value_data,
+                        log_counter
+                    )
+                    stones_data = stones_data[DATA_SET_SIZE:]
+                    games_data = games_data[DATA_SET_SIZE:]
+                    stone_masks_data = stone_masks_data[DATA_SET_SIZE:]
+                    policy_data = policy_data[DATA_SET_SIZE:]
+                    value_data = value_data[DATA_SET_SIZE:]
+                    log_counter = 1
+                    data_counter += 1
+                    print("data counter: ", data_counter)
+                
+                log_counter += 1
     
     # 端数データの保存
     n_batches = len(value_data) // BATCH_SIZE
@@ -303,7 +325,7 @@ if __name__ == "__main__":
         log_path=Path("D:/all"),
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=1000,
-        target_end=[i for i in range(10)],
+        target_end=9,
         target_shot=[15],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_gpu=True,
