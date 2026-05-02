@@ -20,7 +20,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from common.translate_state import convert_team_stoi, scores_to_scorediff_for_team0
 from nn.utility import load_network, get_torch_device
-from transformer.feature import generate_input_features
+from transformer.feature import generate_input_features, _shot_team
 from transformer.params import (
     DEFAULT_TRANSFORMER_CONFIG,
     GAME_FEAT_DIM,
@@ -61,6 +61,18 @@ def _normalize_distribution(target, expected_size: int, name: str) -> np.ndarray
         raise ValueError(f"{name} sum must be positive, got {total}")
 
     return (distribution / total).astype(np.float32, copy=False)
+
+
+def _count_team_stones_on_sheet(stones, team: int) -> int:
+    if len(stones) != MAX_STONES:
+        raise ValueError(f"stones must have length {MAX_STONES}, got {len(stones)}")
+    if team == 0:
+        team_stones = stones[:8]
+    elif team == 1:
+        team_stones = stones[8:16]
+    else:
+        raise ValueError(f"team must be 0 or 1, got {team}")
+    return sum(stone is not None for stone in team_stones)
 
 
 def _mirror_stones_x(stones):
@@ -202,9 +214,11 @@ def generate_data(
         
         for i in range(9, len(dcl2_data)-2, 2):
             try:
-                dcl2_state = json.loads(dcl2_data[i])['log']['state']
+                dcl2_log = json.loads(dcl2_data[i])['log']
+                dcl2_state = dcl2_log['state']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
                 shot = dcl2_state['shot']
+                next_team = dcl2_log['next_team']
                 hammer = convert_team_stoi(dcl2_state['hammer'])
                 if not shot in target_shot:
                     continue
@@ -215,17 +229,34 @@ def generate_data(
             for j in range(-8, 9):
                 end = target_end
                 expanded_score_diff = j
-                scorediff_for_shot_team = expanded_score_diff if hammer == 0 else -expanded_score_diff                
+                try:
+                    shot_team = convert_team_stoi(next_team)
+                    expected_shot_team = _shot_team(shot, hammer)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Invalid next_team {next_team!r}, shot {shot}, or hammer {hammer} "
+                        f"in log {one_log}"
+                    ) from exc
+
+                if shot_team != expected_shot_team:
+                    raise ValueError(
+                        f"next_team mismatch in log {one_log}: "
+                        f"next_team={next_team!r}, shot_team={shot_team}, "
+                        f"expected_shot_team={expected_shot_team}, shot={shot}, hammer={hammer}"
+                    )
+
+                scorediff_for_shot_team = expanded_score_diff if shot_team == 0 else -expanded_score_diff
+                print(f"shot: {shot}, expanded_score_diff: {scorediff_for_shot_team}")
                 
                 # まず、絶対に勝てない局面を排除する
                 # シートに残っているストーンの数を数える
-                max_possible_end_score = 1
-                for k in range(len(stones[hammer])):
-                    if stones[hammer][k] is not None:
-                        max_possible_end_score += 1
+                max_possible_end_score = _count_team_stones_on_sheet(stones, shot_team) + 1
                 
                 # 現在のスコア差と、シート上のストーンの数から、絶対に勝てない局面を排除する
                 if max_possible_end_score + scorediff_for_shot_team < 0:
+                    print(f"Skip at shot {shot} due to unWinnable position: "
+                          f"max_possible_end_score={max_possible_end_score}, "
+                          f"scorediff_for_shot_team={scorediff_for_shot_team}")
                     continue
 
                 # 勝てる可能性が少しでもある局面について、探索を行って教師データを生成する
@@ -246,7 +277,11 @@ def generate_data(
                     score_diff_for_team0=expanded_score_diff
                 )
                 # 探索して、action, policy_target, value_target を得る
-                _, policy_target, value_target = mcts_search(root_state=root, is_create_data=True)
+                _, policy_target, value_target = mcts_search(
+                    root_state=root,
+                    max_simulations=50000,
+                    is_create_data=True,
+                )
                 policy_distribution = _normalize_distribution(policy_target, N_ACTIONS, "policy_target")
                 value_distribution = _normalize_distribution(value_target, N_VALUE_CLASSES, "value_target")
                 
@@ -256,6 +291,9 @@ def generate_data(
                 
                 # 実行時枝刈りで、絶対に勝てない局面を排除する
                 if max_possible_end_score + scorediff_for_shot_team < 0:
+                    print(f"Skip at shot {shot} after MCTS due to unWinnable position: "
+                          f"max_possible_end_score={max_possible_end_score}, "
+                          f"scorediff_for_shot_team={scorediff_for_shot_team}")
                     continue
 
                 # 生成した特徴量と target 分布を保存する。
@@ -322,9 +360,9 @@ def generate_data(
     
 if __name__ == "__main__":
     generate_data(
-        log_path=Path("D:/all"),
+        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        data_size=1000,
+        data_size=2,
         target_end=9,
         target_shot=[15],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
