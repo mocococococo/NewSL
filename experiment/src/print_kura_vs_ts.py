@@ -290,5 +290,5 @@ if __name__ == "__main__":
     main(
         target_path=Path(__file__).resolve().parents[1]
         / "data"
-        / "kura_vs_transformer_end9_shot15_winrate_datasize5_x10"
+        / "kura_vs_transformer_end9_shot15_winrate_datasize10000_x10"
     )
