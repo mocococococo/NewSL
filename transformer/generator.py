@@ -11,8 +11,11 @@ import os
 import sys
 import json
 import random
+import gc
 from pathlib import Path
 from typing import List, Optional
+
+import torch
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
@@ -73,6 +76,12 @@ def _count_team_stones_on_sheet(stones, team: int) -> int:
     else:
         raise ValueError(f"team must be 0 or 1, got {team}")
     return sum(stone is not None for stone in team_stones)
+
+
+def _cleanup_after_save(use_gpu: bool) -> None:
+    gc.collect()
+    if use_gpu and torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def _mirror_stones_x(stones):
@@ -152,6 +161,7 @@ def generate_data(
     target_end: int = 9,
     target_shot: List[int] = [15],
     model: str = "path/to/shot16/model",
+    max_simulations: int = 20000,
     use_gpu: bool = True,
     shuffle_seed: int = 0,
     chunk_index: int = 0,
@@ -279,7 +289,7 @@ def generate_data(
                 # 探索して、action, policy_target, value_target を得る
                 _, policy_target, value_target = mcts_search(
                     root_state=root,
-                    max_simulations=50000,
+                    max_simulations=max_simulations,
                     is_create_data=True,
                 )
                 policy_distribution = _normalize_distribution(policy_target, N_ACTIONS, "policy_target")
@@ -345,6 +355,7 @@ def generate_data(
                     value_data = value_data[DATA_SET_SIZE:]
                     log_counter = 1
                     data_counter += 1
+                    _cleanup_after_save(use_gpu)
                     print("data counter: ", data_counter)
                 
                 log_counter += 1
@@ -357,15 +368,17 @@ def generate_data(
             stones_data[0:n_batches*BATCH_SIZE], games_data[0:n_batches*BATCH_SIZE], \
             stone_masks_data[0:n_batches*BATCH_SIZE], policy_data[0:n_batches*BATCH_SIZE], \
             value_data[0:n_batches*BATCH_SIZE], log_counter)
+        _cleanup_after_save(use_gpu)
     
 if __name__ == "__main__":
     generate_data(
-        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
+        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "cai",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        data_size=2,
+        data_size=70000,
         target_end=9,
         target_shot=[15],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
+        max_simulations=10000,
         use_gpu=True,
         shuffle_seed=12345,
         chunk_index=0,
