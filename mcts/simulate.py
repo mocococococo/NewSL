@@ -151,6 +151,78 @@ def simulator_step(state: State, action: int) -> State:
         score_diff=state.score_diff,
     )
 
+def simulator_step_continuous(state: State, vx: float, vy: float, spin: int) -> State:
+    """
+    Continuous-shot variant of simulator_step.
+
+    The action-grid decode is skipped, but the same shot noise, freeguard
+    handling, team-block conversion, and fast simulator are used.
+    """
+    if state.is_end_terminal():
+        return state
+
+    vx, vy = _add_noise_to_vector(float(vx), float(vy), STDDV_SPEED, STDDV_ANGLE)
+    spin = 1 if int(spin) == 1 else 0
+
+    if DEBUG_SIM_INDEX:
+        print(f"[SIMULATOR_STEP] continuous -> vx={vx:.3f} vy={vy:.3f} spin={spin}")
+
+    if DEBUG_SIM_INDEX:
+        tb = _shot_to_teamblock_index(state.shot_index, state.hammer_team)
+        tm = state.to_move()
+        before_none = (state.stones[tb] is None)
+        print("------ DEBUG simulate_step Before Simulate -----")
+        print(f"[SIMIDX] BEFORE shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none={before_none}")
+
+    stones_shotorder = _teamblock_to_shotorder(list(state.stones), state.hammer_team)
+
+    if DEBUG_SIM_INDEX:
+        print("[BEFORE] ------ DEBUG simulate_step Shotorder Before Simulate -----")
+        for i, p in enumerate(stones_shotorder):
+            print(f"stone pos [shot{i}]: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
+
+    stones_in: List[Tuple[float, float]] = []
+    for p in stones_shotorder:
+        if p is None:
+            stones_in.append((0.0, 0.0))
+        else:
+            stones_in.append((float(p[0]), float(p[1])))
+
+    freeguard = (state.shot_index < 5)
+    results = fast_simulator.simulate(stones_in, state.shot_index, (vx, vy, spin), freeguard)
+    stones_out_shotorder: Stones16 = []
+    for x, y in results:
+        if y > 0:
+            stones_out_shotorder.append((x, y))
+        else:
+            stones_out_shotorder.append(None)
+
+    stones_out_teamblock = _shotorder_to_teamblock(stones_out_shotorder, state.hammer_team)
+
+    if DEBUG_SIM_INDEX:
+        print("[AFTER] ------ DEBUG simulate_step Teamblock After Simulate -----")
+        for i, p in enumerate(stones_out_teamblock):
+            if i < 8:
+                print(f"stone pos [team0]: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
+            else:
+                print(f"stone pos [team1]: x={p[0]} y={p[1]}" if p is not None else f"stone pos: None")
+        tb = _shot_to_teamblock_index(state.shot_index, state.hammer_team)
+        tm = state.to_move()
+        after_none = (stones_out_teamblock[tb] is None)
+        if after_none:
+            print(f"[SIMIDX] AFTER  shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none=True")
+        else:
+            x, y = stones_out_teamblock[tb]
+            print(f"[SIMIDX] AFTER  shot_index={state.shot_index} to_move={tm} teamblock_index={tb} is_none=False pos=({x:.3f},{y:.3f})")
+
+    return State(
+        stones=tuple(stones_out_teamblock),
+        end=state.end,
+        hammer_team=state.hammer_team,
+        shot_index=state.shot_index + 1,
+        score_diff=state.score_diff,
+    )
+
 def _teamblock_to_shotorder(stones_teamblock, hammer_team: int) -> Stones16:
     """    
     team-block 形式の stones を 投球順形式に変換する。
