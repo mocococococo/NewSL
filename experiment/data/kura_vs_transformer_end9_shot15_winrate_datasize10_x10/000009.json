@@ -1,0 +1,58 @@
+{
+    "experiment": {
+        "target_end": 9,
+        "target_shot": 15,
+        "requested_data_size": 10,
+        "execution_repeats_x": 10,
+        "kura_policy_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\Kuracurling_SHOT\\model\\checkpoint_score_visit_17274_epoch_050.pt",
+        "kura_top_k": 36,
+        "kura_num_trials": 9,
+        "kura_rel_keep": 0.0,
+        "newsl_model_type": "transformer",
+        "newsl_transformer_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\NewSL\\model\\transformer-sl16-model-140000data.bin"
+    },
+    "position": {
+        "position_index": 9,
+        "log_name": "20250217T151257_8aa12bdd-1087-41f1-820a-6458c6059855",
+        "line_index": 327,
+        "end": 9,
+        "shot": 15,
+        "hammer": 1,
+        "root_view_team": 1,
+        "score_diff_for_team0": -3,
+        "root_view_score_diff_before_shot": 3,
+        "root_view_score_diff_bucket": ">=+2"
+    },
+    "kura": {
+        "action_index": 1238,
+        "vx": 0.10483870967741937,
+        "vy": 2.4516129032258065,
+        "rotation": "ccw",
+        "spin": 1,
+        "search_mean_expected_score": 1.6666666666666667,
+        "result_mean_x": 1.0,
+        "win_count_x": 10,
+        "draw_count_x": 0,
+        "lose_count_x": 0,
+        "win_rate_x": 1.0,
+        "draw_rate_x": 0.0,
+        "lose_rate_x": 0.0
+    },
+    "newsl": {
+        "model_type": "transformer",
+        "vx": 0.1328125,
+        "vy": 2.40575,
+        "spin": 1,
+        "result_mean_x": 1.0,
+        "win_count_x": 10,
+        "draw_count_x": 0,
+        "lose_count_x": 0,
+        "win_rate_x": 1.0,
+        "draw_rate_x": 0.0,
+        "lose_rate_x": 0.0
+    },
+    "comparison": {
+        "diff_result_mean_x_newsl_minus_kura": 0.0,
+        "better_by_result_mean_x": "tie"
+    }
+}
