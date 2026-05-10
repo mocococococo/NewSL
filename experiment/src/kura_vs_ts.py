@@ -861,9 +861,9 @@ if __name__ == "__main__":
     main(
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        transformer_model="transformer-sl16-model-140000data.bin",
+        transformer_model="transformer-sl-9-15-model-05-07.bin",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
-        data_size=5,
+        data_size=1000,
         target_end=9,
         target_shot=15,
         use_gpu=False,
