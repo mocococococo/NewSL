@@ -4,55 +4,63 @@
         "target_shot": 15,
         "requested_data_size": 10,
         "execution_repeats_x": 10,
+        "baseline_method_key": "kura",
+        "baseline_method_label": "Kura",
+        "newsl_method_key": "transformer",
+        "newsl_method_label": "NewSL",
         "kura_policy_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\Kuracurling_SHOT\\model\\checkpoint_score_visit_17274_epoch_050.pt",
         "kura_top_k": 36,
         "kura_num_trials": 9,
         "kura_rel_keep": 0.0,
         "newsl_model_type": "transformer",
-        "newsl_transformer_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\NewSL\\model\\transformer-sl16-model-140000data.bin"
+        "newsl_transformer_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\NewSL\\model\\transformer-sl-9-15-model-05-10-AdamW.bin"
     },
     "position": {
         "position_index": 6,
-        "log_name": "20250713T150602_8a3fd961-9507-4757-be51-aa50c59afcf3",
+        "log_name": "20250206T213600_c9af0263-b930-4886-83d4-b2446286f82d",
         "line_index": 327,
         "end": 9,
         "shot": 15,
-        "hammer": 0,
-        "root_view_team": 0,
-        "score_diff_for_team0": -4,
-        "root_view_score_diff_before_shot": -4,
-        "root_view_score_diff_bucket": "<=-2"
+        "hammer": 1,
+        "root_view_team": 1,
+        "score_diff_for_team0": -1,
+        "root_view_score_diff_before_shot": 1,
+        "root_view_score_diff_bucket": "+1"
     },
-    "kura": {
-        "action_index": 169,
-        "vx": -0.10483870967741937,
-        "vy": 2.4096774193548387,
-        "rotation": "cw",
-        "spin": 0,
+    "baseline": {
+        "method_key": "kura",
+        "method_label": "Kura",
+        "action_index": 1240,
+        "vx": 0.13709677419354838,
+        "vy": 2.4516129032258065,
+        "rotation": "ccw",
+        "spin": 1,
         "search_mean_expected_score": 1.0,
-        "result_mean_x": -1.0,
-        "win_count_x": 0,
-        "draw_count_x": 0,
-        "lose_count_x": 10,
-        "win_rate_x": 0.0,
-        "draw_rate_x": 0.0,
-        "lose_rate_x": 1.0
+        "result_mean_x": 0.9,
+        "win_count_x": 9,
+        "draw_count_x": 1,
+        "lose_count_x": 0,
+        "win_rate_x": 0.9,
+        "draw_rate_x": 0.1,
+        "lose_rate_x": 0.0
     },
     "newsl": {
+        "method_key": "transformer",
+        "method_label": "NewSL",
         "model_type": "transformer",
-        "vx": -0.0703125,
-        "vy": 2.47825,
-        "spin": 0,
-        "result_mean_x": -1.0,
-        "win_count_x": 0,
+        "vx": 0.1328125,
+        "vy": 2.46375,
+        "spin": 1,
+        "result_mean_x": 1.0,
+        "win_count_x": 10,
         "draw_count_x": 0,
-        "lose_count_x": 10,
-        "win_rate_x": 0.0,
+        "lose_count_x": 0,
+        "win_rate_x": 1.0,
         "draw_rate_x": 0.0,
-        "lose_rate_x": 1.0
+        "lose_rate_x": 0.0
     },
     "comparison": {
-        "diff_result_mean_x_newsl_minus_kura": 0.0,
-        "better_by_result_mean_x": "tie"
+        "diff_result_mean_x_newsl_minus_baseline": 0.09999999999999998,
+        "better_by_result_mean_x": "newsl"
     }
 }

@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 NEWSL_DIR = REPO_ROOT / "NewSL"
 KURA_DIR = REPO_ROOT / "Kuracurling_SHOT"
 KURA_SIM_DIR = KURA_DIR / "mcts" / "FCV1Simulation" / "src"
+KURA_SIM_RELEASE_DIR = KURA_SIM_DIR / "build" / "Release"
 
 _SHARED_MODULE_PREFIXES = (
     "board",
@@ -59,8 +60,9 @@ _prepend_sys_path(KURA_DIR)
 from other.other import index_to_shot as kura_index_to_shot
 from other.other import load_checkpoint_to_model as kura_load_checkpoint_to_model
 from other.other_2 import decompose_and_collate as kura_decompose_and_collate
-from mcts.FCV1Simulation.src.build.Release.simulator import StoneSimulator as KuraStoneSimulator
-from mcts.utils import add_noise_to_vector as kura_add_noise_to_vector
+_prepend_sys_path(KURA_SIM_RELEASE_DIR)
+from simulator import StoneSimulator as KuraStoneSimulator
+_remove_sys_path(KURA_SIM_RELEASE_DIR)
 
 _remove_sys_path(KURA_DIR)
 _purge_shared_modules()
@@ -79,7 +81,7 @@ from nn.utility import get_torch_device
 from transformer.utility import load_transformer_network
 
 # PNG 描画とコンソール表示は、保存済み JSON から再生成するスクリプトと共有する。
-from kura_vs_ts_report import print_kura_vs_ts_summary, save_result_plot
+from experiment.src.report import render_report_from_records
 
 
 RESULT_WIN_IDX = 0
@@ -191,6 +193,22 @@ def _kura_calculate_score(result: np.ndarray) -> int:
                 else:
                     break
     return score
+
+
+def kura_add_noise_to_vector(
+    x: float,
+    y: float,
+    stddev_speed: float,
+    stddev_angle: float,
+) -> tuple[float, float]:
+    magnitude = np.sqrt(x**2 + y**2)
+    angle = np.arctan2(y, x)
+    noisy_magnitude = magnitude + np.random.normal(0.0, stddev_speed)
+    noisy_angle = angle + np.random.normal(0.0, stddev_angle)
+    return (
+        float(noisy_magnitude * np.cos(noisy_angle)),
+        float(noisy_magnitude * np.sin(noisy_angle)),
+    )
 
 
 @dataclass(frozen=True)
@@ -527,6 +545,10 @@ def main(
         "target_shot": int(target_shot),
         "requested_data_size": int(data_size),
         "execution_repeats_x": int(X),
+        "baseline_method_key": "kura",
+        "baseline_method_label": "Kura",
+        "newsl_method_key": "transformer",
+        "newsl_method_label": "NewSL",
         "kura_policy_model": str(kura_searcher.model_path),
         "kura_top_k": int(kura_searcher.top_k),
         "kura_num_trials": int(kura_searcher.num_trials),
@@ -535,20 +557,7 @@ def main(
         "newsl_transformer_model": str(transformer_model_path),
     }
 
-    kura_result_means_x: list[float] = []
-    transformer_result_means_x: list[float] = []
-    kura_total_counts = np.zeros(3, dtype=np.int64)
-    transformer_total_counts = np.zeros(3, dtype=np.int64)
-    transformer_better_by_result_mean_x_count = 0
-    kura_better_by_result_mean_x_count = 0
-    tie_by_result_mean_x_count = 0
-    bucket_position_counts = {label: 0 for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER}
-    bucket_kura_counts = {
-        label: np.zeros(3, dtype=np.int64) for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER
-    }
-    bucket_transformer_counts = {
-        label: np.zeros(3, dtype=np.int64) for label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER
-    }
+    position_records: list[dict] = []
 
     # ログをランダム順に走査し、指定 end/shot に一致する局面を data_size 件まで集める。
     log_files = os.listdir(log_path)
@@ -662,23 +671,12 @@ def main(
             )
 
             # PNG と summary に必要な軽量な値だけを保持する。
-            kura_result_means_x.append(float(kura_result_mean))
-            transformer_result_means_x.append(float(transformer_result_mean))
-            kura_total_counts += kura_counts
-            transformer_total_counts += transformer_counts
-            bucket_position_counts[root_view_score_diff_bucket] += 1
-            bucket_kura_counts[root_view_score_diff_bucket] += kura_counts
-            bucket_transformer_counts[root_view_score_diff_bucket] += transformer_counts
-
             diff_result_mean_x = float(transformer_result_mean - kura_result_mean)
             if diff_result_mean_x > 0.0:
-                transformer_better_by_result_mean_x_count += 1
                 better_by_result_mean_x = "newsl"
             elif diff_result_mean_x < 0.0:
-                kura_better_by_result_mean_x_count += 1
-                better_by_result_mean_x = "kura"
+                better_by_result_mean_x = "baseline"
             else:
-                tie_by_result_mean_x_count += 1
                 better_by_result_mean_x = "tie"
 
             # メモリを圧迫しないよう、1局面の詳細は即座に JSON へ保存する。
@@ -696,7 +694,9 @@ def main(
                     "root_view_score_diff_before_shot": int(root_view_score_diff_before_shot),
                     "root_view_score_diff_bucket": root_view_score_diff_bucket,
                 },
-                "kura": {
+                "baseline": {
+                    "method_key": "kura",
+                    "method_label": "Kura",
                     "action_index": int(kura_search_result.action_index),
                     "vx": float(kura_search_result.vx),
                     "vy": float(kura_search_result.vy),
@@ -714,6 +714,8 @@ def main(
                     "lose_rate_x": float(kura_lose_rate),
                 },
                 "newsl": {
+                    "method_key": "transformer",
+                    "method_label": "NewSL",
                     "model_type": "transformer",
                     "vx": float(transformer_vx),
                     "vy": float(transformer_vy),
@@ -727,12 +729,13 @@ def main(
                     "lose_rate_x": float(transformer_lose_rate),
                 },
                 "comparison": {
-                    "diff_result_mean_x_newsl_minus_kura": diff_result_mean_x,
+                    "diff_result_mean_x_newsl_minus_baseline": diff_result_mean_x,
                     "better_by_result_mean_x": better_by_result_mean_x,
                 },
             }
             position_json_path = json_dir / f"{score_index:0{position_index_width}d}.json"
             save_position_json(position_json_path, position_result)
+            position_records.append(position_result)
             position_count += 1
 
             # 次の局面へ進む前に、大きい一時オブジェクトを明示的に解放する。
@@ -759,111 +762,16 @@ def main(
             f"{log_path} に end={target_end}, shot={target_shot} の局面が見つかりませんでした。"
         )
 
-    # 最後に、逐次集計してきた値から kura_vs_ts_report.py 用の summary を作る。
-    kura_result_means_x_np = np.array(kura_result_means_x, dtype=np.float32)
-    transformer_result_means_x_np = np.array(transformer_result_means_x, dtype=np.float32)
-    diff_result_means_x_np = transformer_result_means_x_np - kura_result_means_x_np
-    total_trials_all_positions = position_count * X
-    root_view_score_diff_bucket_summary = {}
-    for bucket_label in ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER:
-        root_view_score_diff_bucket_summary[bucket_label] = {
-            "kura": build_bucket_trial_summary(
-                bucket_kura_counts[bucket_label],
-                bucket_position_counts[bucket_label],
-                X,
-            ),
-            "transformer": build_bucket_trial_summary(
-                bucket_transformer_counts[bucket_label],
-                bucket_position_counts[bucket_label],
-                X,
-            ),
-        }
-
-    summary = {
-        "num_positions": int(position_count),
-        "target_end": int(target_end),
-        "target_shot": int(target_shot),
-        "execution_repeats_x": int(X),
-        "kura_policy_model": str(kura_searcher.model_path),
-        "kura_top_k": int(kura_searcher.top_k),
-        "kura_num_trials": int(kura_searcher.num_trials),
-        "kura_rel_keep": float(kura_searcher.rel_keep),
-        "transformer_model": str(transformer_model_path),
-        "log_size_result_mean_x_kura": float(np.mean(kura_result_means_x_np)),
-        "log_size_result_mean_x_transformer": float(np.mean(transformer_result_means_x_np)),
-        "log_size_diff_result_mean_x_transformer_minus_kura": float(
-            np.mean(diff_result_means_x_np)
-        ),
-        "log_size_win_rate_x_kura": float(
-            kura_total_counts[RESULT_WIN_IDX] / total_trials_all_positions
-        ),
-        "log_size_draw_rate_x_kura": float(
-            kura_total_counts[RESULT_DRAW_IDX] / total_trials_all_positions
-        ),
-        "log_size_lose_rate_x_kura": float(
-            kura_total_counts[RESULT_LOSE_IDX] / total_trials_all_positions
-        ),
-        "log_size_win_rate_x_transformer": float(
-            transformer_total_counts[RESULT_WIN_IDX] / total_trials_all_positions
-        ),
-        "log_size_draw_rate_x_transformer": float(
-            transformer_total_counts[RESULT_DRAW_IDX] / total_trials_all_positions
-        ),
-        "log_size_lose_rate_x_transformer": float(
-            transformer_total_counts[RESULT_LOSE_IDX] / total_trials_all_positions
-        ),
-        "total_trials_all_positions": int(total_trials_all_positions),
-        "all_trials_win_count_kura": int(kura_total_counts[RESULT_WIN_IDX]),
-        "all_trials_draw_count_kura": int(kura_total_counts[RESULT_DRAW_IDX]),
-        "all_trials_lose_count_kura": int(kura_total_counts[RESULT_LOSE_IDX]),
-        "all_trials_win_count_transformer": int(
-            transformer_total_counts[RESULT_WIN_IDX]
-        ),
-        "all_trials_draw_count_transformer": int(
-            transformer_total_counts[RESULT_DRAW_IDX]
-        ),
-        "all_trials_lose_count_transformer": int(
-            transformer_total_counts[RESULT_LOSE_IDX]
-        ),
-        "all_trials_win_rate_kura": float(
-            kura_total_counts[RESULT_WIN_IDX] / total_trials_all_positions
-        ),
-        "all_trials_draw_rate_kura": float(
-            kura_total_counts[RESULT_DRAW_IDX] / total_trials_all_positions
-        ),
-        "all_trials_lose_rate_kura": float(
-            kura_total_counts[RESULT_LOSE_IDX] / total_trials_all_positions
-        ),
-        "all_trials_win_rate_transformer": float(
-            transformer_total_counts[RESULT_WIN_IDX] / total_trials_all_positions
-        ),
-        "all_trials_draw_rate_transformer": float(
-            transformer_total_counts[RESULT_DRAW_IDX] / total_trials_all_positions
-        ),
-        "all_trials_lose_rate_transformer": float(
-            transformer_total_counts[RESULT_LOSE_IDX] / total_trials_all_positions
-        ),
-        "transformer_better_by_result_mean_x_count": int(
-            transformer_better_by_result_mean_x_count
-        ),
-        "kura_better_by_result_mean_x_count": int(kura_better_by_result_mean_x_count),
-        "tie_by_result_mean_x_count": int(tie_by_result_mean_x_count),
-        "root_view_score_diff_bucket_order": list(ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER),
-        "root_view_score_diff_bucket_summary": root_view_score_diff_bucket_summary,
-    }
-
-    # 描画とコンソール表示は、再描画スクリプトと共通の関数を使う。
-    save_result_plot(png_path, kura_result_means_x_np, transformer_result_means_x_np)
-    print_kura_vs_ts_summary(json_dir, png_path, summary)
+    render_report_from_records(json_dir, png_path, position_records)
 
 
 if __name__ == "__main__":
     main(
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        transformer_model="transformer-sl-9-15-model-05-07.bin",
+        transformer_model="transformer-sl-9-15-model-05-10-AdamW.bin",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
-        data_size=1000,
+        data_size=10,
         target_end=9,
         target_shot=15,
         use_gpu=False,
