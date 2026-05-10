@@ -372,7 +372,7 @@ def generate_data(
     
 if __name__ == "__main__":
     generate_data(
-        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "cai",
+        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=70000,
         target_end=9,
