@@ -13,6 +13,7 @@ N_ACTIONS = VX_SIZE * VY_SIZE * 2  # 2048
 VEC_SIZE = VX_SIZE * VY_SIZE  # 1024
 StonePos = Tuple[float, float]
 Stones16 = List[Optional[StonePos]]
+ShotNoise = Tuple[float, float]
 
 DEBUG_SIM_INDEX = False  # True にすると、simulate_step 内で詳細ログを出す
 
@@ -67,12 +68,24 @@ def decode_action(action: int) -> Tuple[float, float, int]:
     vy = _vy_idx_to_value(vyi)
     return vx, vy, spin
 
-def _add_noise_to_vector(x: float, y: float, stddev_speed: float, stddev_angle: float) -> Tuple[float, float]:
+def _add_noise_to_vector(
+    x: float,
+    y: float,
+    stddev_speed: float,
+    stddev_angle: float,
+    noise: Optional[ShotNoise] = None,
+) -> Tuple[float, float]:
     magnitude = np.sqrt(x ** 2 + y ** 2)
     angle = np.arctan2(y, x)
 
-    noisy_magnitude = magnitude + np.random.normal(0.0, stddev_speed)
-    noisy_angle = angle + np.random.normal(0.0, stddev_angle)
+    if noise is None:
+        speed_noise = np.random.normal(0.0, stddev_speed)
+        angle_noise = np.random.normal(0.0, stddev_angle)
+    else:
+        speed_noise, angle_noise = noise
+
+    noisy_magnitude = magnitude + float(speed_noise)
+    noisy_angle = angle + float(angle_noise)
 
     new_x = noisy_magnitude * np.cos(noisy_angle)
     new_y = noisy_magnitude * np.sin(noisy_angle)
@@ -151,7 +164,13 @@ def simulator_step(state: State, action: int) -> State:
         score_diff=state.score_diff,
     )
 
-def simulator_step_continuous(state: State, vx: float, vy: float, spin: int) -> State:
+def simulator_step_continuous(
+    state: State,
+    vx: float,
+    vy: float,
+    spin: int,
+    noise: Optional[ShotNoise] = None,
+) -> State:
     """
     Continuous-shot variant of simulator_step.
 
@@ -161,7 +180,13 @@ def simulator_step_continuous(state: State, vx: float, vy: float, spin: int) -> 
     if state.is_end_terminal():
         return state
 
-    vx, vy = _add_noise_to_vector(float(vx), float(vy), STDDV_SPEED, STDDV_ANGLE)
+    vx, vy = _add_noise_to_vector(
+        float(vx),
+        float(vy),
+        STDDV_SPEED,
+        STDDV_ANGLE,
+        noise=noise,
+    )
     spin = 1 if int(spin) == 1 else 0
 
     if DEBUG_SIM_INDEX:

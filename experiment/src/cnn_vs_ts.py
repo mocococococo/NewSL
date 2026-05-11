@@ -22,6 +22,7 @@ from common.translate_state import (
 )
 from experiment.src.report import render_report_from_records, save_position_json
 from mcts.rollout import _end_score_diff_team0_minus_team1
+from mcts.params import STDDV_ANGLE, STDDV_SPEED
 from mcts.search import mcts_search, set_root_state
 from mcts.simulate import simulator_step_continuous
 from mcts.state import State
@@ -79,10 +80,25 @@ def evaluate_continuous_action(
     x_repeats: int,
     root_view_team: int,
     root_view_score_diff_before_shot: int,
+    shot_noises: np.ndarray | None = None,
 ) -> tuple[np.ndarray, float, float, float, float]:
+    if shot_noises is not None:
+        shot_noises = np.asarray(shot_noises, dtype=np.float64)
+        if shot_noises.shape != (x_repeats, 2):
+            raise ValueError(
+                "shot_noises must have shape "
+                f"({x_repeats}, 2), got {shot_noises.shape}"
+            )
+
     counts = np.zeros(3, dtype=np.int32)
-    for _ in range(x_repeats):
-        final_state = simulator_step_continuous(root_state, vx, vy, spin)
+    for repeat_index in range(x_repeats):
+        noise = None
+        if shot_noises is not None:
+            noise = (
+                float(shot_noises[repeat_index, 0]),
+                float(shot_noises[repeat_index, 1]),
+            )
+        final_state = simulator_step_continuous(root_state, vx, vy, spin, noise=noise)
         raw_score = _end_score_diff_team0_minus_team1(final_state.stones)
         score_from_root_view = score_diff_for_team_view(raw_score, root_view_team)
         total_score_from_root_view = root_view_score_diff_before_shot + score_from_root_view
@@ -99,6 +115,12 @@ def evaluate_continuous_action(
     lose_rate = float(counts[RESULT_LOSE_IDX] / x_repeats)
     result_mean = win_rate - lose_rate
     return counts, result_mean, win_rate, draw_rate, lose_rate
+
+
+def make_shared_shot_noises(x_repeats: int) -> np.ndarray:
+    speed_noises = np.random.normal(0.0, STDDV_SPEED, size=x_repeats)
+    angle_noises = np.random.normal(0.0, STDDV_ANGLE, size=x_repeats)
+    return np.column_stack((speed_noises, angle_noises))
 
 
 def main(
@@ -138,6 +160,7 @@ def main(
         "target_shot": int(target_shot),
         "requested_data_size": int(data_size),
         "execution_repeats_x": int(X),
+        "evaluation_noise_mode": "shared_per_position",
         "baseline_method_key": "cnn",
         "baseline_method_label": "CNN",
         "newsl_method_key": "transformer",
@@ -214,21 +237,6 @@ def main(
             )
             cnn_vx, cnn_vy, cnn_spin = mcts_search(root_state=cnn_root)
             cnn_spin = 1 if int(cnn_spin) == 1 else 0
-            (
-                cnn_counts,
-                cnn_result_mean,
-                cnn_win_rate,
-                cnn_draw_rate,
-                cnn_lose_rate,
-            ) = evaluate_continuous_action(
-                root_state=root_state,
-                vx=cnn_vx,
-                vy=cnn_vy,
-                spin=cnn_spin,
-                x_repeats=X,
-                root_view_team=root_view_team,
-                root_view_score_diff_before_shot=root_view_score_diff_before_shot,
-            )
 
             transformer_root = set_root_state(
                 network=cnn_network,
@@ -247,6 +255,24 @@ def main(
                 root_state=transformer_root
             )
             transformer_spin = 1 if int(transformer_spin) == 1 else 0
+
+            shared_shot_noises = make_shared_shot_noises(X)
+            (
+                cnn_counts,
+                cnn_result_mean,
+                cnn_win_rate,
+                cnn_draw_rate,
+                cnn_lose_rate,
+            ) = evaluate_continuous_action(
+                root_state=root_state,
+                vx=cnn_vx,
+                vy=cnn_vy,
+                spin=cnn_spin,
+                x_repeats=X,
+                root_view_team=root_view_team,
+                root_view_score_diff_before_shot=root_view_score_diff_before_shot,
+                shot_noises=shared_shot_noises,
+            )
             (
                 transformer_counts,
                 transformer_result_mean,
@@ -261,6 +287,7 @@ def main(
                 x_repeats=X,
                 root_view_team=root_view_team,
                 root_view_score_diff_before_shot=root_view_score_diff_before_shot,
+                shot_noises=shared_shot_noises,
             )
 
             diff_result_mean_x = float(transformer_result_mean - cnn_result_mean)
@@ -332,6 +359,7 @@ def main(
                 cnn_counts,
                 transformer_root,
                 transformer_counts,
+                shared_shot_noises,
                 dcl2_log,
                 dcl2_state,
                 stones,
@@ -360,5 +388,5 @@ if __name__ == "__main__":
         target_end=9,
         target_shot=15,
         use_gpu=True,
-        X=10,
+        X=100,
     )

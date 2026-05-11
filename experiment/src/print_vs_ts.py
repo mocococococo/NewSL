@@ -25,5 +25,5 @@ if __name__ == "__main__":
     main(
         target_path=Path(__file__).resolve().parents[1]
         / "data"
-        / "cnn_vs_transformer_end9_shot15_winrate_datasize1000_x10"
+        / "cnn_vs_transformer_end9_shot15_winrate_datasize1000_x100"
     )
