@@ -381,6 +381,6 @@ if __name__ == "__main__":
         max_simulations=10000,
         use_gpu=True,
         shuffle_seed=12345,
-        chunk_index=0,
+        chunk_index=22,
         chunk_size=BATCH_SIZE
     )
