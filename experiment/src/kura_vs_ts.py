@@ -769,7 +769,7 @@ if __name__ == "__main__":
     main(
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        transformer_model="transformer-sl-9-15-model-05-11-AdamW.bin",
+        transformer_model="transformer-sl-9-15-model-05-26-AdamW.bin",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
         data_size=3000,
         target_end=9,
