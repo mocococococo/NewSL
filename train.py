@@ -30,7 +30,7 @@ def train_main(model_name: str, use_gpu: bool):
     print(f"finish learning model {model_name} !!")
 
 @click.command()
-@click.option('--model-name', type=click.STRING, default="transformer-sl-9-15-model-05-26-adamw", help="保存するモデルの名前の指定")
+@click.option('--model-name', type=click.STRING, default="transformer-sl-9-15-model-05-26-adamw-epoch50", help="保存するモデルの名前の指定")
 @click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
 def train_transformer_main(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ
