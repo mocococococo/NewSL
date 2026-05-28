@@ -33,9 +33,9 @@ LEARNING_SCHEDULE_SGD = {
 
 LEARNING_SCHEDULE_ADAMW = {
     "learning_rate": {
-        5: 0.0001,
-        8: 0.00003,
-        10: 0.00001,
+        19: 0.0001,
+        34: 0.00003,
+        44: 0.00001,
     }
 }
 
