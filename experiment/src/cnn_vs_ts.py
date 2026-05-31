@@ -383,7 +383,7 @@ if __name__ == "__main__":
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
         cnn_model=DEFAULT_CNN_MODEL,
-        transformer_model="transformer-sl-9-15-model-05-26-AdamW.bin",
+        transformer_model="transformer-sl-9-15-model-05-26-AdamW-epoch50.bin",
         data_size=3000,
         target_end=9,
         target_shot=15,

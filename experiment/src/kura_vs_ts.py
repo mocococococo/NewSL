@@ -767,11 +767,11 @@ def main(
 
 if __name__ == "__main__":
     main(
-        log_path=NEWSL_DIR / "LearnLog" / "all",
+        log_path=NEWSL_DIR / "LearnLog" / "jiritsu-vs-silicon",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        transformer_model="transformer-sl-9-15-model-05-26-AdamW.bin",
+        transformer_model="transformer-sl-9-15-model-05-26-AdamW-epoch50.bin",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
-        data_size=3000,
+        data_size=10000,
         target_end=9,
         target_shot=15,
         use_gpu=True,
