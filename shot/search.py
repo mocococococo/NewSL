@@ -12,13 +12,19 @@ from mcts.rollout import rollout_to_end_score
 from mcts.simulate import decode_action, simulator_step
 from mcts.state import State, is_end_terminal
 
+from .create_mode import (
+    RootCandidateStat,
+    ScoreHistograms,
+    build_root_candidate_stats,
+    record_root_score_histogram,
+)
 from .debugger import Debugger, format_topk_policy, format_topk_root_shot, policy_stats, summarize_stones
-from .evaluator import terminal_score_class_from_root_view, value_probs_to_winvalue
+from .evaluator import value_probs_to_winvalue
 from .node import Node, argmax_over_actions, tree_size
 from .params import DEFAULT_SHOT_MAX_DEPTH, DEFAULT_SHOT_MAX_SIMULATIONS, DEFAULT_SHOT_TIME_LIMIT_SEC
 
 SearchAction = Tuple[float, float, int]
-SearchDataResult = Tuple[SearchAction, List[int], List[int]]
+SearchDataResult = Tuple[int, List[RootCandidateStat]]
 
 
 def _emit_lines(lines: List[str], log_path: Optional[str]) -> None:
@@ -54,7 +60,6 @@ def shot_search(
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_SHOT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
-        value_list = [0 for _ in range(17)]
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
 
     dbg = Debugger(debug, every=debug_every)
@@ -74,6 +79,7 @@ def shot_search(
 
     start_time = time.perf_counter()
     sims = 0
+    root_score_histograms: ScoreHistograms = {}
 
     while sims < max_simulations:
         if time_limit_sec is not None and (time.perf_counter() - start_time) >= time_limit_sec:
@@ -108,6 +114,7 @@ def shot_search(
                 node.expand(pi)
         else:
             pi = None
+            value_probs = None
             v_to_move = None
         dbg.toc("expansion")
 
@@ -119,9 +126,14 @@ def shot_search(
             v = -float(v_to_move)  # v_to_move は leaf の手番視点なので、直前手番の視点へ反転する
         dbg.toc("evaluation")
 
-        if is_create_data and is_end_terminal(state):
-            score_class = terminal_score_class_from_root_view(root_state, state)
-            value_list[score_class] += 1
+        if is_create_data and path:
+            record_root_score_histogram(
+                root_score_histograms,
+                path[0][1],
+                root_state,
+                state,
+                value_probs,
+            )
 
         # 4) Backprop
         dbg.tic("backprop")
@@ -193,7 +205,7 @@ def shot_search(
     print("-----------------------------------------------------")
 
     if is_create_data:
-        return best_action, root.Nsa.copy(), value_list
+        return best_action_id, build_root_candidate_stats(root, root_score_histograms)
 
     return best_action
 
