@@ -1,2 +1,1 @@
 """SHOT search package."""
-

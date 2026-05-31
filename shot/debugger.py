@@ -1,35 +1,32 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import List, Optional
+from typing import Any
 
-from mcts.simulate import decode_action
-
-from .candidates import rank_actions
-from .node import ShotActionStats
+from mcts.debugger import Debugger, format_topk_policy, policy_stats, summarize_stones
 
 
-def emit_lines(lines: List[str], log_path: Optional[str]) -> None:
-    if not log_path:
-        return
-    p = Path(log_path)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    with p.open("a", encoding="utf-8") as f:
-        for line in lines:
-            f.write(line + "\n")
+def format_topk_root_shot(root: Any, k: int, decode_action) -> str:
+    """rootのSHOT候補を Q/Nsa/P 順で表示する。"""
+    if getattr(root, "Nsa", None) is None:
+        return ""
 
+    actions = list(getattr(root, "actions", []))
+    actions = sorted(
+        actions,
+        key=lambda a: (
+            root.Nsa[a] > 0,
+            root.Q[a] if root.Nsa[a] > 0 else float("-inf"),
+            root.Nsa[a],
+            root.P[a],
+        ),
+        reverse=True,
+    )[:k]
 
-def format_topk_action_stats(
-    actions: List[int],
-    stats: List[ShotActionStats],
-    policy: List[float],
-    k: int,
-) -> str:
     parts = []
-    for a in rank_actions(actions, stats, policy)[:k]:
+    for a in actions:
         vx, vy, sp = decode_action(a)
         parts.append(
-            f"a={a} N={stats[a].visits} Q={stats[a].mean_value:.4g} "
-            f"P={policy[a]:.4g} -> (vx={vx:.4g}, vy={vy:.4g}, sp={sp})"
+            f"a={a} Nsa={root.Nsa[a]} Q={root.Q[a]:.4g} "
+            f"P={root.P[a]:.4g} -> (vx={vx:.4g}, vy={vy:.4g}, sp={sp})"
         )
     return " | ".join(parts)
