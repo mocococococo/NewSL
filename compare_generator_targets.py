@@ -13,6 +13,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from board.constant import VX_SIZE, VY_SIZE
 from common.translate_state import convert_team_stoi, scores_to_scorediff_for_team0
+from mcts.rollout import score_to_winvalue
 from mcts.search import mcts_search, set_root_state as set_mcts_root_state
 from mcts.simulate import decode_action
 from nn.utility import get_torch_device, load_network
@@ -45,7 +46,7 @@ def _normalize_distribution(target, expected_size: int, name: str) -> np.ndarray
     return (distribution / total).astype(np.float32, copy=False)
 
 
-def _sample_dcl2_path(log_path: Path, shuffle_seed: int) -> Path:
+def _sample_dcl2_path(log_path: Path, shuffle_seed: Optional[int]) -> Path:
     if not log_path.exists():
         raise FileNotFoundError(log_path)
     if not log_path.is_dir():
@@ -116,6 +117,28 @@ def _policy_metrics(mcts_policy: np.ndarray, shot_policy: np.ndarray, top_k: int
         "l1": l1,
         "top_overlap": float(overlap),
     }
+
+
+def _win_value_from_score_distribution(
+    value_distribution: np.ndarray,
+    end: int,
+    score_diff: int,
+    hammer_team: int,
+    root_team: int,
+) -> float:
+    score_diff_root = score_diff if root_team == 0 else -score_diff
+    had_hammer_this_end = root_team == hammer_team
+
+    win_value = 0.0
+    for cls, prob in enumerate(value_distribution):
+        score = cls - 8
+        win_value += float(prob) * score_to_winvalue(
+            end,
+            score,
+            score_diff_root,
+            had_hammer_this_end,
+        )
+    return float(win_value)
 
 
 def _action_label(action_id: int) -> str:
@@ -210,6 +233,7 @@ def _print_summary(
     shot_policy: np.ndarray,
     mcts_value: np.ndarray,
     shot_value: np.ndarray,
+    mcts_win_value: float,
     shot_win_value: float,
     top_k: int,
 ) -> None:
@@ -235,6 +259,7 @@ def _print_summary(
     print(f"top-{top_k} overlap: {metrics['top_overlap']:.3f}")
     print(f"MCTS expected score: {mcts_expected_score:.6f}")
     print(f"SHOT expected score: {shot_expected_score:.6f}")
+    print(f"MCTS win_value target: {mcts_win_value:.6f}")
     print(f"SHOT win_value target: {shot_win_value:.6f}")
     print("-----------------------------------------------------")
 
@@ -312,7 +337,7 @@ def compare_targets(
     model: Path,
     target_end: List[int],
     target_shot: List[int],
-    shuffle_seed: int = 0,
+    shuffle_seed: Optional[int] = None,
     mcts_simulations: Optional[int] = None,
     shot_simulations: Optional[int] = None,
     top_k: int = 10,
@@ -343,6 +368,13 @@ def compare_targets(
     _, mcts_policy_counts, mcts_value_counts = mcts_search(**mcts_kwargs)
     mcts_policy = _normalize_distribution(mcts_policy_counts, N_ACTIONS, "mcts_policy")
     mcts_value = _normalize_distribution(mcts_value_counts, N_VALUE_CLASSES, "mcts_value")
+    mcts_win_value = _win_value_from_score_distribution(
+        mcts_value,
+        end=state_fields["end"],
+        score_diff=state_fields["score_diff"],
+        hammer_team=state_fields["hammer_team"],
+        root_team=mcts_root.to_move(),
+    )
 
     shot_root = set_shot_root_state(network=network, **state_fields)
     shot_kwargs = {"root_state": shot_root, "is_create_data": True}
@@ -387,6 +419,7 @@ def compare_targets(
         shot_policy,
         mcts_value,
         shot_value,
+        mcts_win_value,
         shot_win_value,
         top_k,
     )
@@ -403,8 +436,8 @@ if __name__ == "__main__":
         model=Path(__file__).resolve().parent / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         target_end=[9],
         target_shot=[15],
-        shuffle_seed=12345,
-        mcts_simulations=1020,
+        shuffle_seed=None,
+        mcts_simulations=10000,
         shot_simulations=1020,
         top_k=10,
         use_gpu=True,

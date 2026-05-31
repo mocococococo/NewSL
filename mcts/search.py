@@ -10,16 +10,17 @@ from .node import Node, get_node, argmax_over_actions, clear_node_table, node_ta
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
 from .hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
-from .rollout import rollout_to_end_score, score_to_winvalue, _end_score_diff_team0_minus_team1
+from .rollout import rollout_to_end_score, score_to_winvalue
 from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, \
     DEFAULT_TIME_LIMIT_SEC, DEFAULT_TIME_LIMIT_SEC_LIST, DEFAULT_MAX_DEPTH
+from .create_mode import VALUE_CLASS_COUNT, record_value_histogram
 
 from .debugger import Debugger, summarize_stones, policy_stats, format_topk_policy, format_topk_root_visits
 
 VALUE_CLASS_OFFSET = 8
 
 SearchAction = Tuple[float, float, int]
-SearchDataResult = Tuple[SearchAction, List[int], List[int]]
+SearchDataResult = Tuple[SearchAction, List[int], List[float]]
 
 def _emit_lines(lines: List[str], log_path: Optional[str]) -> None:
     if not log_path:
@@ -52,14 +53,6 @@ def _value_probs_to_winvalue(state: State, value_probs: List[float]) -> float:
     return expected_v
 
 
-def _terminal_score_class_from_root_view(root_state: State, terminal_state: State) -> int:
-    raw_score = _end_score_diff_team0_minus_team1(terminal_state.stones)
-    root_team = root_state.to_move()
-    score = raw_score if root_team == 0 else -raw_score
-    score = max(-VALUE_CLASS_OFFSET, min(VALUE_CLASS_OFFSET, score))
-    return score + VALUE_CLASS_OFFSET
-
-
 def mcts_search(
     root_state: State,
     max_simulations: int = DEFAULT_MAX_SIMULATIONS,
@@ -85,7 +78,7 @@ def mcts_search(
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
-        value_list = [0 for _ in range(17)]
+        value_list = [0.0 for _ in range(VALUE_CLASS_COUNT)]
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
 
     dbg = Debugger(debug, every=debug_every)
@@ -146,6 +139,7 @@ def mcts_search(
                 node.expand(pi)
         else:
             pi = None
+            value_probs = None
             v_to_move = None
         dbg.toc("expansion")
 
@@ -158,9 +152,8 @@ def mcts_search(
             v = -float(v_to_move)  # rolloutは相手視点でやる（v_to_moveはstateの手番視点なので符号反転）
         dbg.toc("rollout")
 
-        if is_create_data and is_end_terminal(state):
-            score_class = _terminal_score_class_from_root_view(root_state, state)
-            value_list[score_class] += 1
+        if is_create_data:
+            record_value_histogram(value_list, root_state, state, value_probs)
 
         # 4) Backprop (手番反転のため符号反転)
         dbg.tic("backprop")
