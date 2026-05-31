@@ -178,7 +178,8 @@ def generate_data(
     max_simulations: int = DEFAULT_SHOT_MAX_SIMULATIONS,
     use_gpu: bool = True,
     shuffle_seed: int = 0,
-    chunk_index: int = 0,
+    chunk_start: int = 0,
+    chunk_end: Optional[int] = None,
     chunk_size: Optional[int] = None,
     policy_min_visit: int = 3,
     policy_delta_q: float = 1.0,
@@ -191,6 +192,43 @@ def generate_data(
     value_beta_q: float = 0.5,
     value_lambda_best: float = 0.5,
 ) -> None:
+    if chunk_end is None:
+        chunk_end = chunk_start
+    if chunk_start < 0:
+        raise ValueError(f"chunk_start must be non-negative, got {chunk_start}")
+    if chunk_end < chunk_start:
+        raise ValueError(f"chunk_end must be greater than or equal to chunk_start, got {chunk_end}")
+    if chunk_start != chunk_end:
+        if chunk_size is None:
+            raise ValueError("chunk_size must be specified when running multiple chunks")
+        for current_chunk_index in range(chunk_start, chunk_end + 1):
+            generate_data(
+                log_path=log_path,
+                save_path=save_path,
+                data_size=data_size,
+                target_end=target_end,
+                target_shot=target_shot,
+                model=model,
+                max_simulations=max_simulations,
+                use_gpu=use_gpu,
+                shuffle_seed=shuffle_seed,
+                chunk_start=current_chunk_index,
+                chunk_end=current_chunk_index,
+                chunk_size=chunk_size,
+                policy_min_visit=policy_min_visit,
+                policy_delta_q=policy_delta_q,
+                policy_alpha_visit=policy_alpha_visit,
+                policy_beta_q=policy_beta_q,
+                policy_lambda_best=policy_lambda_best,
+                value_min_visit=value_min_visit,
+                value_delta_q=value_delta_q,
+                value_alpha_visit=value_alpha_visit,
+                value_beta_q=value_beta_q,
+                value_lambda_best=value_lambda_best,
+            )
+        return
+
+    chunk_index = chunk_start
     log_size = 0
     log_counter = 1
     data_counter = 0
@@ -217,13 +255,13 @@ def generate_data(
         if chunk_index < 0:
             raise ValueError(f"chunk_index must be non-negative, got {chunk_index}")
 
-        chunk_start = chunk_index * chunk_size
-        chunk_end = min(chunk_start + chunk_size, len(shuffled_log_files))
-        target_log_files = shuffled_log_files[chunk_start:chunk_end]
+        chunk_start_pos = chunk_index * chunk_size
+        chunk_end_pos = min(chunk_start_pos + chunk_size, len(shuffled_log_files))
+        target_log_files = shuffled_log_files[chunk_start_pos:chunk_end_pos]
 
         print(
             f"chunk {chunk_index}: "
-            f"logs[{chunk_start}:{chunk_end}] "
+            f"logs[{chunk_start_pos}:{chunk_end_pos}] "
             f"= {len(target_log_files)} files"
         )
     else:
@@ -433,7 +471,8 @@ if __name__ == "__main__":
         max_simulations=DEFAULT_SHOT_MAX_SIMULATIONS,
         use_gpu=True,
         shuffle_seed=12345,
-        chunk_index=0,
+        chunk_start=0,
+        chunk_end=0,
         chunk_size=BATCH_SIZE,
         policy_min_visit=3,
         policy_delta_q=1.0,

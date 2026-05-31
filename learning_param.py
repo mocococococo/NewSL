@@ -25,7 +25,7 @@ LEARNING_SCHEDULE = {
 }
 
 # npzファイル1つに格納するデータの個数
-DATA_SET_SIZE = BATCH_SIZE * 10
+DATA_SET_SIZE = BATCH_SIZE * 100
 
 # Policyのlossに対するValueのlossの重み比率
 """Valueは使用しない"""
