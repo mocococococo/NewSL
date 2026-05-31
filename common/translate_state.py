@@ -34,8 +34,40 @@ def convert_stones_to_list(stones: Stones) -> List[dict]:
 
     return result
 
+def convert_dc4_stones_to_list(stone_coordinate_data):
+    result = [None] * 16
+
+    for i, c in enumerate(stone_coordinate_data["team0"]):
+        if not (c.x == 0.0 and c.y == 0.0):
+            result[i] = {"position": {"x": c.x, "y": c.y}}
+
+    for i, c in enumerate(stone_coordinate_data["team1"]):
+        if not (c.x == 0.0 and c.y == 0.0):
+            result[i + 8] = {"position": {"x": c.x, "y": c.y}}
+
+    return result
+
 def convert_scores_to_dict(scores):
     return {"team0": scores.team0, "team1": scores.team1}
+
+def convert_dc4_scores_to_dict(score_obj):
+    """
+    dc4client.receive_data.ScoreSchema | None
+      -> {"team0": list[int], "team1": list[int]}
+    """
+    if score_obj is None:
+        return {"team0": [], "team1": []}
+
+    team0 = score_obj.team0 or []
+    team1 = score_obj.team1 or []
+
+    if len(team0) != len(team1):
+        raise ValueError(f"score length mismatch: team0={len(team0)} team1={len(team1)}")
+
+    return {
+        "team0": [0 if v is None else int(v) for v in team0],
+        "team1": [0 if v is None else int(v) for v in team1],
+    }
 
 def stones_listdict_to_xy16(stones_list: List[Optional[dict]]) -> List[Optional[Pos]]:
     """convert_stones_to_list() の出力(list[dict|None]) -> list[(x,y)|None]"""
@@ -73,5 +105,24 @@ def convert_team_stoi(team: str) -> int:
         return 0
     elif team == "team1":
         return 1
+    else:
+        raise ValueError(f"Invalid team name: {team}")
+
+def get_hammer_team(team: str, shot: int) -> int:
+    """ハンマーを持っているチームを整数に変換する。team0 -> 0, team1 -> 1"""
+    if team == "team0":
+        if shot % 2 == 0:
+            return 1
+        elif shot % 2 == 1:
+            return 0
+        else:
+            raise ValueError(f"Invalid shot number: {shot}")
+    elif team == "team1":
+        if shot % 2 == 0:
+            return 0
+        elif shot % 2 == 1:
+            return 1
+        else:
+            raise ValueError(f"Invalid shot number: {shot}")
     else:
         raise ValueError(f"Invalid team name: {team}")

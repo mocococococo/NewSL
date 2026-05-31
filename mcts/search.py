@@ -220,8 +220,8 @@ def mcts_search(
     if is_create_data:
         _emit_lines(lines, stats_log_path)
     print("-----------------------------------------------------")
-    print(f"PUCT search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
-    print(f"PUCT root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
+    print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
+    print(f"MCTS root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
     print("-----------------------------------------------------")
 
     if is_create_data:
