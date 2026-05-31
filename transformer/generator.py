@@ -140,6 +140,7 @@ def generate_data(
     target_end: List[int] = [i for i in range(10)],
     target_shot: List[int] = [15],
     model: str = "path/to/shot16/model",
+    max_simulations: int = 20000,
     use_gpu: bool = True,
     shuffle_seed: int = 0,
     chunk_index: int = 0,
@@ -232,7 +233,11 @@ def generate_data(
                 score_diff_for_team0=scorediff_for_team0
             )
             # 探索して、action, policy_target, value_target を得る
-            _, policy_target, value_target = mcts_search(root_state=root, is_create_data=True)
+            _, policy_target, value_target = mcts_search(
+                root_state=root,
+                max_simulations=max_simulations,
+                is_create_data=True,
+            )
             policy_distribution = _normalize_distribution(policy_target, N_ACTIONS, "policy_target")
             value_distribution = _normalize_distribution(value_target, N_VALUE_CLASSES, "value_target")
 
@@ -306,6 +311,7 @@ if __name__ == "__main__":
         target_end=[i for i in range(10)],
         target_shot=[15],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
+        max_simulations=1000,
         use_gpu=True,
         shuffle_seed=12345,
         chunk_index=0,
