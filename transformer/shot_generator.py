@@ -11,16 +11,19 @@ import os
 import sys
 import json
 import random
+import gc
 from pathlib import Path
 from typing import List, Optional
+
+import torch
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from common.translate_state import convert_team_stoi, scores_to_scorediff_for_team0
+from common.translate_state import convert_team_stoi
 from nn.utility import load_network, get_torch_device
-from transformer.feature import generate_input_features
+from transformer.feature import generate_input_features, _shot_team
 from transformer.params import (
     DEFAULT_TRANSFORMER_CONFIG,
     GAME_FEAT_DIM,
@@ -33,6 +36,7 @@ from transformer.shot_target import (
     build_win_value_target_from_shot_stats,
 )
 from shot.search import shot_search, set_root_state
+from shot.params import DEFAULT_SHOT_MAX_SIMULATIONS
 from board.constant import VX_SIZE, VY_SIZE
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 
@@ -66,6 +70,24 @@ def _normalize_distribution(target, expected_size: int, name: str) -> np.ndarray
         raise ValueError(f"{name} sum must be positive, got {total}")
 
     return (distribution / total).astype(np.float32, copy=False)
+
+
+def _count_team_stones_on_sheet(stones, team: int) -> int:
+    if len(stones) != MAX_STONES:
+        raise ValueError(f"stones must have length {MAX_STONES}, got {len(stones)}")
+    if team == 0:
+        team_stones = stones[:8]
+    elif team == 1:
+        team_stones = stones[8:16]
+    else:
+        raise ValueError(f"team must be 0 or 1, got {team}")
+    return sum(stone is not None for stone in team_stones)
+
+
+def _cleanup_after_save(use_gpu: bool) -> None:
+    gc.collect()
+    if use_gpu and torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
 
 def _mirror_stones_x(stones):
@@ -150,9 +172,10 @@ def generate_data(
     log_path: str = "path/to/dcl2/records",
     save_path: str = "path/to/save/data",
     data_size: int = 1000,
-    target_end: List[int] = [i for i in range(10)],
+    target_end: int = 9,
     target_shot: List[int] = [15],
     model: str = "path/to/shot16/model",
+    max_simulations: int = DEFAULT_SHOT_MAX_SIMULATIONS,
     use_gpu: bool = True,
     shuffle_seed: int = 0,
     chunk_index: int = 0,
@@ -226,123 +249,168 @@ def generate_data(
         
         for i in range(9, len(dcl2_data)-2, 2):
             try:
-                dcl2_state = json.loads(dcl2_data[i])['log']['state']
+                dcl2_log = json.loads(dcl2_data[i])['log']
+                dcl2_state = dcl2_log['state']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
-                scores_for_scorediff = dcl2_state['scores']
-                end = dcl2_state['end']
-                scorediff_for_team0 = scores_to_scorediff_for_team0(scores_for_scorediff)
-                # print(f"scores: {scores}, end: {end}, scorediff_for_team0: {scorediff_for_team0}")
                 shot = dcl2_state['shot']
+                next_team = dcl2_log['next_team']
                 hammer = convert_team_stoi(dcl2_state['hammer'])
-                if not ((end in target_end) and (shot in target_shot)):
+                if shot not in target_shot:
                     continue
             except KeyError:
                 continue
 
-            root = set_root_state(
-                network=network,
-                stones=stones,
-                score_diff=scorediff_for_team0,
-                end=end,
-                shot_index=shot,
-                hammer_team=hammer
-            )
-            # Transformer 用の stone/game/mask 特徴量を生成する。
-            stones_feature, game_feature, stone_mask = generate_input_features(
-                stones=stones,
-                end=end,
-                shot=shot,
-                hammer=hammer,
-                score_diff_for_team0=scorediff_for_team0
-            )
-            # 探索して、root候補統計から target を作る。
-            best_action_id, root_candidate_stats = shot_search(root_state=root, is_create_data=True)
-            policy_distribution = build_policy_target_from_shot_stats(
-                root_candidate_stats,
-                best_action_id,
-                action_dim=N_ACTIONS,
-                min_visit=policy_min_visit,
-                delta_q=policy_delta_q,
-                alpha_visit=policy_alpha_visit,
-                beta_q=policy_beta_q,
-                lambda_best=policy_lambda_best,
-            )
-            value_distribution = build_value_target_from_shot_stats(
-                root_candidate_stats,
-                best_action_id,
-                value_dim=N_VALUE_CLASSES,
-                min_visit=value_min_visit,
-                delta_q=value_delta_q,
-                alpha_visit=value_alpha_visit,
-                beta_q=value_beta_q,
-                lambda_best=value_lambda_best,
-            )
-            win_value_target = build_win_value_target_from_shot_stats(
-                root_candidate_stats,
-                best_action_id,
-                min_visit=policy_min_visit,
-                delta_q=policy_delta_q,
-                alpha_visit=policy_alpha_visit,
-                beta_q=policy_beta_q,
-                lambda_best=policy_lambda_best,
-            )
+            # データ拡張を行う。
+            for expanded_score_diff in range(-8, 9):
+                end = target_end
+                try:
+                    shot_team = convert_team_stoi(next_team)
+                    expected_shot_team = _shot_team(shot, hammer)
+                except ValueError as exc:
+                    raise ValueError(
+                        f"Invalid next_team {next_team!r}, shot {shot}, or hammer {hammer} "
+                        f"in log {one_log}"
+                    ) from exc
 
-            # 生成した特徴量と target 分布を保存する。
-            stones_data.append(stones_feature)
-            games_data.append(game_feature)
-            stone_masks_data.append(stone_mask)
-            policy_data.append(policy_distribution)
-            value_data.append(value_distribution)
-            win_value_data.append(float(win_value_target))
+                if shot_team != expected_shot_team:
+                    raise ValueError(
+                        f"next_team mismatch in log {one_log}: "
+                        f"next_team={next_team!r}, shot_team={shot_team}, "
+                        f"expected_shot_team={expected_shot_team}, shot={shot}, hammer={hammer}"
+                    )
 
-            mirrored_stones = _mirror_stones_x(stones)
-            flipped_stones_feature, flipped_game_feature, flipped_stone_mask = generate_input_features(
-                stones=mirrored_stones,
-                end=end,
-                shot=shot,
-                hammer=hammer,
-                score_diff_for_team0=scorediff_for_team0
-            )
-            flipped_policy_target = _flip_policy_target(policy_distribution)
-            flipped_policy_distribution = _normalize_distribution(
-                flipped_policy_target,
-                N_ACTIONS,
-                "flipped_policy_target",
-            )
-            stones_data.append(flipped_stones_feature)
-            games_data.append(flipped_game_feature)
-            stone_masks_data.append(flipped_stone_mask)
-            policy_data.append(flipped_policy_distribution)
-            value_data.append(value_distribution.copy())
-            win_value_data.append(float(win_value_target))
+                scorediff_for_shot_team = expanded_score_diff if shot_team == 0 else -expanded_score_diff
+                print(f"shot: {shot}, expanded_score_diff: {scorediff_for_shot_team}")
 
-            # 生成したデータを保存するコード
-            if len(value_data) >= DATA_SET_SIZE:
-                print(f"sl_data{data_counter}")
-                _save_data(os.path.join
-                        (
-                            save_path,
-                            f"sl_data_chunk{chunk_index}_{data_counter}"
-                        ),
-                    stones_data,
-                    games_data,
-                    stone_masks_data,
-                    policy_data,
-                    value_data,
-                    win_value_data,
-                    log_counter
+                # 探索前枝刈りで、絶対に勝てない局面を排除する。
+                max_possible_end_score = _count_team_stones_on_sheet(stones, shot_team) + 1
+                if max_possible_end_score + scorediff_for_shot_team < 0:
+                    print(f"Skip at shot {shot} due to unWinnable position: "
+                          f"max_possible_end_score={max_possible_end_score}, "
+                          f"scorediff_for_shot_team={scorediff_for_shot_team}")
+                    continue
+
+                root = set_root_state(
+                    network=network,
+                    stones=stones,
+                    score_diff=expanded_score_diff,
+                    end=end,
+                    shot_index=shot,
+                    hammer_team=hammer
                 )
-                stones_data = stones_data[DATA_SET_SIZE:]
-                games_data = games_data[DATA_SET_SIZE:]
-                stone_masks_data = stone_masks_data[DATA_SET_SIZE:]
-                policy_data = policy_data[DATA_SET_SIZE:]
-                value_data = value_data[DATA_SET_SIZE:]
-                win_value_data = win_value_data[DATA_SET_SIZE:]
-                log_counter = 1
-                data_counter += 1
-                print("data counter: ", data_counter)
-            
-            log_counter += 1
+                # Transformer 用の stone/game/mask 特徴量を生成する。
+                stones_feature, game_feature, stone_mask = generate_input_features(
+                    stones=stones,
+                    end=end,
+                    shot=shot,
+                    hammer=hammer,
+                    score_diff_for_team0=expanded_score_diff
+                )
+                # 探索して、root候補統計から target を作る。
+                best_action_id, root_candidate_stats = shot_search(
+                    root_state=root,
+                    max_simulations=max_simulations,
+                    is_create_data=True,
+                )
+                policy_distribution = build_policy_target_from_shot_stats(
+                    root_candidate_stats,
+                    best_action_id,
+                    action_dim=N_ACTIONS,
+                    min_visit=policy_min_visit,
+                    delta_q=policy_delta_q,
+                    alpha_visit=policy_alpha_visit,
+                    beta_q=policy_beta_q,
+                    lambda_best=policy_lambda_best,
+                )
+                value_distribution = build_value_target_from_shot_stats(
+                    root_candidate_stats,
+                    best_action_id,
+                    value_dim=N_VALUE_CLASSES,
+                    min_visit=value_min_visit,
+                    delta_q=value_delta_q,
+                    alpha_visit=value_alpha_visit,
+                    beta_q=value_beta_q,
+                    lambda_best=value_lambda_best,
+                )
+                win_value_target = build_win_value_target_from_shot_stats(
+                    root_candidate_stats,
+                    best_action_id,
+                    min_visit=policy_min_visit,
+                    delta_q=policy_delta_q,
+                    alpha_visit=policy_alpha_visit,
+                    beta_q=policy_beta_q,
+                    lambda_best=policy_lambda_best,
+                )
+
+                max_possible_end_score = 0
+                for k, prob in enumerate(value_distribution):
+                    if prob > 0:
+                        max_possible_end_score = k - (N_VALUE_CLASSES // 2)
+
+                # 探索後枝刈りで、絶対に勝てない局面を排除する。
+                if max_possible_end_score + scorediff_for_shot_team < 0:
+                    print(f"Skip at shot {shot} after SHOT due to unWinnable position: "
+                          f"max_possible_end_score={max_possible_end_score}, "
+                          f"scorediff_for_shot_team={scorediff_for_shot_team}")
+                    continue
+
+                # 生成した特徴量と target 分布を保存する。
+                stones_data.append(stones_feature)
+                games_data.append(game_feature)
+                stone_masks_data.append(stone_mask)
+                policy_data.append(policy_distribution)
+                value_data.append(value_distribution)
+                win_value_data.append(float(win_value_target))
+
+                mirrored_stones = _mirror_stones_x(stones)
+                flipped_stones_feature, flipped_game_feature, flipped_stone_mask = generate_input_features(
+                    stones=mirrored_stones,
+                    end=end,
+                    shot=shot,
+                    hammer=hammer,
+                    score_diff_for_team0=expanded_score_diff
+                )
+                flipped_policy_target = _flip_policy_target(policy_distribution)
+                flipped_policy_distribution = _normalize_distribution(
+                    flipped_policy_target,
+                    N_ACTIONS,
+                    "flipped_policy_target",
+                )
+                stones_data.append(flipped_stones_feature)
+                games_data.append(flipped_game_feature)
+                stone_masks_data.append(flipped_stone_mask)
+                policy_data.append(flipped_policy_distribution)
+                value_data.append(value_distribution.copy())
+                win_value_data.append(float(win_value_target))
+
+                # 生成したデータを保存するコード
+                if len(value_data) >= DATA_SET_SIZE:
+                    print(f"sl_data{data_counter}")
+                    _save_data(os.path.join
+                            (
+                                save_path,
+                                f"sl_data_chunk{chunk_index}_{data_counter}"
+                            ),
+                        stones_data,
+                        games_data,
+                        stone_masks_data,
+                        policy_data,
+                        value_data,
+                        win_value_data,
+                        log_counter
+                    )
+                    stones_data = stones_data[DATA_SET_SIZE:]
+                    games_data = games_data[DATA_SET_SIZE:]
+                    stone_masks_data = stone_masks_data[DATA_SET_SIZE:]
+                    policy_data = policy_data[DATA_SET_SIZE:]
+                    value_data = value_data[DATA_SET_SIZE:]
+                    win_value_data = win_value_data[DATA_SET_SIZE:]
+                    log_counter = 1
+                    data_counter += 1
+                    _cleanup_after_save(use_gpu)
+                    print("data counter: ", data_counter)
+
+                log_counter += 1
     
     # 端数データの保存
     n_batches = len(value_data) // BATCH_SIZE
@@ -352,15 +420,17 @@ def generate_data(
             stones_data[0:n_batches*BATCH_SIZE], games_data[0:n_batches*BATCH_SIZE], \
             stone_masks_data[0:n_batches*BATCH_SIZE], policy_data[0:n_batches*BATCH_SIZE], \
             value_data[0:n_batches*BATCH_SIZE], win_value_data[0:n_batches*BATCH_SIZE], log_counter)
+        _cleanup_after_save(use_gpu)
     
 if __name__ == "__main__":
     generate_data(
-        log_path=Path("D:/all"),
+        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        data_size=1000,
-        target_end=[i for i in range(10)],
+        data_size=70000,
+        target_end=9,
         target_shot=[15],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
+        max_simulations=DEFAULT_SHOT_MAX_SIMULATIONS,
         use_gpu=True,
         shuffle_seed=12345,
         chunk_index=0,
