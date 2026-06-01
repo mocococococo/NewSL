@@ -4,32 +4,38 @@
         "target_shot": 15,
         "requested_data_size": 10,
         "execution_repeats_x": 10,
+        "baseline_method_key": "kura",
+        "baseline_method_label": "Kura",
+        "newsl_method_key": "transformer",
+        "newsl_method_label": "NewSL",
         "kura_policy_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\Kuracurling_SHOT\\model\\checkpoint_score_visit_17274_epoch_050.pt",
         "kura_top_k": 36,
         "kura_num_trials": 9,
         "kura_rel_keep": 0.0,
         "newsl_model_type": "transformer",
-        "newsl_transformer_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\NewSL\\model\\transformer-sl16-model-140000data.bin"
+        "newsl_transformer_model": "C:\\Users\\kirby\\Programs\\DigitalCurling\\NewSL\\model\\transformer-sl-9-15-model-05-10-AdamW.bin"
     },
     "position": {
         "position_index": 5,
-        "log_name": "20250216T055312_f615b115-6445-4903-924f-0d64aafb7abe",
+        "log_name": "20250228T210139_979b495a-64ab-41a8-a49d-30283ffef17c",
         "line_index": 327,
         "end": 9,
         "shot": 15,
         "hammer": 1,
         "root_view_team": 1,
-        "score_diff_for_team0": 4,
-        "root_view_score_diff_before_shot": -4,
+        "score_diff_for_team0": 3,
+        "root_view_score_diff_before_shot": -3,
         "root_view_score_diff_bucket": "<=-2"
     },
-    "kura": {
-        "action_index": 198,
-        "vx": -0.1532258064516129,
-        "vy": 2.4516129032258065,
+    "baseline": {
+        "method_key": "kura",
+        "method_label": "Kura",
+        "action_index": 135,
+        "vx": -0.13709677419354838,
+        "vy": 2.3677419354838714,
         "rotation": "cw",
         "spin": 0,
-        "search_mean_expected_score": 0.5555555555555556,
+        "search_mean_expected_score": 1.0,
         "result_mean_x": -1.0,
         "win_count_x": 0,
         "draw_count_x": 0,
@@ -39,10 +45,12 @@
         "lose_rate_x": 1.0
     },
     "newsl": {
+        "method_key": "transformer",
+        "method_label": "NewSL",
         "model_type": "transformer",
-        "vx": -0.1328125,
-        "vy": 2.6,
-        "spin": 0,
+        "vx": 0.1328125,
+        "vy": 2.40575,
+        "spin": 1,
         "result_mean_x": -1.0,
         "win_count_x": 0,
         "draw_count_x": 0,
@@ -52,7 +60,7 @@
         "lose_rate_x": 1.0
     },
     "comparison": {
-        "diff_result_mean_x_newsl_minus_kura": 0.0,
+        "diff_result_mean_x_newsl_minus_baseline": 0.0,
         "better_by_result_mean_x": "tie"
     }
 }
