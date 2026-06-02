@@ -812,9 +812,9 @@ if __name__ == "__main__":
     main(
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        transformer_model="transformer-sl-9-15-model-06-02-AdamW-epoch50-puct.bin",
+        transformer_model="transformer-sl-9-15-model-06-02-AdamW-epoch50-shot.bin",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
-        search_method="mcts",
+        search_method="shot",
         data_size=1000,
         target_end=9,
         target_shot=15,
