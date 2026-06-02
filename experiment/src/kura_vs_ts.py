@@ -30,6 +30,7 @@ _SHARED_MODULE_PREFIXES = (
     "nn",
     "other",
     "policy_shot",
+    "shot",
 )
 
 
@@ -74,10 +75,11 @@ from common.translate_state import (
     stones_listdict_to_xy16,
 )
 from mcts.rollout import _end_score_diff_team0_minus_team1
-from mcts.search import mcts_search, set_root_state
+from mcts.search import mcts_search, set_root_state as set_mcts_root_state
 from mcts.simulate import simulator_step_continuous
 from mcts.state import State
 from nn.utility import get_torch_device
+from shot.search import shot_search, set_root_state as set_shot_root_state
 from transformer.utility import load_transformer_network
 
 # PNG 描画とコンソール表示は、保存済み JSON から再生成するスクリプトと共有する。
@@ -386,16 +388,24 @@ def save_position_json(
     )
 
 
+def _safe_model_stem(model_path: str | Path) -> str:
+    stem = Path(model_path).stem
+    return "".join(c if c.isalnum() or c in ("-", "_") else "_" for c in stem)
+
+
 def build_output_stem(
     target_end: int,
     target_shot: int,
     data_size: int,
     x_repeats: int,
+    transformer_model: str | Path,
+    search_method: str,
 ) -> str:
-    """end/shot/data_size/X から、PNG名とJSONディレクトリ名の共通stemを作る。"""
+    """実験条件から、PNG名とJSONディレクトリ名の共通stemを作る。"""
 
     return (
-        f"kura_vs_transformer_end{target_end}_shot{target_shot}"
+        f"kura_vs_{search_method}_{_safe_model_stem(transformer_model)}"
+        f"_end{target_end}_shot{target_shot}"
         f"_winrate_datasize{data_size}_x{x_repeats}"
     )
 
@@ -499,6 +509,7 @@ def main(
     save_path: str | Path = "path/to/save/data",
     transformer_model: str = "transformer-sl16-model-140000data.bin",
     kura_policy_model: str = KURA_POLICY_SHOT15_MODEL,
+    search_method: str = "mcts",
     data_size: int = 1000,
     target_end: int = 9,
     target_shot: int = 15,
@@ -509,13 +520,22 @@ def main(
 
     if target_shot != 15:
         raise ValueError("この Kura 比較実験は target_shot=15 のみに対応しています。")
+    if search_method not in ("mcts", "shot"):
+        raise ValueError(f"search_method は 'mcts' または 'shot' である必要があります: {search_method}")
 
     position_count = 0
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # PNG は experiment/data 直下、局面別 JSON は stem 名のディレクトリ配下に保存する。
-    output_stem = build_output_stem(target_end, target_shot, data_size, X)
+    output_stem = build_output_stem(
+        target_end,
+        target_shot,
+        data_size,
+        X,
+        transformer_model,
+        search_method,
+    )
     json_dir = save_dir / output_stem
     if json_dir.exists() and any(json_dir.glob("*.json")):
         print(
@@ -539,6 +559,9 @@ def main(
         rel_keep=KURA_REL_KEEP,
     )
 
+    newsl_method_key = f"newsl_{search_method}"
+    newsl_method_label = f"NewSL-{search_method.upper()}"
+
     # 各 JSON に共通で入れる実験条件。局面ごとの値とは分けて保存する。
     experiment_metadata = {
         "target_end": int(target_end),
@@ -547,14 +570,15 @@ def main(
         "execution_repeats_x": int(X),
         "baseline_method_key": "kura",
         "baseline_method_label": "Kura",
-        "newsl_method_key": "transformer",
-        "newsl_method_label": "NewSL",
+        "newsl_method_key": newsl_method_key,
+        "newsl_method_label": newsl_method_label,
         "kura_policy_model": str(kura_searcher.model_path),
         "kura_top_k": int(kura_searcher.top_k),
         "kura_num_trials": int(kura_searcher.num_trials),
         "kura_rel_keep": float(kura_searcher.rel_keep),
         "newsl_model_type": "transformer",
         "newsl_transformer_model": str(transformer_model_path),
+        "newsl_search_method": search_method,
     }
 
     position_records: list[dict] = []
@@ -636,23 +660,41 @@ def main(
                 root_view_score_diff_before_shot=root_view_score_diff_before_shot,
             )
 
-            # NewSL 側は transformer network を使って MCTS の根を作り、1手を選ぶ。
-            transformer_root = set_root_state(
-                network=None,
-                stones=stones,
-                score_diff=scorediff_for_team0,
-                end=end,
-                shot_index=shot,
-                hammer_team=hammer,
-                transformer_network=transformer_network,
-                debug=False,
-                use_transformer=True,
-                transformer_target_end=(target_end,),
-                transformer_target_shot=(target_shot,),
-            )
-            transformer_vx, transformer_vy, transformer_spin = mcts_search(
-                root_state=transformer_root
-            )
+            # NewSL 側は transformer network を使って指定した探索で1手を選ぶ。
+            if search_method == "mcts":
+                transformer_root = set_mcts_root_state(
+                    network=None,
+                    stones=stones,
+                    score_diff=scorediff_for_team0,
+                    end=end,
+                    shot_index=shot,
+                    hammer_team=hammer,
+                    transformer_network=transformer_network,
+                    debug=False,
+                    use_transformer=True,
+                    transformer_target_end=(target_end,),
+                    transformer_target_shot=(target_shot,),
+                )
+                transformer_vx, transformer_vy, transformer_spin = mcts_search(
+                    root_state=transformer_root
+                )
+            else:
+                transformer_root = set_shot_root_state(
+                    network=None,
+                    stones=stones,
+                    score_diff=scorediff_for_team0,
+                    end=end,
+                    shot_index=shot,
+                    hammer_team=hammer,
+                    transformer_network=transformer_network,
+                    debug=False,
+                    use_transformer=True,
+                    transformer_target_end=(target_end,),
+                    transformer_target_shot=(target_shot,),
+                )
+                transformer_vx, transformer_vy, transformer_spin = shot_search(
+                    root_state=transformer_root
+                )
             transformer_spin = 1 if int(transformer_spin) == 1 else 0
             (
                 transformer_counts,
@@ -714,9 +756,10 @@ def main(
                     "lose_rate_x": float(kura_lose_rate),
                 },
                 "newsl": {
-                    "method_key": "transformer",
-                    "method_label": "NewSL",
+                    "method_key": newsl_method_key,
+                    "method_label": newsl_method_label,
                     "model_type": "transformer",
+                    "search_method": search_method,
                     "vx": float(transformer_vx),
                     "vy": float(transformer_vy),
                     "spin": int(transformer_spin),
@@ -767,13 +810,14 @@ def main(
 
 if __name__ == "__main__":
     main(
-        log_path=NEWSL_DIR / "LearnLog" / "jiritsu-vs-silicon",
+        log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        transformer_model="transformer-sl-9-15-model-05-26-AdamW-epoch50.bin",
+        transformer_model="transformer-sl-9-15-model-06-02-AdamW-epoch50-puct.bin",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
-        data_size=10000,
+        search_method="mcts",
+        data_size=1000,
         target_end=9,
         target_shot=15,
         use_gpu=True,
-        X=100,
+        X=1,
     )
