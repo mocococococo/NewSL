@@ -35,6 +35,7 @@ from transformer.shot_target import (
     build_value_target_from_shot_stats,
     build_win_value_target_from_shot_stats,
 )
+from transformer.utility import load_transformer_network
 from shot.search import shot_search, set_root_state
 from shot.params import DEFAULT_SHOT_MAX_SIMULATIONS
 from board.constant import VX_SIZE, VY_SIZE
@@ -88,6 +89,13 @@ def _cleanup_after_save(use_gpu: bool) -> None:
     gc.collect()
     if use_gpu and torch.cuda.is_available():
         torch.cuda.empty_cache()
+
+
+def _resolve_model_path(model: str | Path) -> Path:
+    model_path = Path(model)
+    if model_path.is_absolute():
+        return model_path
+    return Path(__file__).resolve().parents[1] / "model" / model_path
 
 
 def _mirror_stones_x(stones):
@@ -174,7 +182,11 @@ def generate_data(
     data_size: int = 1000,
     target_end: int = 9,
     target_shot: List[int] = [15],
-    model: str = "path/to/shot16/model",
+    model: str | Path = "path/to/shot16/model",
+    use_transformer: bool = False,
+    transformer_model: Optional[str | Path] = None,
+    transformer_target_end: Optional[List[int]] = None,
+    transformer_target_shot: Optional[List[int]] = None,
     max_simulations: int = DEFAULT_SHOT_MAX_SIMULATIONS,
     use_gpu: bool = True,
     shuffle_seed: int = 0,
@@ -209,6 +221,10 @@ def generate_data(
                 target_end=target_end,
                 target_shot=target_shot,
                 model=model,
+                use_transformer=use_transformer,
+                transformer_model=transformer_model,
+                transformer_target_end=transformer_target_end,
+                transformer_target_shot=transformer_target_shot,
                 max_simulations=max_simulations,
                 use_gpu=use_gpu,
                 shuffle_seed=shuffle_seed,
@@ -240,9 +256,24 @@ def generate_data(
     win_value_data = []
     
     device = get_torch_device(use_gpu=use_gpu)
-    model_path = Path(__file__).resolve().parents[1] / "model" / model
+    model_path = _resolve_model_path(model)
     network = load_network(model_path, use_gpu=use_gpu)
     network.to(device)
+
+    transformer_network = None
+    transformer_target_end_tuple = (
+        tuple(transformer_target_end) if transformer_target_end is not None else (target_end,)
+    )
+    transformer_target_shot_tuple = (
+        tuple(transformer_target_shot) if transformer_target_shot is not None else ()
+    )
+    if use_transformer:
+        if transformer_model is None:
+            raise ValueError("transformer_model must be specified when use_transformer is True")
+        if not transformer_target_shot_tuple:
+            raise ValueError("transformer_target_shot must be specified when use_transformer is True")
+        transformer_model_path = _resolve_model_path(transformer_model)
+        transformer_network = load_transformer_network(transformer_model_path, use_gpu=use_gpu)
 
     log_files = os.listdir(log_path)
 
@@ -334,7 +365,11 @@ def generate_data(
                     score_diff=expanded_score_diff,
                     end=end,
                     shot_index=shot,
-                    hammer_team=hammer
+                    hammer_team=hammer,
+                    transformer_network=transformer_network,
+                    use_transformer=use_transformer,
+                    transformer_target_end=transformer_target_end_tuple,
+                    transformer_target_shot=transformer_target_shot_tuple,
                 )
                 # Transformer 用の stone/game/mask 特徴量を生成する。
                 stones_feature, game_feature, stone_mask = generate_input_features(
@@ -468,6 +503,12 @@ if __name__ == "__main__":
         target_end=9,
         target_shot=[14],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
+        use_transformer=True,
+        transformer_model=Path(__file__).resolve().parents[1]
+        / "model"
+        / "transformer-sl-9-15-model-06-02-adamw-epoch50-shot.bin",
+        transformer_target_end=[9],
+        transformer_target_shot=[15],
         max_simulations=1000,
         use_gpu=True,
         shuffle_seed=12345,
