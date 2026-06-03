@@ -181,6 +181,7 @@ def generate_data(
     save_path: str = "path/to/save/data",
     data_size: int = 1000,
     target_end: int = 9,
+    use_end_augmentation: bool = True,
     target_shot: List[int] = [15],
     model: str | Path = "path/to/shot16/model",
     use_transformer: bool = False,
@@ -219,6 +220,7 @@ def generate_data(
                 save_path=save_path,
                 data_size=data_size,
                 target_end=target_end,
+                use_end_augmentation=use_end_augmentation,
                 target_shot=target_shot,
                 model=model,
                 use_transformer=use_transformer,
@@ -321,17 +323,20 @@ def generate_data(
                 dcl2_log = json.loads(dcl2_data[i])['log']
                 dcl2_state = dcl2_log['state']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
+                logged_end = int(dcl2_state['end'])
                 shot = dcl2_state['shot']
                 next_team = dcl2_log['next_team']
                 hammer = convert_team_stoi(dcl2_state['hammer'])
                 if shot not in target_shot:
+                    continue
+                if (not use_end_augmentation) and logged_end != target_end:
                     continue
             except KeyError:
                 continue
 
             # データ拡張を行う。
             for expanded_score_diff in range(-8, 9):
-                end = target_end
+                end = target_end if use_end_augmentation else logged_end
                 try:
                     shot_team = convert_team_stoi(next_team)
                     expected_shot_team = _shot_team(shot, hammer)
@@ -501,6 +506,7 @@ if __name__ == "__main__":
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=70000,
         target_end=9,
+        use_end_augmentation=True,
         target_shot=[14],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_transformer=True,
