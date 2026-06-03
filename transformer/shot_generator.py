@@ -21,7 +21,8 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from common.translate_state import convert_team_stoi
+from common.translate_state import convert_team_stoi, scores_dict_to_list
+from mcts.state import score_diff_from_scores
 from nn.utility import load_network, get_torch_device
 from transformer.feature import generate_input_features, _shot_team
 from transformer.params import (
@@ -182,6 +183,7 @@ def generate_data(
     data_size: int = 1000,
     target_end: int = 9,
     use_end_augmentation: bool = True,
+    use_score_diff_augmentation: bool = True,
     target_shot: List[int] = [15],
     model: str | Path = "path/to/shot16/model",
     use_transformer: bool = False,
@@ -221,6 +223,7 @@ def generate_data(
                 data_size=data_size,
                 target_end=target_end,
                 use_end_augmentation=use_end_augmentation,
+                use_score_diff_augmentation=use_score_diff_augmentation,
                 target_shot=target_shot,
                 model=model,
                 use_transformer=use_transformer,
@@ -324,6 +327,9 @@ def generate_data(
                 dcl2_state = dcl2_log['state']
                 stones = dcl2_state['stones']['team0'] + dcl2_state['stones']['team1']
                 logged_end = int(dcl2_state['end'])
+                logged_score_diff = score_diff_from_scores(
+                    scores_dict_to_list(dcl2_state['scores'])
+                )
                 shot = dcl2_state['shot']
                 next_team = dcl2_log['next_team']
                 hammer = convert_team_stoi(dcl2_state['hammer'])
@@ -335,7 +341,11 @@ def generate_data(
                 continue
 
             # データ拡張を行う。
-            for expanded_score_diff in range(-8, 9):
+            score_diff_candidates = (
+                range(-8, 9) if use_score_diff_augmentation else [logged_score_diff]
+            )
+
+            for expanded_score_diff in score_diff_candidates:
                 end = target_end if use_end_augmentation else logged_end
                 try:
                     shot_team = convert_team_stoi(next_team)
@@ -506,7 +516,8 @@ if __name__ == "__main__":
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=70000,
         target_end=9,
-        use_end_augmentation=True,
+        use_end_augmentation=False,
+        use_score_diff_augmentation=False,
         target_shot=[14],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_transformer=True,
