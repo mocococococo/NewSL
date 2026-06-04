@@ -82,7 +82,7 @@ from nn.utility import get_torch_device, load_network
 from shot.search import shot_search, set_root_state as set_shot_root_state
 from transformer.utility import load_transformer_network
 
-from experiment.src.mini_match_report import render_report_from_records, save_position_json
+from experiment.src.mini_match_report import print_report_from_records, save_position_json
 
 
 RESULT_WIN_IDX = 0
@@ -718,21 +718,49 @@ def build_player(
     raise ValueError(f"Unknown player kind: {kind}")
 
 
+def print_mini_match_header(
+    first_player: MiniMatchPlayer,
+    second_player: MiniMatchPlayer,
+    repeat_index: int,
+    x_repeats: int,
+) -> None:
+    print("")
+    print(f"{first_player.label} vs {second_player.label} ({repeat_index + 1}/{x_repeats})")
+
+
+def print_search_header(state: State, player: MiniMatchPlayer) -> None:
+    print(f"end = {state.end}, shot = {state.shot_index}, {player.label} search")
+
+
+def print_selected_action(player: MiniMatchPlayer, action: ShotAction) -> None:
+    print(
+        f"{player.label} selected "
+        f"vx={action.vx:.6f}, vy={action.vy:.6f}, spin={action.spin}"
+    )
+
+
 def run_suffix_game(
     root_state: State,
     player_a: MiniMatchPlayer,
     player_b: MiniMatchPlayer,
     start_with_a: bool,
+    repeat_index: int,
+    x_repeats: int,
 ) -> tuple[State, list[dict[str, Any]]]:
     state = root_state
     action_log: list[dict[str, Any]] = []
     start_shot = root_state.shot_index
+    first_player = player_a if start_with_a else player_b
+    second_player = player_b if start_with_a else player_a
+    print_mini_match_header(first_player, second_player, repeat_index, x_repeats)
 
     while not state.is_end_terminal():
         offset = state.shot_index - start_shot
         use_a = (offset % 2 == 0) if start_with_a else (offset % 2 == 1)
         player = player_a if use_a else player_b
+        print_search_header(state, player)
         action = player.select_action(state)
+        print_selected_action(player, action)
         action_log.append(
             {
                 "shot": int(state.shot_index),
@@ -772,6 +800,8 @@ def evaluate_start_pattern(
             player_a,
             player_b,
             start_with_a=start_with_a,
+            repeat_index=repeat_index,
+            x_repeats=x_repeats,
         )
         if repeat_index == 0:
             sample_action_log = action_log
@@ -833,7 +863,7 @@ def main(
 
     if transformer_models_by_shot is None:
         transformer_models_by_shot = {
-            14: "transformer-sl-9-14-model-06-04-adamw-epoch50-puct.bin",
+            14: "transformer-sl-9-14-model-06-04-adamw-epoch50-shot.bin",
             15: "transformer-sl-9-15-model-06-02-adamw-epoch50-shot.bin",
         }
     if kura_policy_models_by_shot is None:
@@ -905,7 +935,6 @@ def main(
     )
     json_dir = save_dir / output_stem
     json_dir.mkdir(parents=True, exist_ok=True)
-    png_path = save_dir / f"{output_stem}.png"
     position_index_width = max(6, len(str(max(data_size - 1, 0))))
 
     experiment_metadata = {
@@ -1097,7 +1126,7 @@ def main(
             f"No positions found in {log_path} for end={target_end}, shot={target_shot}."
         )
 
-    render_report_from_records(json_dir, png_path, position_records)
+    print_report_from_records(json_dir, position_records)
 
 
 if __name__ == "__main__":
@@ -1108,13 +1137,13 @@ if __name__ == "__main__":
         player_b_kind="Transformer",
         target_end=9,
         target_shot=14,
-        data_size=1,
-        X=1,
+        data_size=10,
+        X=10,
         use_gpu=True,
-        max_simulations=1000,
+        max_simulations=1022,
         cnn_model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         transformer_models_by_shot={
-            14: "transformer-sl-9-14-model-06-04-adamw-epoch50-puct.bin",
+            14: "transformer-sl-9-14-model-06-04-adamw-epoch50-shot.bin",
             15: "transformer-sl-9-15-model-06-02-adamw-epoch50-shot.bin",
         },
         kura_policy_models_by_shot=KURA_POLICY_MODELS_BY_SHOT,

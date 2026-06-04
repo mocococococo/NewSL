@@ -367,13 +367,18 @@ def build_summary(
     return summary, player_a_start_result_means_x_np, player_b_start_result_means_x_np
 
 
-def print_summary(json_dir: Path, png_path: Path, summary: dict[str, Any]) -> None:
+def print_summary(
+    json_dir: Path,
+    summary: dict[str, Any],
+    png_path: Path | None = None,
+) -> None:
     player_a_start_label = summary["player_a_start_method_label"]
     player_b_start_label = summary["player_b_start_method_label"]
 
     print("")
     print(f"Saved position json files to {json_dir}")
-    print(f"Saved plot to {png_path}")
+    if png_path is not None:
+        print(f"Saved plot to {png_path}")
     print(f"num_positions                : {summary['num_positions']}")
     print(f"execution_repeats_x         : {summary['execution_repeats_x']}")
     print(
@@ -458,7 +463,18 @@ def render_report_from_records(
         player_a_start_label=summary["player_a_start_method_label"],
         player_b_start_label=summary["player_b_start_method_label"],
     )
-    print_summary(json_dir, png_path, summary)
+    print_summary(json_dir, summary, png_path=png_path)
+    return summary, player_a_start_result_means_x, player_b_start_result_means_x
+
+
+def print_report_from_records(
+    json_dir: Path,
+    records: list[dict[str, Any]],
+) -> tuple[dict[str, Any], np.ndarray, np.ndarray]:
+    summary, player_a_start_result_means_x, player_b_start_result_means_x = build_summary(
+        records
+    )
+    print_summary(json_dir, summary)
     return summary, player_a_start_result_means_x, player_b_start_result_means_x
 
 
@@ -470,3 +486,10 @@ def render_report_from_json_dir(
         png_path = json_dir.parent / f"{json_dir.name}.png"
     records = load_position_records(json_dir)
     return render_report_from_records(json_dir, png_path, records)
+
+
+def print_report_from_json_dir(
+    json_dir: Path,
+) -> tuple[dict[str, Any], np.ndarray, np.ndarray]:
+    records = load_position_records(json_dir)
+    return print_report_from_records(json_dir, records)
