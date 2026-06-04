@@ -516,7 +516,7 @@ if __name__ == "__main__":
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=70000,
         target_end=9,
-        use_end_augmentation=False,
+        use_end_augmentation=True,
         use_score_diff_augmentation=False,
         target_shot=[14],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
