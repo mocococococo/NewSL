@@ -2,7 +2,7 @@ from __future__ import annotations
 
 # 探索
 DEFAULT_SHOT_MAX_SIMULATIONS = 60000
-DEFAULT_SHOT_TIME_LIMIT_SEC = 2.6
+DEFAULT_SHOT_TIME_LIMIT_SEC = None
 DEFAULT_SHOT_TIME_LIMIT_SEC_LIST = {
     0: 2.0,
     1: 2.0,

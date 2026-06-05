@@ -1133,7 +1133,7 @@ if __name__ == "__main__":
     main(
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        player_a_kind="Kura",
+        player_a_kind="CNN",
         player_b_kind="Transformer",
         target_end=9,
         target_shot=14,
