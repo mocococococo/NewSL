@@ -523,14 +523,14 @@ if __name__ == "__main__":
         use_transformer=True,
         transformer_model=Path(__file__).resolve().parents[1]
         / "model"
-        / "transformer-sl-9-14-model-06-04-adamw-epoch50-shot.bin",
+        / "transformer-sl-9-13-model-06-06-adamw-epoch50-shot.bin",
         transformer_target_end=[9],
-        transformer_target_shot=[14],
+        transformer_target_shot=[13],
         max_simulations=1022,
         use_gpu=True,
         shuffle_seed=12345,
-        chunk_start=2,
-        chunk_end=4,
+        chunk_start=0,
+        chunk_end=1,
         chunk_size=BATCH_SIZE,
         policy_min_visit=3,
         policy_delta_q=1.0,
