@@ -218,16 +218,24 @@ def build_direct_match_summary(
 
     if decisive_trials == 0:
         decisive_win_rate = 0.0
+        decisive_win_rate_ci_low = 0.0
+        decisive_win_rate_ci_high = 0.0
         binom_two_sided_p = 1.0
         binom_greater_p = 1.0
     else:
         decisive_win_rate = view_player_win_count / decisive_trials
-        binom_two_sided_p = binomtest(
+        binom_two_sided_result = binomtest(
             view_player_win_count,
             decisive_trials,
             p=0.5,
             alternative="two-sided",
-        ).pvalue
+        )
+        decisive_win_rate_ci = binom_two_sided_result.proportion_ci(
+            confidence_level=0.95
+        )
+        decisive_win_rate_ci_low = decisive_win_rate_ci.low
+        decisive_win_rate_ci_high = decisive_win_rate_ci.high
+        binom_two_sided_p = binom_two_sided_result.pvalue
         binom_greater_p = binomtest(
             view_player_win_count,
             decisive_trials,
@@ -245,6 +253,8 @@ def build_direct_match_summary(
         "total_trials": int(total_trials),
         "decisive_trials": int(decisive_trials),
         "decisive_win_rate_view_player": float(decisive_win_rate),
+        "decisive_win_rate_ci_low_view_player": float(decisive_win_rate_ci_low),
+        "decisive_win_rate_ci_high_view_player": float(decisive_win_rate_ci_high),
         "binomial_two_sided_p": float(binom_two_sided_p),
         "binomial_one_sided_p_view_player_greater": float(binom_greater_p),
         "ab_reverse": bool(ab_reverse),
@@ -529,6 +539,11 @@ def print_summary(
         f"{direct_match_summary['decisive_win_rate_view_player']:.6f} "
         f"({direct_match_summary['view_player_win_count']}/"
         f"{direct_match_summary['decisive_trials']})"
+    )
+    print(
+        f"draw-excluded decisive winrate 95% CI {view_player_label}: "
+        f"[{direct_match_summary['decisive_win_rate_ci_low_view_player']:.6f}, "
+        f"{direct_match_summary['decisive_win_rate_ci_high_view_player']:.6f}]"
     )
     print(
         "binomial test on decisive games two-sided p: "
