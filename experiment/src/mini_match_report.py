@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+from scipy.stats import binomtest
 
 
 RESULT_WIN_IDX = 0
@@ -13,6 +14,7 @@ RESULT_LOSE_IDX = 2
 ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER = ("<=-2", "-1", "0", "+1", ">=+2")
 PLAYER_A_START_KEY = "player_a_start"
 PLAYER_B_START_KEY = "player_b_start"
+DRAW_SCORE_FOR_PLAYER_A = 0.2
 
 
 def save_position_json(save_file_path: Path, position_result: dict[str, Any]) -> None:
@@ -179,6 +181,70 @@ def build_bucket_trial_summary(
     }
 
 
+def build_direct_match_summary(
+    player_a_start_counts: np.ndarray,
+    player_b_start_counts: np.ndarray,
+    player_a_label: str,
+    player_b_label: str,
+    draw_score_for_player_a: float = DRAW_SCORE_FOR_PLAYER_A,
+) -> dict[str, Any]:
+    player_a_win_count = int(
+        player_a_start_counts[RESULT_WIN_IDX]
+        + player_b_start_counts[RESULT_LOSE_IDX]
+    )
+    player_b_win_count = int(
+        player_a_start_counts[RESULT_LOSE_IDX]
+        + player_b_start_counts[RESULT_WIN_IDX]
+    )
+    draw_count = int(
+        player_a_start_counts[RESULT_DRAW_IDX]
+        + player_b_start_counts[RESULT_DRAW_IDX]
+    )
+    total_trials = player_a_win_count + player_b_win_count + draw_count
+    decisive_trials = player_a_win_count + player_b_win_count
+
+    if total_trials == 0:
+        draw_weighted_score_rate = 0.0
+    else:
+        draw_weighted_score_rate = (
+            player_a_win_count + draw_score_for_player_a * draw_count
+        ) / total_trials
+
+    if decisive_trials == 0:
+        decisive_win_rate = 0.0
+        binom_two_sided_p = 1.0
+        binom_greater_p = 1.0
+    else:
+        decisive_win_rate = player_a_win_count / decisive_trials
+        binom_two_sided_p = binomtest(
+            player_a_win_count,
+            decisive_trials,
+            p=0.5,
+            alternative="two-sided",
+        ).pvalue
+        binom_greater_p = binomtest(
+            player_a_win_count,
+            decisive_trials,
+            p=0.5,
+            alternative="greater",
+        ).pvalue
+
+    return {
+        "player_a_label": player_a_label,
+        "player_b_label": player_b_label,
+        "player_a_win_count": player_a_win_count,
+        "player_b_win_count": player_b_win_count,
+        "draw_count": draw_count,
+        "total_trials": int(total_trials),
+        "draw_score_for_player_a": float(draw_score_for_player_a),
+        "draw_weighted_score_rate_player_a": float(draw_weighted_score_rate),
+        "decisive_trials": int(decisive_trials),
+        "decisive_win_rate_player_a": float(decisive_win_rate),
+        "binomial_two_sided_p": float(binom_two_sided_p),
+        "binomial_one_sided_p_player_a_greater": float(binom_greater_p),
+    }
+
+
 def _method_label(experiment: dict[str, Any], key: str, default: str) -> str:
     value = experiment.get(key, default)
     return str(value) if value else default
@@ -207,6 +273,8 @@ def build_summary(
     player_b_start_key = _method_label(
         experiment, "player_b_start_method_key", PLAYER_B_START_KEY
     )
+    player_a_label = _method_label(experiment, "player_a_label", "Player A")
+    player_b_label = _method_label(experiment, "player_b_label", "Player B")
 
     player_a_start_result_means_x: list[float] = []
     player_b_start_result_means_x: list[float] = []
@@ -280,6 +348,13 @@ def build_summary(
             ),
         }
 
+    direct_match_summary = build_direct_match_summary(
+        player_a_start_total_counts,
+        player_b_start_total_counts,
+        player_a_label,
+        player_b_label,
+    )
+
     summary = {
         "experiment": experiment,
         "num_positions": int(len(records)),
@@ -290,6 +365,8 @@ def build_summary(
         "player_a_start_method_label": player_a_start_label,
         "player_b_start_method_key": player_b_start_key,
         "player_b_start_method_label": player_b_start_label,
+        "player_a_label": player_a_label,
+        "player_b_label": player_b_label,
         "log_size_result_mean_x_player_a_start": float(
             np.mean(player_a_start_result_means_x_np)
         ),
@@ -363,6 +440,7 @@ def build_summary(
         "tie_by_result_mean_x_count": int(tie_by_result_mean_x_count),
         "root_view_score_diff_bucket_order": list(ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER),
         "root_view_score_diff_bucket_summary": root_view_score_diff_bucket_summary,
+        "direct_match_summary": direct_match_summary,
     }
     return summary, player_a_start_result_means_x_np, player_b_start_result_means_x_np
 
@@ -426,6 +504,38 @@ def print_summary(
         f"{summary['player_a_start_better_by_result_mean_x_count']}"
     )
     print(f"Tie by result_mean_x count                : {summary['tie_by_result_mean_x_count']}")
+    print("")
+    print("direct match summary (Player A view)")
+    direct_match_summary = summary["direct_match_summary"]
+    player_a_label = direct_match_summary["player_a_label"]
+    player_b_label = direct_match_summary["player_b_label"]
+    draw_score_for_player_a = direct_match_summary["draw_score_for_player_a"]
+    print(
+        f"{player_a_label} wins / {player_b_label} wins / draws / total: "
+        f"{direct_match_summary['player_a_win_count']}, "
+        f"{direct_match_summary['player_b_win_count']}, "
+        f"{direct_match_summary['draw_count']}, "
+        f"{direct_match_summary['total_trials']}"
+    )
+    print(
+        f"draw-weighted score rate {player_a_label} "
+        f"(draw={draw_score_for_player_a:.1f}): "
+        f"{direct_match_summary['draw_weighted_score_rate_player_a']:.6f}"
+    )
+    print(
+        f"draw-excluded decisive winrate {player_a_label}: "
+        f"{direct_match_summary['decisive_win_rate_player_a']:.6f} "
+        f"({direct_match_summary['player_a_win_count']}/"
+        f"{direct_match_summary['decisive_trials']})"
+    )
+    print(
+        "binomial test on decisive games two-sided p: "
+        f"{direct_match_summary['binomial_two_sided_p']:.6f}"
+    )
+    print(
+        f"binomial test on decisive games one-sided p ({player_a_label} > {player_b_label}): "
+        f"{direct_match_summary['binomial_one_sided_p_player_a_greater']:.6f}"
+    )
     print("")
     print("root_view_score_diff_before_shot bucket summary (all trials in each bucket)")
     for bucket_label in summary["root_view_score_diff_bucket_order"]:
