@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from scipy.stats import binomtest
+from scipy.stats import binomtest, t as student_t, ttest_1samp
 
 
 RESULT_WIN_IDX = 0
@@ -245,6 +245,78 @@ def build_direct_match_summary(
     }
 
 
+def build_draw_weighted_score_stats(
+    player_a_win_count: int,
+    player_b_win_count: int,
+    draw_count: int,
+    draw_score_for_player_a: float,
+    baseline_score_rate: float = 0.5,
+    alpha: float = 0.05,
+) -> dict[str, Any]:
+    scores = np.concatenate(
+        [
+            np.full(player_a_win_count, 1.0, dtype=np.float64),
+            np.full(draw_count, draw_score_for_player_a, dtype=np.float64),
+            np.zeros(player_b_win_count, dtype=np.float64),
+        ]
+    )
+    total_trials = int(scores.size)
+
+    if total_trials == 0:
+        return {
+            "baseline_score_rate": float(baseline_score_rate),
+            "alpha": float(alpha),
+            "mean": 0.0,
+            "ci_low": 0.0,
+            "ci_high": 0.0,
+            "t_test_two_sided_p": 1.0,
+            "t_test_greater_p": 1.0,
+            "t_test_less_p": 1.0,
+        }
+
+    mean = float(np.mean(scores))
+    if total_trials <= 1:
+        ci_low = mean
+        ci_high = mean
+    else:
+        std = float(np.std(scores, ddof=1))
+        sem = std / float(np.sqrt(total_trials))
+        ci_margin = float(student_t.ppf(1.0 - alpha / 2.0, total_trials - 1) * sem)
+        ci_low = mean - ci_margin
+        ci_high = mean + ci_margin
+
+    two_sided_p = _ttest_pvalue(scores, baseline_score_rate, "two-sided", mean)
+    greater_p = _ttest_pvalue(scores, baseline_score_rate, "greater", mean)
+    less_p = _ttest_pvalue(scores, baseline_score_rate, "less", mean)
+
+    return {
+        "baseline_score_rate": float(baseline_score_rate),
+        "alpha": float(alpha),
+        "mean": mean,
+        "ci_low": float(ci_low),
+        "ci_high": float(ci_high),
+        "t_test_two_sided_p": float(two_sided_p),
+        "t_test_greater_p": float(greater_p),
+        "t_test_less_p": float(less_p),
+    }
+
+
+def _ttest_pvalue(
+    scores: np.ndarray,
+    baseline_score_rate: float,
+    alternative: str,
+    mean: float,
+) -> float:
+    if scores.size <= 1:
+        return 1.0
+
+    result = ttest_1samp(scores, baseline_score_rate, alternative=alternative)
+    pvalue = float(result.pvalue)
+    if np.isnan(pvalue):
+        return 1.0 if mean == baseline_score_rate else 0.0
+    return pvalue
+
+
 def _method_label(experiment: dict[str, Any], key: str, default: str) -> str:
     value = experiment.get(key, default)
     return str(value) if value else default
@@ -353,6 +425,15 @@ def build_summary(
         player_b_start_total_counts,
         player_a_label,
         player_b_label,
+    )
+    draw_weighted_score_stats = build_draw_weighted_score_stats(
+        direct_match_summary["player_a_win_count"],
+        direct_match_summary["player_b_win_count"],
+        direct_match_summary["draw_count"],
+        direct_match_summary["draw_score_for_player_a"],
+    )
+    direct_match_summary["draw_weighted_score_stats_player_a"] = (
+        draw_weighted_score_stats
     )
 
     summary = {
@@ -521,6 +602,29 @@ def print_summary(
         f"draw-weighted score rate {player_a_label} "
         f"(draw={draw_score_for_player_a:.1f}): "
         f"{direct_match_summary['draw_weighted_score_rate_player_a']:.6f}"
+    )
+    draw_weighted_score_stats = direct_match_summary[
+        "draw_weighted_score_stats_player_a"
+    ]
+    print(
+        f"draw-weighted score 95% CI {player_a_label}: "
+        f"[{draw_weighted_score_stats['ci_low']:.6f}, "
+        f"{draw_weighted_score_stats['ci_high']:.6f}]"
+    )
+    print(
+        f"t-test draw-weighted score two-sided p "
+        f"({player_a_label} != {draw_weighted_score_stats['baseline_score_rate']:.1f}): "
+        f"{draw_weighted_score_stats['t_test_two_sided_p']:.6f}"
+    )
+    print(
+        f"t-test draw-weighted score one-sided p "
+        f"({player_a_label} > {draw_weighted_score_stats['baseline_score_rate']:.1f}): "
+        f"{draw_weighted_score_stats['t_test_greater_p']:.6f}"
+    )
+    print(
+        f"t-test draw-weighted score one-sided p "
+        f"({player_a_label} < {draw_weighted_score_stats['baseline_score_rate']:.1f}): "
+        f"{draw_weighted_score_stats['t_test_less_p']:.6f}"
     )
     print(
         f"draw-excluded decisive winrate {player_a_label}: "
