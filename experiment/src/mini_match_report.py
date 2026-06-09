@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from scipy.stats import binomtest, t as student_t, ttest_1samp
+from scipy.stats import binomtest
 
 
 RESULT_WIN_IDX = 0
@@ -14,7 +14,6 @@ RESULT_LOSE_IDX = 2
 ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER = ("<=-2", "-1", "0", "+1", ">=+2")
 PLAYER_A_START_KEY = "player_a_start"
 PLAYER_B_START_KEY = "player_b_start"
-DRAW_SCORE_FOR_PLAYER_A = 0.2
 
 
 def save_position_json(save_file_path: Path, position_result: dict[str, Any]) -> None:
@@ -186,13 +185,13 @@ def build_direct_match_summary(
     player_b_start_counts: np.ndarray,
     player_a_label: str,
     player_b_label: str,
-    draw_score_for_player_a: float = DRAW_SCORE_FOR_PLAYER_A,
+    ab_reverse: bool = False,
 ) -> dict[str, Any]:
-    player_a_win_count = int(
+    original_player_a_win_count = int(
         player_a_start_counts[RESULT_WIN_IDX]
         + player_b_start_counts[RESULT_LOSE_IDX]
     )
-    player_b_win_count = int(
+    original_player_b_win_count = int(
         player_a_start_counts[RESULT_LOSE_IDX]
         + player_b_start_counts[RESULT_WIN_IDX]
     )
@@ -200,121 +199,56 @@ def build_direct_match_summary(
         player_a_start_counts[RESULT_DRAW_IDX]
         + player_b_start_counts[RESULT_DRAW_IDX]
     )
-    total_trials = player_a_win_count + player_b_win_count + draw_count
-    decisive_trials = player_a_win_count + player_b_win_count
 
-    if total_trials == 0:
-        draw_weighted_score_rate = 0.0
+    if ab_reverse:
+        view_player_label = player_b_label
+        opponent_label = player_a_label
+        view_player_win_count = original_player_b_win_count
+        opponent_win_count = original_player_a_win_count
+        view_label = "Player B view"
     else:
-        draw_weighted_score_rate = (
-            player_a_win_count + draw_score_for_player_a * draw_count
-        ) / total_trials
+        view_player_label = player_a_label
+        opponent_label = player_b_label
+        view_player_win_count = original_player_a_win_count
+        opponent_win_count = original_player_b_win_count
+        view_label = "Player A view"
+
+    total_trials = view_player_win_count + opponent_win_count + draw_count
+    decisive_trials = view_player_win_count + opponent_win_count
 
     if decisive_trials == 0:
         decisive_win_rate = 0.0
         binom_two_sided_p = 1.0
         binom_greater_p = 1.0
     else:
-        decisive_win_rate = player_a_win_count / decisive_trials
+        decisive_win_rate = view_player_win_count / decisive_trials
         binom_two_sided_p = binomtest(
-            player_a_win_count,
+            view_player_win_count,
             decisive_trials,
             p=0.5,
             alternative="two-sided",
         ).pvalue
         binom_greater_p = binomtest(
-            player_a_win_count,
+            view_player_win_count,
             decisive_trials,
             p=0.5,
             alternative="greater",
         ).pvalue
 
     return {
-        "player_a_label": player_a_label,
-        "player_b_label": player_b_label,
-        "player_a_win_count": player_a_win_count,
-        "player_b_win_count": player_b_win_count,
+        "view_label": view_label,
+        "view_player_label": view_player_label,
+        "opponent_label": opponent_label,
+        "view_player_win_count": int(view_player_win_count),
+        "opponent_win_count": int(opponent_win_count),
         "draw_count": draw_count,
         "total_trials": int(total_trials),
-        "draw_score_for_player_a": float(draw_score_for_player_a),
-        "draw_weighted_score_rate_player_a": float(draw_weighted_score_rate),
         "decisive_trials": int(decisive_trials),
-        "decisive_win_rate_player_a": float(decisive_win_rate),
+        "decisive_win_rate_view_player": float(decisive_win_rate),
         "binomial_two_sided_p": float(binom_two_sided_p),
-        "binomial_one_sided_p_player_a_greater": float(binom_greater_p),
+        "binomial_one_sided_p_view_player_greater": float(binom_greater_p),
+        "ab_reverse": bool(ab_reverse),
     }
-
-
-def build_draw_weighted_score_stats(
-    player_a_win_count: int,
-    player_b_win_count: int,
-    draw_count: int,
-    draw_score_for_player_a: float,
-    baseline_score_rate: float = 0.5,
-    alpha: float = 0.05,
-) -> dict[str, Any]:
-    scores = np.concatenate(
-        [
-            np.full(player_a_win_count, 1.0, dtype=np.float64),
-            np.full(draw_count, draw_score_for_player_a, dtype=np.float64),
-            np.zeros(player_b_win_count, dtype=np.float64),
-        ]
-    )
-    total_trials = int(scores.size)
-
-    if total_trials == 0:
-        return {
-            "baseline_score_rate": float(baseline_score_rate),
-            "alpha": float(alpha),
-            "mean": 0.0,
-            "ci_low": 0.0,
-            "ci_high": 0.0,
-            "t_test_two_sided_p": 1.0,
-            "t_test_greater_p": 1.0,
-            "t_test_less_p": 1.0,
-        }
-
-    mean = float(np.mean(scores))
-    if total_trials <= 1:
-        ci_low = mean
-        ci_high = mean
-    else:
-        std = float(np.std(scores, ddof=1))
-        sem = std / float(np.sqrt(total_trials))
-        ci_margin = float(student_t.ppf(1.0 - alpha / 2.0, total_trials - 1) * sem)
-        ci_low = mean - ci_margin
-        ci_high = mean + ci_margin
-
-    two_sided_p = _ttest_pvalue(scores, baseline_score_rate, "two-sided", mean)
-    greater_p = _ttest_pvalue(scores, baseline_score_rate, "greater", mean)
-    less_p = _ttest_pvalue(scores, baseline_score_rate, "less", mean)
-
-    return {
-        "baseline_score_rate": float(baseline_score_rate),
-        "alpha": float(alpha),
-        "mean": mean,
-        "ci_low": float(ci_low),
-        "ci_high": float(ci_high),
-        "t_test_two_sided_p": float(two_sided_p),
-        "t_test_greater_p": float(greater_p),
-        "t_test_less_p": float(less_p),
-    }
-
-
-def _ttest_pvalue(
-    scores: np.ndarray,
-    baseline_score_rate: float,
-    alternative: str,
-    mean: float,
-) -> float:
-    if scores.size <= 1:
-        return 1.0
-
-    result = ttest_1samp(scores, baseline_score_rate, alternative=alternative)
-    pvalue = float(result.pvalue)
-    if np.isnan(pvalue):
-        return 1.0 if mean == baseline_score_rate else 0.0
-    return pvalue
 
 
 def _method_label(experiment: dict[str, Any], key: str, default: str) -> str:
@@ -324,6 +258,7 @@ def _method_label(experiment: dict[str, Any], key: str, default: str) -> str:
 
 def build_summary(
     records: list[dict[str, Any]],
+    ab_reverse: bool = False,
 ) -> tuple[dict[str, Any], np.ndarray, np.ndarray]:
     if len(records) == 0:
         raise ValueError("records must not be empty")
@@ -425,15 +360,7 @@ def build_summary(
         player_b_start_total_counts,
         player_a_label,
         player_b_label,
-    )
-    draw_weighted_score_stats = build_draw_weighted_score_stats(
-        direct_match_summary["player_a_win_count"],
-        direct_match_summary["player_b_win_count"],
-        direct_match_summary["draw_count"],
-        direct_match_summary["draw_score_for_player_a"],
-    )
-    direct_match_summary["draw_weighted_score_stats_player_a"] = (
-        draw_weighted_score_stats
+        ab_reverse=ab_reverse,
     )
 
     summary = {
@@ -586,50 +513,21 @@ def print_summary(
     )
     print(f"Tie by result_mean_x count                : {summary['tie_by_result_mean_x_count']}")
     print("")
-    print("direct match summary (Player A view)")
+    print(f"direct match summary ({summary['direct_match_summary']['view_label']})")
     direct_match_summary = summary["direct_match_summary"]
-    player_a_label = direct_match_summary["player_a_label"]
-    player_b_label = direct_match_summary["player_b_label"]
-    draw_score_for_player_a = direct_match_summary["draw_score_for_player_a"]
+    view_player_label = direct_match_summary["view_player_label"]
+    opponent_label = direct_match_summary["opponent_label"]
     print(
-        f"{player_a_label} wins / {player_b_label} wins / draws / total: "
-        f"{direct_match_summary['player_a_win_count']}, "
-        f"{direct_match_summary['player_b_win_count']}, "
+        f"{view_player_label} wins / {opponent_label} wins / draws / total: "
+        f"{direct_match_summary['view_player_win_count']}, "
+        f"{direct_match_summary['opponent_win_count']}, "
         f"{direct_match_summary['draw_count']}, "
         f"{direct_match_summary['total_trials']}"
     )
     print(
-        f"draw-weighted score rate {player_a_label} "
-        f"(draw={draw_score_for_player_a:.1f}): "
-        f"{direct_match_summary['draw_weighted_score_rate_player_a']:.6f}"
-    )
-    draw_weighted_score_stats = direct_match_summary[
-        "draw_weighted_score_stats_player_a"
-    ]
-    print(
-        f"draw-weighted score 95% CI {player_a_label}: "
-        f"[{draw_weighted_score_stats['ci_low']:.6f}, "
-        f"{draw_weighted_score_stats['ci_high']:.6f}]"
-    )
-    print(
-        f"t-test draw-weighted score two-sided p "
-        f"({player_a_label} != {draw_weighted_score_stats['baseline_score_rate']:.1f}): "
-        f"{draw_weighted_score_stats['t_test_two_sided_p']:.6f}"
-    )
-    print(
-        f"t-test draw-weighted score one-sided p "
-        f"({player_a_label} > {draw_weighted_score_stats['baseline_score_rate']:.1f}): "
-        f"{draw_weighted_score_stats['t_test_greater_p']:.6f}"
-    )
-    print(
-        f"t-test draw-weighted score one-sided p "
-        f"({player_a_label} < {draw_weighted_score_stats['baseline_score_rate']:.1f}): "
-        f"{draw_weighted_score_stats['t_test_less_p']:.6f}"
-    )
-    print(
-        f"draw-excluded decisive winrate {player_a_label}: "
-        f"{direct_match_summary['decisive_win_rate_player_a']:.6f} "
-        f"({direct_match_summary['player_a_win_count']}/"
+        f"draw-excluded decisive winrate {view_player_label}: "
+        f"{direct_match_summary['decisive_win_rate_view_player']:.6f} "
+        f"({direct_match_summary['view_player_win_count']}/"
         f"{direct_match_summary['decisive_trials']})"
     )
     print(
@@ -637,8 +535,8 @@ def print_summary(
         f"{direct_match_summary['binomial_two_sided_p']:.6f}"
     )
     print(
-        f"binomial test on decisive games one-sided p ({player_a_label} > {player_b_label}): "
-        f"{direct_match_summary['binomial_one_sided_p_player_a_greater']:.6f}"
+        f"binomial test on decisive games one-sided p ({view_player_label} > {opponent_label}): "
+        f"{direct_match_summary['binomial_one_sided_p_view_player_greater']:.6f}"
     )
     print("")
     print("root_view_score_diff_before_shot bucket summary (all trials in each bucket)")
@@ -666,9 +564,11 @@ def render_report_from_records(
     json_dir: Path,
     png_path: Path,
     records: list[dict[str, Any]],
+    ab_reverse: bool = False,
 ) -> tuple[dict[str, Any], np.ndarray, np.ndarray]:
     summary, player_a_start_result_means_x, player_b_start_result_means_x = build_summary(
-        records
+        records,
+        ab_reverse=ab_reverse,
     )
     save_result_plot(
         png_path,
@@ -684,9 +584,11 @@ def render_report_from_records(
 def print_report_from_records(
     json_dir: Path,
     records: list[dict[str, Any]],
+    ab_reverse: bool = False,
 ) -> tuple[dict[str, Any], np.ndarray, np.ndarray]:
     summary, player_a_start_result_means_x, player_b_start_result_means_x = build_summary(
-        records
+        records,
+        ab_reverse=ab_reverse,
     )
     print_summary(json_dir, summary)
     return summary, player_a_start_result_means_x, player_b_start_result_means_x
@@ -695,15 +597,17 @@ def print_report_from_records(
 def render_report_from_json_dir(
     json_dir: Path,
     png_path: Path | None = None,
+    ab_reverse: bool = False,
 ) -> tuple[dict[str, Any], np.ndarray, np.ndarray]:
     if png_path is None:
         png_path = json_dir.parent / f"{json_dir.name}.png"
     records = load_position_records(json_dir)
-    return render_report_from_records(json_dir, png_path, records)
+    return render_report_from_records(json_dir, png_path, records, ab_reverse=ab_reverse)
 
 
 def print_report_from_json_dir(
     json_dir: Path,
+    ab_reverse: bool = False,
 ) -> tuple[dict[str, Any], np.ndarray, np.ndarray]:
     records = load_position_records(json_dir)
-    return print_report_from_records(json_dir, records)
+    return print_report_from_records(json_dir, records, ab_reverse=ab_reverse)

@@ -19,13 +19,14 @@ DEFAULT_TARGET_PATH = (
 )
 
 
-def main(target_path: str | Path = DEFAULT_TARGET_PATH) -> None:
-    print_report_from_json_dir(Path(target_path))
+def main(target_path: str | Path = DEFAULT_TARGET_PATH, ab_reverse: bool = False) -> None:
+    print_report_from_json_dir(Path(target_path), ab_reverse=ab_reverse)
 
 
 if __name__ == "__main__":
     main(
         target_path=Path(__file__).resolve().parents[1]
         / "data"
-        / "mini_match_cnn_vs_transformer_end9_shot12_datasize1000_x1"
+        / "mini_match_cnn_vs_transformer_end9_shot12_datasize1000_x1",
+        ab_reverse=False,
     )
