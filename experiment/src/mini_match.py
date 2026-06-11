@@ -1136,7 +1136,7 @@ if __name__ == "__main__":
         player_a_kind="Kura",
         player_b_kind="Transformer",
         target_end=9,
-        target_shot=12,
+        target_shot=11,
         data_size=1000,
         X=1,
         use_gpu=True,
