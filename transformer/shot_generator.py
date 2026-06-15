@@ -530,7 +530,7 @@ if __name__ == "__main__":
         use_gpu=True,
         shuffle_seed=12345,
         chunk_start=0,
-        chunk_end=2,
+        chunk_end=0,
         chunk_size=BATCH_SIZE,
         policy_min_visit=3,
         policy_delta_q=1.0,
