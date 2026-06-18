@@ -5,7 +5,7 @@ set -euo pipefail
 chunk_start="${1:?Usage: ./aws-generate.sh <chunk_number>}"
 chunk_end="${2:?Usage: ./aws-generate.sh <chunk_number>}"
 
-source /home/ubuntu/.venv/bin/activate
+source /home/ubuntu/env/bin/activate
 cd /home/ubuntu/NewSL/transformer
 
 tmux new-session -d -s "run_chunk_$chunk_start--$chunk_end" \
