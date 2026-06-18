@@ -523,7 +523,7 @@ if __name__ == "__main__":
         use_transformer=True,
         transformer_model=Path(__file__).resolve().parents[1]
         / "model"
-        / "transformer-sl-9-8-model-06-16-adamw-epoch50-shot.bin",
+        / "transformer-sl-9-7-model-06-18-adamw-epoch50-shot.bin",
         transformer_target_end=[9],
         transformer_target_shot=[7],
         max_simulations=1022,
