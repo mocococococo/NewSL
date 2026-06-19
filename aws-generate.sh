@@ -9,4 +9,4 @@ source /home/ubuntu/env/bin/activate
 cd /home/ubuntu/NewSL/transformer
 
 tmux new-session -d -s "run_chunk_$chunk_start--$chunk_end" \
-"python shot_generator.py --chunk_start=$chunk_start --chunk_end=$chunk_end > run_chunk_$chunk_start--$chunk_end.log 2>&1"
+"python -u shot_generator.py --chunk_start=$chunk_start --chunk_end=$chunk_end > run_chunk_$chunk_start--$chunk_end.log 2>&1"
