@@ -525,7 +525,7 @@ def main(chunk_start: int, chunk_end: int) -> None:
         use_score_diff_augmentation=False,
         target_shot=[14],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
-        use_transformer=False,
+        use_transformer=True,
         transformer_model=Path(__file__).resolve().parents[1]
         / "model"
         / "transformer-sl-9-15-model-06-22-adamw-epoch50-shot-non-end-extended.bin",
