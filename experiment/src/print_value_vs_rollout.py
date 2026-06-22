@@ -15,7 +15,7 @@ EXPERIMENT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_TARGET_PATH = (
     EXPERIMENT_DIR
     / "data"
-    / "value_vs_rollout_shot_transformer_end9_shot14_datasize1000_x1"
+    / "value_vs_rollout_puct_transformer_end9_shot9_datasize1000_x1"
 )
 
 
