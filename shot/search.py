@@ -57,8 +57,8 @@ def shot_search(
     reset_policy_selection_log()
 
     time_limit_sec = DEFAULT_SHOT_TIME_LIMIT_SEC
-    if root_state.shot_index == 15:
-        max_simulations = DEFAULT_SHOT_MAX_SIMULATIONS_15
+    # if root_state.shot_index == 15:
+    #     max_simulations = DEFAULT_SHOT_MAX_SIMULATIONS_15
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_SHOT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
