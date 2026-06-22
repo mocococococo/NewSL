@@ -46,6 +46,7 @@ def shot_search(
     debug_topk: int = 5,
     stats_log_path: Optional[str] = None,
     is_create_data: bool = False,
+    use_value: bool = True,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     SHOTで探索して最善手(action_id: 0..N_ACTIONS-1)を返す。
@@ -111,7 +112,11 @@ def shot_search(
         dbg.tic("expansion")
         if not is_end_terminal(state):
             pi, value_probs = get_policy_and_value(state)
-            v_to_move = value_probs_to_winvalue(state, value_probs)
+            v_to_move = (
+                value_probs_to_winvalue(state, value_probs)
+                if use_value
+                else None
+            )
             if not node.is_expanded():
                 node.expand(pi)
         else:
@@ -122,9 +127,10 @@ def shot_search(
 
         # 3) Evaluation
         dbg.tic("evaluation")
-        if is_end_terminal(state):
+        if is_end_terminal(state) or not use_value:
             v = rollout_to_end_score(state)  # state の手番視点で返す
         else:
+            assert v_to_move is not None
             v = -float(v_to_move)  # v_to_move は leaf の手番視点なので、直前手番の視点へ反転する
         dbg.toc("evaluation")
 

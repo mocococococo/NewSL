@@ -31,7 +31,7 @@ ROLLOUT_USE_GREEDY_POLICY = True  # Trueならargmax(policy)、Falseならサン
 STATE_POS_SCALE = 100            # 座標をround(v*scale)して整数化
 
 TOPK_INIT = 10 # rollout初手の候補数
-TOPK_MAX = 256 # rollout途中以降の最大候補数
+TOPK_MAX = 128 # rollout途中以降の最大候補数
 PW_C = 8.0 # Progressive Widening の C 定数
 PW_ALPHA = 0.5 # Progressive Widening の alpha 指数
 
