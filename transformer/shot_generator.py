@@ -523,14 +523,14 @@ def main(chunk_start: int, chunk_end: int) -> None:
         target_end=9,
         use_end_augmentation=False,
         use_score_diff_augmentation=False,
-        target_shot=[11],
+        target_shot=[10],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_transformer=True,
         transformer_model=Path(__file__).resolve().parents[1]
         / "model"
-        / "transformer-sl-9-12-model-06-22-adamw-epoch50-shot-non-end-extended.bin",
+        / "transformer-sl-9-11-model-06-22-adamw-epoch50-shot-non-end-extended.bin",
         transformer_target_end=[9],
-        transformer_target_shot=[12],
+        transformer_target_shot=[11],
         max_simulations=1022,
         use_gpu=False,
         shuffle_seed=12345,
