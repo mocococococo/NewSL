@@ -40,6 +40,6 @@ def main(
 if __name__ == "__main__":
     main(
         target_path=DEFAULT_TARGET_PATH,
-        ab_reverse=False,
+        ab_reverse=True,
         max_positions=None,
     )

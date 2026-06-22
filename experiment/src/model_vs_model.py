@@ -782,8 +782,8 @@ if __name__ == "__main__":
         target_end=9,
         target_shot=9,
         total_data_size=1000,
-        position_start=4,
-        position_count=1,
+        position_start=0,
+        position_count=500,
         X=1,
         use_gpu=True,
         transformer_models_by_shot_A={

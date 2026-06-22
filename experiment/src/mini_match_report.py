@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import warnings
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-from scipy.stats import binomtest
+from scipy.stats import binomtest, wilcoxon
 
 
 RESULT_WIN_IDX = 0
@@ -14,6 +15,14 @@ RESULT_LOSE_IDX = 2
 ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER = ("<=-2", "-1", "0", "+1", ">=+2")
 PLAYER_A_START_KEY = "player_a_start"
 PLAYER_B_START_KEY = "player_b_start"
+POSITION_BOOTSTRAP_RESAMPLES = 100000
+POSITION_BOOTSTRAP_SEED = 12345
+
+
+def _format_p_value(value: float) -> str:
+    if value < 1e-6:
+        return f"{value:.6e}"
+    return f"{value:.6f}"
 
 
 def save_position_json(save_file_path: Path, position_result: dict[str, Any]) -> None:
@@ -261,6 +270,179 @@ def build_direct_match_summary(
     }
 
 
+def _exact_sign_flip_pvalues(centered_scores: np.ndarray) -> tuple[float, float]:
+    nonzero_weights = [
+        abs(int(score))
+        for score in centered_scores.tolist()
+        if int(score) != 0
+    ]
+    if not nonzero_weights:
+        return 1.0, 1.0
+
+    distribution = {0: 1}
+    for weight in nonzero_weights:
+        next_distribution: dict[int, int] = {}
+        for signed_sum, count in distribution.items():
+            positive_sum = signed_sum + weight
+            negative_sum = signed_sum - weight
+            next_distribution[positive_sum] = (
+                next_distribution.get(positive_sum, 0) + count
+            )
+            next_distribution[negative_sum] = (
+                next_distribution.get(negative_sum, 0) + count
+            )
+        distribution = next_distribution
+
+    observed_sum = int(np.sum(centered_scores))
+    total_assignments = 1 << len(nonzero_weights)
+    two_sided_count = sum(
+        count
+        for signed_sum, count in distribution.items()
+        if abs(signed_sum) >= abs(observed_sum)
+    )
+    greater_count = sum(
+        count
+        for signed_sum, count in distribution.items()
+        if signed_sum >= observed_sum
+    )
+    return (
+        float(two_sided_count / total_assignments),
+        float(greater_count / total_assignments),
+    )
+
+
+def _bootstrap_mean_ci(
+    values: np.ndarray,
+    confidence_level: float = 0.95,
+    resamples: int = POSITION_BOOTSTRAP_RESAMPLES,
+    seed: int = POSITION_BOOTSTRAP_SEED,
+) -> tuple[float, float]:
+    if len(values) == 0:
+        raise ValueError("values must not be empty")
+    if len(values) == 1:
+        value = float(values[0])
+        return value, value
+
+    rng = np.random.default_rng(seed)
+    bootstrap_means = np.empty(resamples, dtype=np.float64)
+    chunk_size = 1000
+    for start in range(0, resamples, chunk_size):
+        size = min(chunk_size, resamples - start)
+        indices = rng.integers(0, len(values), size=(size, len(values)))
+        bootstrap_means[start:start + size] = values[indices].mean(axis=1)
+
+    alpha = 1.0 - confidence_level
+    low, high = np.quantile(
+        bootstrap_means,
+        [alpha / 2.0, 1.0 - alpha / 2.0],
+    )
+    return float(low), float(high)
+
+
+def build_position_unit_summary(
+    records: list[dict[str, Any]],
+    x_repeats: int,
+    player_a_label: str,
+    player_b_label: str,
+    ab_reverse: bool = False,
+) -> dict[str, Any]:
+    total_trials_per_position = 2 * x_repeats
+    r_values: list[float] = []
+    centered_scores: list[int] = []
+
+    for record in records:
+        player_a_start_counts = counts_from_model(record[PLAYER_A_START_KEY])
+        player_b_start_counts = counts_from_model(record[PLAYER_B_START_KEY])
+
+        original_a_wins = int(
+            player_a_start_counts[RESULT_WIN_IDX]
+            + player_b_start_counts[RESULT_LOSE_IDX]
+        )
+        original_b_wins = int(
+            player_a_start_counts[RESULT_LOSE_IDX]
+            + player_b_start_counts[RESULT_WIN_IDX]
+        )
+        draws = int(
+            player_a_start_counts[RESULT_DRAW_IDX]
+            + player_b_start_counts[RESULT_DRAW_IDX]
+        )
+        actual_total = original_a_wins + original_b_wins + draws
+        if actual_total != total_trials_per_position:
+            raise ValueError(
+                "Each position must contain exactly "
+                f"{total_trials_per_position} trials, got {actual_total}"
+            )
+
+        view_wins = original_b_wins if ab_reverse else original_a_wins
+        r_value = (view_wins + 0.5 * draws) / total_trials_per_position
+        r_values.append(float(r_value))
+        centered_scores.append(2 * view_wins + draws - total_trials_per_position)
+
+    r_values_np = np.asarray(r_values, dtype=np.float64)
+    d_values_np = r_values_np - 0.5
+    centered_scores_np = np.asarray(centered_scores, dtype=np.int64)
+    nonzero_count = int(np.count_nonzero(centered_scores_np))
+    zero_count = int(len(centered_scores_np) - nonzero_count)
+
+    if nonzero_count == 0:
+        wilcoxon_statistic = 0.0
+        wilcoxon_two_sided_p = 1.0
+        wilcoxon_greater_p = 1.0
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            wilcoxon_two_sided = wilcoxon(
+                d_values_np,
+                zero_method="wilcox",
+                correction=False,
+                alternative="two-sided",
+                method="approx",
+            )
+            wilcoxon_greater = wilcoxon(
+                d_values_np,
+                zero_method="wilcox",
+                correction=False,
+                alternative="greater",
+                method="approx",
+            )
+        wilcoxon_statistic = float(wilcoxon_two_sided.statistic)
+        wilcoxon_two_sided_p = float(wilcoxon_two_sided.pvalue)
+        wilcoxon_greater_p = float(wilcoxon_greater.pvalue)
+
+    permutation_two_sided_p, permutation_greater_p = _exact_sign_flip_pvalues(
+        centered_scores_np
+    )
+    bootstrap_ci_low, bootstrap_ci_high = _bootstrap_mean_ci(r_values_np)
+
+    view_player_label = player_b_label if ab_reverse else player_a_label
+    opponent_label = player_a_label if ab_reverse else player_b_label
+    return {
+        "view_player_label": view_player_label,
+        "opponent_label": opponent_label,
+        "num_positions": int(len(records)),
+        "total_trials_per_position": int(total_trials_per_position),
+        "mean_r": float(np.mean(r_values_np)),
+        "mean_d": float(np.mean(d_values_np)),
+        "zero_difference_count": zero_count,
+        "nonzero_difference_count": nonzero_count,
+        "wilcoxon_statistic": wilcoxon_statistic,
+        "wilcoxon_two_sided_p": wilcoxon_two_sided_p,
+        "wilcoxon_one_sided_p_view_player_greater": wilcoxon_greater_p,
+        "wilcoxon_zero_method": "wilcox",
+        "wilcoxon_method": "approx",
+        "sign_flip_statistic_mean_d": float(np.mean(d_values_np)),
+        "sign_flip_two_sided_p": permutation_two_sided_p,
+        "sign_flip_one_sided_p_view_player_greater": permutation_greater_p,
+        "sign_flip_method": "exact",
+        "bootstrap_mean_r_ci_low": bootstrap_ci_low,
+        "bootstrap_mean_r_ci_high": bootstrap_ci_high,
+        "bootstrap_confidence_level": 0.95,
+        "bootstrap_method": "percentile_position_resampling",
+        "bootstrap_resamples": int(POSITION_BOOTSTRAP_RESAMPLES),
+        "bootstrap_seed": int(POSITION_BOOTSTRAP_SEED),
+        "ab_reverse": bool(ab_reverse),
+    }
+
 def _method_label(experiment: dict[str, Any], key: str, default: str) -> str:
     value = experiment.get(key, default)
     return str(value) if value else default
@@ -372,6 +554,13 @@ def build_summary(
         player_b_label,
         ab_reverse=ab_reverse,
     )
+    position_unit_summary = build_position_unit_summary(
+        records,
+        x_repeats,
+        player_a_label,
+        player_b_label,
+        ab_reverse=ab_reverse,
+    )
 
     summary = {
         "experiment": experiment,
@@ -459,6 +648,7 @@ def build_summary(
         "root_view_score_diff_bucket_order": list(ROOT_VIEW_SCORE_DIFF_BUCKET_ORDER),
         "root_view_score_diff_bucket_summary": root_view_score_diff_bucket_summary,
         "direct_match_summary": direct_match_summary,
+        "position_unit_summary": position_unit_summary,
     }
     return summary, player_a_start_result_means_x_np, player_b_start_result_means_x_np
 
@@ -546,12 +736,80 @@ def print_summary(
         f"{direct_match_summary['decisive_win_rate_ci_high_view_player']:.6f}]"
     )
     print(
-        "binomial test on decisive games two-sided p: "
-        f"{direct_match_summary['binomial_two_sided_p']:.6f}"
+        "binomial test on decisive games two-sided p: " +
+        _format_p_value(direct_match_summary["binomial_two_sided_p"])
     )
     print(
-        f"binomial test on decisive games one-sided p ({view_player_label} > {opponent_label}): "
-        f"{direct_match_summary['binomial_one_sided_p_view_player_greater']:.6f}"
+        f"binomial test on decisive games one-sided p ({view_player_label} > {opponent_label}): " +
+        _format_p_value(
+            direct_match_summary["binomial_one_sided_p_view_player_greater"]
+        )
+    )
+    position_unit_summary = summary["position_unit_summary"]
+    print("")
+    print("position-unit paired summary")
+    print(
+        "r_i = (view-player wins + 0.5 * draws) / "
+        f"{position_unit_summary['total_trials_per_position']} trials per position"
+    )
+    print(
+        f"mean r_i {view_player_label}: "
+        f"{position_unit_summary['mean_r']:.6f}"
+    )
+    print(
+        f"mean d_i = mean(r_i - 0.5): "
+        f"{position_unit_summary['mean_d']:.6f}"
+    )
+    print(
+        "zero / nonzero d_i positions: "
+        f"{position_unit_summary['zero_difference_count']}, "
+        f"{position_unit_summary['nonzero_difference_count']}"
+    )
+    print(
+        "Wilcoxon signed-rank statistic: "
+        f"{position_unit_summary['wilcoxon_statistic']:.6f}"
+    )
+    print(
+        "Wilcoxon settings: "
+        f"zero_method={position_unit_summary['wilcoxon_zero_method']}, "
+        f"method={position_unit_summary['wilcoxon_method']}"
+    )
+    print(
+        "Wilcoxon signed-rank test two-sided p: " +
+        _format_p_value(position_unit_summary["wilcoxon_two_sided_p"])
+    )
+    print(
+        f"Wilcoxon signed-rank test one-sided p "
+        f"({view_player_label} > {opponent_label}): " +
+        _format_p_value(
+            position_unit_summary["wilcoxon_one_sided_p_view_player_greater"]
+        )
+    )
+    print(
+        "position-level sign-flip statistic mean d_i: "
+        f"{position_unit_summary['sign_flip_statistic_mean_d']:.6f}"
+    )
+    print(
+        "exact position-level sign-flip permutation test two-sided p: " +
+        _format_p_value(position_unit_summary["sign_flip_two_sided_p"])
+    )
+    print(
+        f"exact position-level sign-flip permutation test one-sided p "
+        f"({view_player_label} > {opponent_label}): " +
+        _format_p_value(
+            position_unit_summary["sign_flip_one_sided_p_view_player_greater"]
+        )
+    )
+    print(
+        "position bootstrap settings: "
+        f"method={position_unit_summary['bootstrap_method']}, "
+        f"resamples={position_unit_summary['bootstrap_resamples']}, "
+        f"seed={position_unit_summary['bootstrap_seed']}"
+    )
+    print(
+        f"position bootstrap mean r_i 95% CI {view_player_label}: "
+        f"[{position_unit_summary['bootstrap_mean_r_ci_low']:.6f}, "
+        f"{position_unit_summary['bootstrap_mean_r_ci_high']:.6f}]"
     )
     print("")
     print("root_view_score_diff_before_shot bucket summary (all trials in each bucket)")

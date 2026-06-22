@@ -41,5 +41,5 @@ if __name__ == "__main__":
     main(
         target_path=DEFAULT_TARGET_PATH,
         ab_reverse=False,
-        max_positions=500,        
+        max_positions=None,        
     )
