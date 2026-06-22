@@ -12,6 +12,10 @@ from shot.search import set_root_state, shot_search
 
 
 DEFAULT_TRANSFORMER_MODELS_BY_SHOT = {
+    7: "transformer-sl-9-07-model-06-18-adamw-epoch50-shot.bin",
+    8: "transformer-sl-9-08-model-06-16-adamw-epoch50-shot.bin",
+    9: "transformer-sl-9-09-model-06-14-adamw-epoch50-shot.bin",
+    10: "transformer-sl-9-10-model-06-11-adamw-epoch50-shot.bin",
     11: "transformer-sl-9-11-model-06-09-adamw-epoch50-shot.bin",
     12: "transformer-sl-9-12-model-06-08-adamw-epoch50-shot.bin",
     13: "transformer-sl-9-13-model-06-06-adamw-epoch50-shot.bin",
@@ -48,6 +52,10 @@ def _load_transformer_networks_by_shot(
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
 @click.option('--transformer_model', type=str, default=None, help='Single Transformer model name used as fallback')
+@click.option('--transformer_model_7', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[7], help='Transformer model name for shot 7')
+@click.option('--transformer_model_8', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[8], help='Transformer model name for shot 8')
+@click.option('--transformer_model_9', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[9], help='Transformer model name for shot 9')
+@click.option('--transformer_model_10', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[10], help='Transformer model name for shot 10')
 @click.option('--transformer_model_11', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[11], help='Transformer model name for shot 11')
 @click.option('--transformer_model_12', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[12], help='Transformer model name for shot 12')
 @click.option('--transformer_model_13', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[13], help='Transformer model name for shot 13')
@@ -58,7 +66,7 @@ def _load_transformer_networks_by_shot(
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
 @click.option('--transformer_target_end', type=int, multiple=True, default=(9, 10), help='transformer_target_end (default: 9). Can specify multiple values.')
-@click.option('--transformer_target_shot', type=int, multiple=True, default=(11, 12, 13, 14, 15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
+@click.option('--transformer_target_shot', type=int, multiple=True, default=(7, 8, 9, 10, 11, 12, 13, 14, 15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
 
 def main(**kwargs):
     host = kwargs['host']
@@ -66,6 +74,10 @@ def main(**kwargs):
     model = _model_path(kwargs['model'])
     transformer_model = kwargs['transformer_model']
     transformer_models_by_shot = {
+        7: kwargs['transformer_model_7'],
+        8: kwargs['transformer_model_8'],
+        9: kwargs['transformer_model_9'],
+        10: kwargs['transformer_model_10'],
         11: kwargs['transformer_model_11'],
         12: kwargs['transformer_model_12'],
         13: kwargs['transformer_model_13'],
