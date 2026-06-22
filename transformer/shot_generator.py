@@ -532,7 +532,7 @@ def main(chunk_start: int, chunk_end: int) -> None:
         transformer_target_end=[9],
         transformer_target_shot=[14],
         max_simulations=1022,
-        use_gpu=True,
+        use_gpu=False,
         shuffle_seed=12345,
         chunk_start=chunk_start,
         chunk_end=chunk_end,
