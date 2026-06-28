@@ -27,6 +27,6 @@ if __name__ == "__main__":
     main(
         target_path=Path(__file__).resolve().parents[1]
         / "data"
-        / "mini_match_cnn_vs_transformer_end9_shot7_datasize1000_x1",
+        / "mini_match_kura_vs_transformer_end9_shot5_datasize1000_x1",
         ab_reverse=True,
     )
