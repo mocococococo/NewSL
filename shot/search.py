@@ -21,7 +21,7 @@ from .create_mode import (
 from .debugger import Debugger, format_topk_policy, format_topk_root_shot, policy_stats, summarize_stones
 from .evaluator import value_probs_to_winvalue
 from .node import Node, argmax_over_actions, tree_size
-from .params import DEFAULT_SHOT_MAX_DEPTH, DEFAULT_SHOT_MAX_SIMULATIONS, DEFAULT_SHOT_TIME_LIMIT_SEC
+from .params import DEFAULT_SHOT_MAX_DEPTH, DEFAULT_SHOT_MAX_SIMULATIONS, DEFAULT_SHOT_TIME_LIMIT_SEC, DEFAULT_SHOT_MAX_SIMULATIONS_15
 
 SearchAction = Tuple[float, float, int]
 SearchDataResult = Tuple[int, List[RootCandidateStat]]
@@ -46,6 +46,7 @@ def shot_search(
     debug_topk: int = 5,
     stats_log_path: Optional[str] = None,
     is_create_data: bool = False,
+    use_value: bool = True,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     SHOTで探索して最善手(action_id: 0..N_ACTIONS-1)を返す。
@@ -57,6 +58,8 @@ def shot_search(
     reset_policy_selection_log()
 
     time_limit_sec = DEFAULT_SHOT_TIME_LIMIT_SEC
+    if root_state.shot_index == 15:
+        max_simulations = DEFAULT_SHOT_MAX_SIMULATIONS_15
         # if root_state.shot_index % 2 == 0 \
         # else DEFAULT_SHOT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
@@ -109,7 +112,11 @@ def shot_search(
         dbg.tic("expansion")
         if not is_end_terminal(state):
             pi, value_probs = get_policy_and_value(state)
-            v_to_move = value_probs_to_winvalue(state, value_probs)
+            v_to_move = (
+                value_probs_to_winvalue(state, value_probs)
+                if use_value
+                else None
+            )
             if not node.is_expanded():
                 node.expand(pi)
         else:
@@ -120,9 +127,10 @@ def shot_search(
 
         # 3) Evaluation
         dbg.tic("evaluation")
-        if is_end_terminal(state):
+        if is_end_terminal(state) or not use_value:
             v = rollout_to_end_score(state)  # state の手番視点で返す
         else:
+            assert v_to_move is not None
             v = -float(v_to_move)  # v_to_move は leaf の手番視点なので、直前手番の視点へ反転する
         dbg.toc("evaluation")
 
@@ -217,7 +225,7 @@ def set_root_state(
     end: int,
     shot_index: int,
     hammer_team: int,
-    transformer_network: Optional[TransformerNetwork] = None,
+    transformer_network: Optional[Union[TransformerNetwork, Dict[int, TransformerNetwork]]] = None,
     debug: bool = False,
     use_transformer: bool = False,
     transformer_target_end: Tuple[int, ...] = (9, 10),

@@ -62,7 +62,8 @@ def mcts_search(
     debug_every: int = 10,            # 追加（10回に1回出力）
     debug_topk: int = 5,              # 追加（上位k手を表示）    
     stats_log_path: Optional[str] = None,
-    is_create_data: bool = False
+    is_create_data: bool = False,
+    use_value: bool = True,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     PUCTで探索して最善手(action_id: 0..2047)を返す。
@@ -134,7 +135,11 @@ def mcts_search(
         dbg.tic("expansion")
         if not is_end_terminal(state):
             pi, value_probs = get_policy_and_value(state)
-            v_to_move = _value_probs_to_winvalue(state, value_probs)
+            v_to_move = (
+                _value_probs_to_winvalue(state, value_probs)
+                if use_value
+                else None
+            )
             if not node.is_expanded():
                 node.expand(pi)
         else:
@@ -145,9 +150,10 @@ def mcts_search(
 
         # 3) Rollout (エンド終端まで)
         dbg.tic("rollout")
-        if is_end_terminal(state):
+        if is_end_terminal(state) or not use_value:
             v = rollout_to_end_score(state)  # 「stateの手番視点」で返すのが楽
         else:
+            assert v_to_move is not None
             # rolloutは簡易版のpolicyでやる（高速化のため）
             v = -float(v_to_move)  # rolloutは相手視点でやる（v_to_moveはstateの手番視点なので符号反転）
         dbg.toc("rollout")

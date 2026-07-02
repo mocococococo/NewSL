@@ -11,23 +11,79 @@ from common.translate_state import convert_scores_to_dict, convert_stones_to_lis
 from shot.search import set_root_state, shot_search
 
 
+DEFAULT_TRANSFORMER_MODELS_BY_SHOT = {
+    7: "transformer-sl-9-07-model-06-18-adamw-epoch50-shot.bin",
+    8: "transformer-sl-9-08-model-06-16-adamw-epoch50-shot.bin",
+    9: "transformer-sl-9-09-model-06-14-adamw-epoch50-shot.bin",
+    10: "transformer-sl-9-10-model-06-11-adamw-epoch50-shot.bin",
+    11: "transformer-sl-9-11-model-06-09-adamw-epoch50-shot.bin",
+    12: "transformer-sl-9-12-model-06-08-adamw-epoch50-shot.bin",
+    13: "transformer-sl-9-13-model-06-06-adamw-epoch50-shot.bin",
+    14: "transformer-sl-9-14-model-06-04-adamw-epoch50-shot.bin",
+    15: "transformer-sl-9-15-model-06-02-adamw-epoch50-shot.bin",
+}
+
+
+def _model_path(model_name: str) -> Path:
+    return Path(__file__).resolve().parents[0] / "model" / model_name
+
+
+def _load_transformer_networks_by_shot(
+    transformer_model: str | None,
+    transformer_models_by_shot: dict[int, str],
+    transformer_target_shot: tuple[int, ...],
+    use_gpu: bool,
+):
+    networks_by_shot = {}
+    for shot in sorted(set(int(shot) for shot in transformer_target_shot)):
+        model_name = transformer_models_by_shot.get(shot, transformer_model)
+        if model_name is None:
+            raise ValueError(f"transformer model for shot {shot} is not configured")
+
+        model_path = _model_path(model_name)
+        if not model_path.exists():
+            raise FileNotFoundError(f"transformer model for shot {shot} not found: {model_path}")
+        networks_by_shot[shot] = load_transformer_network(model_path, use_gpu=use_gpu)
+    return networks_by_shot
+
+
 @click.command()
 @click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
-@click.option('--transformer_model', type=str, default="Transformer.bin", help='Transformer model name (default: Transformer.bin)')
+@click.option('--transformer_model', type=str, default=None, help='Single Transformer model name used as fallback')
+@click.option('--transformer_model_7', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[7], help='Transformer model name for shot 7')
+@click.option('--transformer_model_8', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[8], help='Transformer model name for shot 8')
+@click.option('--transformer_model_9', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[9], help='Transformer model name for shot 9')
+@click.option('--transformer_model_10', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[10], help='Transformer model name for shot 10')
+@click.option('--transformer_model_11', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[11], help='Transformer model name for shot 11')
+@click.option('--transformer_model_12', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[12], help='Transformer model name for shot 12')
+@click.option('--transformer_model_13', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[13], help='Transformer model name for shot 13')
+@click.option('--transformer_model_14', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[14], help='Transformer model name for shot 14')
+@click.option('--transformer_model_15', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[15], help='Transformer model name for shot 15')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="SHOT_NewSL", help='AIname (default: SHOT_NewSL)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
 @click.option('--transformer_target_end', type=int, multiple=True, default=(9, 10), help='transformer_target_end (default: 9). Can specify multiple values.')
-@click.option('--transformer_target_shot', type=int, multiple=True, default=(15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
+@click.option('--transformer_target_shot', type=int, multiple=True, default=(7, 8, 9, 10, 11, 12, 13, 14, 15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
 
 def main(**kwargs):
     host = kwargs['host']
     port = kwargs['port']
-    model = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['model']
-    transformer_model = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['transformer_model']
+    model = _model_path(kwargs['model'])
+    transformer_model = kwargs['transformer_model']
+    transformer_models_by_shot = {
+        7: kwargs['transformer_model_7'],
+        8: kwargs['transformer_model_8'],
+        9: kwargs['transformer_model_9'],
+        10: kwargs['transformer_model_10'],
+        11: kwargs['transformer_model_11'],
+        12: kwargs['transformer_model_12'],
+        13: kwargs['transformer_model_13'],
+        14: kwargs['transformer_model_14'],
+        15: kwargs['transformer_model_15'],
+    }
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
     debug = kwargs['debug']
@@ -51,9 +107,12 @@ def main(**kwargs):
 
     transformer_network = None
     if use_transformer:
-        if not transformer_model.exists():
-            raise FileNotFoundError(f"transformer model not found: {transformer_model}")
-        transformer_network = load_transformer_network(transformer_model, use_gpu=use_gpu)
+        transformer_network = _load_transformer_networks_by_shot(
+            transformer_model,
+            transformer_models_by_shot,
+            transformer_target_shot,
+            use_gpu,
+        )
 
     is_ready_message = cli.convert_is_ready(is_ready)
 

@@ -7,6 +7,7 @@ dcl2 の局面から shot16 の policy , value を学習するためのデータ
 """
 import numpy as np
 import copy
+import click
 import os
 import sys
 import json
@@ -510,7 +511,11 @@ def generate_data(
             value_data[0:n_batches*BATCH_SIZE], win_value_data[0:n_batches*BATCH_SIZE], log_counter)
         _cleanup_after_save(use_gpu)
     
-if __name__ == "__main__":
+
+@click.command()
+@click.option('--chunk_start', type=int, required=True, help="chunk index to process")
+@click.option('--chunk_end', type=int, required=True, help="chunk index to process")
+def main(chunk_start: int, chunk_end: int) -> None:
     generate_data(
         log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
@@ -518,19 +523,19 @@ if __name__ == "__main__":
         target_end=9,
         use_end_augmentation=True,
         use_score_diff_augmentation=False,
-        target_shot=[12],
+        target_shot=[2],
         model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_transformer=True,
         transformer_model=Path(__file__).resolve().parents[1]
         / "model"
-        / "transformer-sl-9-14-model-06-04-adamw-epoch50-shot.bin",
+        / "transformer-sl-9-3-model-06-30-adamw-epoch50-shot.bin",
         transformer_target_end=[9],
-        transformer_target_shot=[14],
+        transformer_target_shot=[3],
         max_simulations=1022,
-        use_gpu=True,
+        use_gpu=False,
         shuffle_seed=12345,
-        chunk_start=2,
-        chunk_end=4,
+        chunk_start=chunk_start,
+        chunk_end=chunk_end,
         chunk_size=BATCH_SIZE,
         policy_min_visit=3,
         policy_delta_q=1.0,
@@ -543,3 +548,7 @@ if __name__ == "__main__":
         value_beta_q=0.5,
         value_lambda_best=0.5
     )
+   
+    
+if __name__ == "__main__":
+    main()
