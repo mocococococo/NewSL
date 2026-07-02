@@ -30,12 +30,12 @@ global_end = -1
 global_shot = -1
 
 DEFAULT_TRANSFORMER_MODELS_BY_SHOT = {
-    4: "transformer-sl-9-04-model-06-28-adamw-epoch50-shot.bin",
-    5: "transformer-sl-9-05-model-06-27-adamw-epoch50-shot.bin",
-    6: "transformer-sl-9-06-model-06-19-adamw-epoch50-shot.bin",
-    7: "transformer-sl-9-07-model-06-18-adamw-epoch50-shot.bin",
-    8: "transformer-sl-9-08-model-06-16-adamw-epoch50-shot.bin",
-    9: "transformer-sl-9-09-model-06-14-adamw-epoch50-shot.bin",
+    4: "transformer-sl-9-4-model-06-28-adamw-epoch50-shot.bin",
+    5: "transformer-sl-9-5-model-06-27-adamw-epoch50-shot.bin",
+    6: "transformer-sl-9-6-model-06-19-adamw-epoch50-shot.bin",
+    7: "transformer-sl-9-7-model-06-18-adamw-epoch50-shot.bin",
+    8: "transformer-sl-9-8-model-06-16-adamw-epoch50-shot.bin",
+    9: "transformer-sl-9-9-model-06-14-adamw-epoch50-shot.bin",
     10: "transformer-sl-9-10-model-06-11-adamw-epoch50-shot.bin",
     11: "transformer-sl-9-11-model-06-09-adamw-epoch50-shot.bin",
     12: "transformer-sl-9-12-model-06-08-adamw-epoch50-shot.bin",
