@@ -33,7 +33,7 @@ class MatchMaker:
         try:
             # ホスト名とポート番号、ユーザ名、パスワードを指定してMatchMakerClientのインスタンスを作成します
             match_client = MatchMakerClient(
-                host="localhost", port=5000, username=username, password=password
+                host="192.168.11.2", port=8082, username=username, password=password
             )
             # サーバに試合作成リクエストを送信し、match_idを取得します
             match_id = await match_client.create_match(data)

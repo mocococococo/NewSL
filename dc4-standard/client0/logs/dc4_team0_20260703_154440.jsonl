@@ -1,0 +1,5 @@
+{"timestamp": "2026-07-03T15:44:12.382", "logger": "DC_Client", "level": "INFO", "message": "SSE loop start -> http://192.168.11.2:8082/matches/019f26b7-a575-715c-ad49-a3f67ac05aab/stream"}
+{"timestamp": "2026-07-03T15:44:12.382", "logger": "DC_Client", "level": "INFO", "message": "Attempting SSE connect (next retry in approx 1.0s if fail)"}
+{"timestamp": "2026-07-03T15:44:27.397", "logger": "DC_Client", "level": "WARNING", "message": "Network error: SocketTimeoutError('Timeout on reading data from socket'). Reconnecting in 1.08s"}
+{"timestamp": "2026-07-03T15:44:28.482", "logger": "DC_Client", "level": "INFO", "message": "Attempting SSE connect (next retry in approx 2.0s if fail)"}
+{"timestamp": "2026-07-03T15:44:40.176", "logger": "DC_Client", "level": "WARNING", "message": "receive_state_data cancelled; exiting loop."}

@@ -69,8 +69,8 @@ def _load_transformer_networks_by_shot(
 
 
 @click.command()
-@click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
-@click.option('--port', type=int, default=5000, help='Port number (default: 10000)')
+@click.option('--host', type=str, default="192.168.11.2", help='Host name (default: localhost)')
+@click.option('--port', type=int, default=4321, help='Port number (default: 10000)')
 @click.option('--model', type=str, default="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin", help='Model name (default: sl-model.bin)')
 @click.option('--transformer_model', type=str, default=None, help='Single Transformer model name used as fallback')
 @click.option('--transformer_model_4', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[4], help='Transformer model name for shot 4')
@@ -229,6 +229,7 @@ async def run_client(**kwargs):
 
     except Exception as e:
         client.logger.error(f"Unexpected error in main loop: {e}")
+        print(f"Unexpected error in main loop: {e}")
     
     finally:
         # 試合終了後、あるいはエラー時に溜まったログをファイルに書き出す
