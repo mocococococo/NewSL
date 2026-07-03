@@ -132,7 +132,7 @@ async def run_client(**kwargs):
     # match_team_name=MatchNameModel.team0
     # としてください
     # クライアントの初期化（ログレベルはデフォルトでINFO、保存機能はデフォルトでTrue）
-    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=MatchNameModel.team1, auto_save_log=False, log_dir="logs")
+    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=MatchNameModel.team0, auto_save_log=True, log_dir="logs")
 
     # ここで、接続先のサーバのアドレスとポートを指定します。
     # デフォルトではlocalhost:5000となっています。
@@ -176,7 +176,6 @@ async def run_client(**kwargs):
     # 両チームが揃うと試合が開始され、思考時間のカウントが始まります。
     # そのため、AIの初期化などはこの前に行ってください。
     match_team_name: MatchNameModel = await client.send_team_info(client_data)
-    print(f"match_team_name: {match_team_name}")
 
     try:
         async for state_data in client.receive_state_data():
@@ -230,7 +229,6 @@ async def run_client(**kwargs):
 
     except Exception as e:
         client.logger.error(f"Unexpected error in main loop: {e}")
-        print(f"Unexpected error in main loop: {e}")
     
     finally:
         # 試合終了後、あるいはエラー時に溜まったログをファイルに書き出す
