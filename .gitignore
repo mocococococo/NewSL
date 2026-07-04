@@ -6,6 +6,7 @@ __pycache__/
 /pybind
 */log
 *.log
+*/logs
 /test
 /prompt
 /experiment/data

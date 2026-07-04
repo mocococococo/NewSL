@@ -5,7 +5,7 @@ import logging
 import sys
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../NewSL
+PROJECT_ROOT = Path(__file__).resolve().parents[1]  # .../NewSL
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -46,7 +46,7 @@ DEFAULT_TRANSFORMER_MODELS_BY_SHOT = {
 
 
 def _model_path(model_name: str) -> Path:
-    return Path(__file__).resolve().parents[2] / "model" / model_name
+    return PROJECT_ROOT / "model" / model_name
 
 
 def _load_transformer_networks_by_shot(
@@ -71,6 +71,8 @@ def _load_transformer_networks_by_shot(
 @click.command()
 @click.option('--host', type=str, default="192.168.11.2", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=4321, help='Port number (default: 10000)')
+@click.option('--team', type=int, default=1, help='Team number (default: 1)')
+@click.option('--match_id', type=str, default="1", help='Match ID (default: 1)')
 @click.option('--model', type=str, default="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin", help='Model name (default: sl-model.bin)')
 @click.option('--transformer_model', type=str, default=None, help='Single Transformer model name used as fallback')
 @click.option('--transformer_model_4', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[4], help='Transformer model name for shot 4')
@@ -86,7 +88,7 @@ def _load_transformer_networks_by_shot(
 @click.option('--transformer_model_14', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[14], help='Transformer model name for shot 14')
 @click.option('--transformer_model_15', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[15], help='Transformer model name for shot 15')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
-@click.option('--name', type=str, default="NewRL", help='AIname (default: SHOT_NewSL)')
+@click.option('--name', type=str, default="NewSL", help='AIname (default: SHOT_NewSL)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--use_transformer', type=bool, default=True, help='use_transformer (default: False)')
 @click.option('--transformer_target_end', type=int, multiple=True, default=(9, 10), help='transformer_target_end (default: 9). Can specify multiple values.')
@@ -99,6 +101,8 @@ async def run_client(**kwargs):
     # 引数の読み込み
     host = kwargs['host']
     port = kwargs['port']
+    team = kwargs['team']
+    match_id = kwargs['match_id']
     model = _model_path(kwargs['model'])
     transformer_model = kwargs['transformer_model']
     transformer_models_by_shot = {
@@ -121,18 +125,14 @@ async def run_client(**kwargs):
     use_transformer = kwargs['use_transformer']
     transformer_target_end = kwargs['transformer_target_end']
     transformer_target_shot = kwargs['transformer_target_shot']
-    
-    # match_idの読み込みます。
-    json_path = Path(__file__).parents[1] / "match_id.json"
-    with open(json_path, "r") as f:
-        match_id = json.load(f)
+    match_team_name = MatchNameModel.team0 if team == 0 else MatchNameModel.team1
 
     # 最初のエンドにおいて、team0が先攻、team1が後攻です。
     # デフォルトではmatch_team_name=team1となっており、先攻に切り替えたい場合はDCClientのコンストラクタの引数にて
     # match_team_name=MatchNameModel.team0
     # としてください
     # クライアントの初期化（ログレベルはデフォルトでINFO、保存機能はデフォルトでTrue）
-    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=MatchNameModel.team0, auto_save_log=True, log_dir="logs")
+    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=match_team_name, auto_save_log=True, log_dir="logs/vs-rele")
 
     # ここで、接続先のサーバのアドレスとポートを指定します。
     # デフォルトではlocalhost:5000となっています。
@@ -147,7 +147,7 @@ async def run_client(**kwargs):
     # ログ設定(不要であれば削除してください)
     # DCClient内にもloggerがあるため、そちらを利用することも可能ですが、
     # client.logger を使用するとライブラリ側で管理しているバッファに自動的に入ります
-    logger = logging.getLogger("NewRL")
+    logger = logging.getLogger("NewSL")
     logger.setLevel(level=logging.INFO)
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
@@ -180,11 +180,6 @@ async def run_client(**kwargs):
     try:
         async for state_data in client.receive_state_data():
             
-            # ゲーム終了の判定
-            if (winner_team := client.get_winner_team()) is not None:
-                logger.info(f"Winner: {winner_team}")
-                break
-            
             next_shot_team = client.get_next_team()
             score = state_data.score
             logger.info(
@@ -192,6 +187,11 @@ async def run_client(**kwargs):
                 f"next={state_data.next_shot_team}, score_t0={sum(score.team0) if score else None}, score_t1={sum(score.team1) if score else None}"
             )
             
+            # ゲーム終了の判定
+            if (winner_team := client.get_winner_team()) is not None:
+                logger.info(f"Winner: {winner_team}")
+                break
+                        
             if is_finished(state_data.end_number, state_data.total_shot_number):
                 print("既に処理済みのデータのためスキップします。")
                 continue
