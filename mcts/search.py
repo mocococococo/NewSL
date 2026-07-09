@@ -66,6 +66,7 @@ def mcts_search(
     use_value: bool = True,
     use_progressive_widening: bool = True,
     use_transposition_table: bool = True,
+    return_stats: bool = False,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     PUCTで探索して最善手(action_id: 0..2047)を返す。
@@ -222,6 +223,16 @@ def mcts_search(
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
     nodes = count_reachable_nodes(root)
+    search_stats = {
+        "simulations": int(sims),
+        "elapsed": float(elapsed_time),
+        "nodes": int(nodes),
+        "root_visited": int(visited_children),
+        "root_expanded": int(expanded_children),
+        "root_candidates": int(len(root.actions)),
+        "use_progressive_widening": bool(use_progressive_widening),
+        "use_transposition_table": bool(use_transposition_table),
+    }
     lines = [
         "-----------------------------------------------------",
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]",
@@ -245,6 +256,8 @@ def mcts_search(
 
     if is_create_data:
         return best_action, root.Nsa.copy(), value_list
+    if return_stats:
+        return best_action, search_stats
     
     return best_action
 
