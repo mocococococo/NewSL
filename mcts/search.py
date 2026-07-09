@@ -231,7 +231,7 @@ def mcts_search(
         f"progressive_widening={use_progressive_widening} transposition_table={use_transposition_table}",
         "-----------------------------------------------------",
     ]
-    if is_create_data:
+    if stats_log_path:
         _emit_lines(lines, stats_log_path)
     print("-----------------------------------------------------")
     print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {nodes}")

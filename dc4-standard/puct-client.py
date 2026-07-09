@@ -72,7 +72,7 @@ def _load_transformer_networks_by_shot(
 @click.option('--host', type=str, default="192.168.11.2", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=4321, help='Port number (default: 10000)')
 @click.option('--team', type=int, default=1, help='Team number (default: 1)')
-@click.option('--match_id', type=str, default="1", help='Match ID (default: 1)')
+@click.option('--match_id', type=str, default=None, help='Match ID (default: 1)')
 @click.option('--model', type=str, default="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin", help='Model name (default: sl-model.bin)')
 @click.option('--transformer_model', type=str, default=None, help='Single Transformer model name used as fallback')
 @click.option('--transformer_model_4', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[4], help='Transformer model name for shot 4')
@@ -126,13 +126,19 @@ async def run_client(**kwargs):
     transformer_target_end = kwargs['transformer_target_end']
     transformer_target_shot = kwargs['transformer_target_shot']
     match_team_name = MatchNameModel.team0 if team == 0 else MatchNameModel.team1
+    
+    # match_id.json は src/standard/ (client の1つ上) に置く(運営配布 or match_maker.py 生成)
+    match_id_path = Path(__file__).resolve().parent / "match_id.json"
+    if match_id is None:
+        with open(match_id_path, "r") as f:
+            match_id = json.load(f)
 
     # 最初のエンドにおいて、team0が先攻、team1が後攻です。
     # デフォルトではmatch_team_name=team1となっており、先攻に切り替えたい場合はDCClientのコンストラクタの引数にて
     # match_team_name=MatchNameModel.team0
     # としてください
     # クライアントの初期化（ログレベルはデフォルトでINFO、保存機能はデフォルトでTrue）
-    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=match_team_name, auto_save_log=True, log_dir="logs/vs-rele")
+    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=match_team_name, auto_save_log=True, log_dir="logs")
 
     # ここで、接続先のサーバのアドレスとポートを指定します。
     # デフォルトではlocalhost:5000となっています。
