@@ -1,4 +1,5 @@
 import click
+from datetime import datetime
 from pathlib import Path
 
 from dc3client import SocketClient
@@ -9,6 +10,18 @@ from common.translate_state import convert_scores_to_dict, convert_stones_to_lis
     scores_to_scorediff_for_team0, convert_team_stoi
 
 from mcts.search import set_root_state, mcts_search
+
+
+def resolve_stats_log_path(stats_log_path):
+    if not stats_log_path:
+        return None
+
+    path = Path(stats_log_path)
+    if path.exists() and path.is_dir():
+        return path / f"puct_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    if not path.exists() and path.suffix == "":
+        return path / f"puct_stats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+    return path
 
 
 @click.command()
@@ -53,7 +66,7 @@ def main(**kwargs):
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
     debug = kwargs['debug']
-    stats_log_path = kwargs['stats_log_path']
+    stats_log_path = resolve_stats_log_path(kwargs['stats_log_path'])
     use_transformer = kwargs['use_transformer']
     transformer_target_end = kwargs['transformer_target_end']
     transformer_target_shot = kwargs['transformer_target_shot']
