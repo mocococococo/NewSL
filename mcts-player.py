@@ -22,6 +22,8 @@ from mcts.search import set_root_state, mcts_search
 @click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
 @click.option('--transformer_target_end', type=int, multiple=True, default=(9, 10), help='transformer_target_end (default: 9). Can specify multiple values.')
 @click.option('--transformer_target_shot', type=int, multiple=True, default=(15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
+@click.option('--use_progressive_widening', type=bool, default=True, help='use Progressive Widening (default: True)')
+@click.option('--use_transposition_table', type=bool, default=True, help='use Transposition Table (default: True)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -53,6 +55,8 @@ def main(**kwargs):
     use_transformer = kwargs['use_transformer']
     transformer_target_end = kwargs['transformer_target_end']
     transformer_target_shot = kwargs['transformer_target_shot']
+    use_progressive_widening = kwargs['use_progressive_widening']
+    use_transposition_table = kwargs['use_transposition_table']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -149,7 +153,12 @@ def main(**kwargs):
                 transformer_target_end=transformer_target_end,
                 transformer_target_shot=transformer_target_shot,
             )
-            vx, vy, spin = mcts_search(root_state, debug=debug)
+            vx, vy, spin = mcts_search(
+                root_state,
+                debug=debug,
+                use_progressive_widening=use_progressive_widening,
+                use_transposition_table=use_transposition_table,
+            )
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
 
             cli.move(x=vx, y=vy, rotation=spin)

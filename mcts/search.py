@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional, Dict, Union
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
-from .node import Node, get_node, argmax_over_actions, clear_node_table, node_table_size, peek_node
+from .node import Node, get_node, get_child_node, argmax_over_actions, clear_node_table, node_table_size, peek_node, count_reachable_nodes
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
 from .hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
@@ -64,6 +64,8 @@ def mcts_search(
     stats_log_path: Optional[str] = None,
     is_create_data: bool = False,
     use_value: bool = True,
+    use_progressive_widening: bool = True,
+    use_transposition_table: bool = True,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     PUCTで探索して最善手(action_id: 0..2047)を返す。
@@ -84,9 +86,16 @@ def mcts_search(
 
     dbg = Debugger(debug, every=debug_every)
     dbg.log(f"[PUCT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} shot_team={root_state.to_move()}, score_diff={root_state.score_diff}")
+    dbg.log(
+        f"[PUCT] options progressive_widening={use_progressive_widening} "
+        f"transposition_table={use_transposition_table}"
+    )
     dbg.log("[PUCT] " + summarize_stones(root_state.stones))
     
-    root: Node = get_node(root_state)
+    if use_transposition_table:
+        root: Node = get_node(root_state, use_progressive_widening=use_progressive_widening)
+    else:
+        root = Node(root_state, use_progressive_widening=use_progressive_widening)
     dbg.tic("root_expand")
     root.expand_if_needed()  # P(s,a) を入れる
     dbg.toc("root_expand")
@@ -126,7 +135,12 @@ def mcts_search(
             )
             path.append((node, a))
             state = simulator_step(state, a)     # 1投進める
-            node = get_node(state)
+            node = get_child_node(
+                node,
+                a,
+                state,
+                use_transposition_table=use_transposition_table,
+            )
             select_depth += 1
 
         dbg.toc("selection")
@@ -191,9 +205,8 @@ def mcts_search(
             continue
         visited_children += 1
 
-        child_state = simulator_step(root_state, a)   # 1投進めた局面
-        child_node = peek_node(child_state)           # ※新規作成しない
-        if child_node is not None and child_node.is_expanded():
+        child_nodes = root.children.get(a, [])
+        if any(child.is_expanded() for child in child_nodes):
             expanded_children += 1
             
     best_action_id = argmax_over_actions(root.actions, key=lambda a: root.Nsa[a])
@@ -208,19 +221,26 @@ def mcts_search(
     
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
+    nodes = count_reachable_nodes(root)
     lines = [
         "-----------------------------------------------------",
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]",
         f"shot={root_state.shot_index} end={root_state.end} hammer={root_state.hammer_team} score_diff={root_state.score_diff}",
-        f"simulations={sims} elapsed={elapsed_time:.2f}sec nodes={node_table_size()}",
+        f"simulations={sims} elapsed={elapsed_time:.2f}sec nodes={nodes}",
         f"root_children visited={visited_children} expanded={expanded_children} candidates={len(root.actions)}",
+        f"progressive_widening={use_progressive_widening} transposition_table={use_transposition_table}",
         "-----------------------------------------------------",
     ]
     if is_create_data:
         _emit_lines(lines, stats_log_path)
     print("-----------------------------------------------------")
-    print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {node_table_size()}")
+    print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {nodes}")
     print(f"MCTS root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
+    print(
+        "MCTS options: "
+        f"progressive_widening={use_progressive_widening}, "
+        f"transposition_table={use_transposition_table}"
+    )
     print("-----------------------------------------------------")
 
     if is_create_data:
