@@ -193,7 +193,7 @@ def plot_simulation_ratio(records: list[dict], save_path: Path) -> None:
         ecolor="#18181B",
         elinewidth=1.4,
         capsize=8,
-        label="mean with bootstrap 95% CI",
+        label="mean ratio with bootstrap 95% CI",
     )
     ax.scatter([0], [median_ratio], marker="D", s=45, color="#F97316", label="median", zorder=4)
     ax.axhline(1.0, color=COLORS["reference"], linewidth=1.2, linestyle="--", label="no change")
@@ -201,7 +201,7 @@ def plot_simulation_ratio(records: list[dict], save_path: Path) -> None:
     ax.text(
         0.08,
         mean_ratio,
-        f"mean {mean_ratio:.3f}",
+        f"mean ratio {mean_ratio:.3f}",
         va="center",
         fontsize=11,
         color="#18181B",

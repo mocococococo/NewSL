@@ -174,9 +174,8 @@ def print_report_from_records(records: list[dict[str, Any]]) -> None:
     mean_ratio = float(np.nanmean(values["sim_ratio"]))
     median_ratio = float(np.nanmedian(values["sim_ratio"]))
     mean_log_ratio = float(np.nanmean(values["log_ratio"]))
-    log_ci_low, log_ci_high = _bootstrap_mean_ci(values["log_ratio"])
-    ratio_ci_low = float(np.exp(log_ci_low) - 1.0)
-    ratio_ci_high = float(np.exp(log_ci_high) - 1.0)
+    increase_rates = values["sim_ratio"] - 1.0
+    increase_ci_low, increase_ci_high = _bootstrap_mean_ci(increase_rates)
 
     wilcoxon_two_sided_p = _safe_wilcoxon(values["log_ratio"], "two-sided")
     wilcoxon_greater_p = _safe_wilcoxon(values["log_ratio"], "greater")
@@ -195,7 +194,7 @@ def print_report_from_records(records: list[dict[str, Any]]) -> None:
     print(f"mean log simulation ratio: {mean_log_ratio:.6f}")
     print(
         "bootstrap 95% CI of mean simulation increase rate: "
-        f"[{ratio_ci_low * 100:.3f}, {ratio_ci_high * 100:.3f}]%"
+        f"[{increase_ci_low * 100:.3f}, {increase_ci_high * 100:.3f}]%"
     )
     print(f"{condition_a_label} mean nodes: {mean_a_nodes:.3f}")
     print(f"{condition_b_label} mean nodes: {mean_b_nodes:.3f}")
