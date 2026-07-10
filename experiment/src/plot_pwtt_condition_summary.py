@@ -111,7 +111,7 @@ def plot_condition_summary(
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             value,
-            f"{value:.0f}",
+            f"{value:.1f}",
             ha="center",
             va="bottom",
             fontsize=11,
