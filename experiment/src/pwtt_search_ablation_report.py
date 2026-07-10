@@ -112,8 +112,8 @@ def _position_values(records: list[dict[str, Any]]) -> dict[str, np.ndarray]:
         condition_b_sims.append(condition_b_sim)
         condition_a_nodes.append(float(condition_a_summary["mean_nodes"]))
         condition_b_nodes.append(float(condition_b_summary["mean_nodes"]))
-        condition_a_hit.append(float(condition_a_summary["mean_tt_hit_rate_estimate"]))
-        condition_b_hit.append(float(condition_b_summary["mean_tt_hit_rate_estimate"]))
+        condition_a_hit.append(float(condition_a_summary.get("mean_tt_hit_rate", condition_a_summary["mean_tt_hit_rate_estimate"])))
+        condition_b_hit.append(float(condition_b_summary.get("mean_tt_hit_rate", condition_b_summary["mean_tt_hit_rate_estimate"])))
         sim_diff.append(condition_b_sim - condition_a_sim)
         sim_ratio.append(ratio)
         log_ratio.append(float(np.log(ratio)) if ratio > 0.0 else np.nan)
@@ -198,8 +198,8 @@ def print_report_from_records(records: list[dict[str, Any]]) -> None:
     )
     print(f"{condition_a_label} mean nodes: {mean_a_nodes:.3f}")
     print(f"{condition_b_label} mean nodes: {mean_b_nodes:.3f}")
-    print(f"{condition_a_label} estimated TT hit rate: {mean_a_hit * 100:.3f}%")
-    print(f"{condition_b_label} estimated TT hit rate: {mean_b_hit * 100:.3f}%")
+    print(f"{condition_a_label} TT hit rate: {mean_a_hit * 100:.3f}%")
+    print(f"{condition_b_label} TT hit rate: {mean_b_hit * 100:.3f}%")
     print(
         f"Wilcoxon signed-rank test on log(sim_{condition_b_key} / sim_{condition_a_key}) "
         f"two-sided p: {_format_p_value(wilcoxon_two_sided_p)}"

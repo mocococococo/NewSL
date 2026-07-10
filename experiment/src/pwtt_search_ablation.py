@@ -132,7 +132,16 @@ def _make_trial_summary(trials: list[dict[str, Any]]) -> dict[str, Any]:
     root_visited = [float(trial["root_visited"]) for trial in trials]
     root_expanded = [float(trial["root_expanded"]) for trial in trials]
     root_candidates = [float(trial["root_candidates"]) for trial in trials]
-    tt_hit_rates = [_tt_hit_rate_estimate(trial) for trial in trials]
+    tt_requests = [float(trial.get("tt_requests", 0.0)) for trial in trials]
+    tt_hits = [float(trial.get("tt_hits", 0.0)) for trial in trials]
+    tt_misses = [float(trial.get("tt_misses", 0.0)) for trial in trials]
+    tt_hit_rates = [
+        float(trial["tt_hit_rate"])
+        if "tt_hit_rate" in trial
+        else _tt_hit_rate_estimate(trial)
+        for trial in trials
+    ]
+    tt_hit_rate_estimates = [_tt_hit_rate_estimate(trial) for trial in trials]
     sims_per_sec = [
         float(trial["simulations"]) / float(trial["elapsed"])
         for trial in trials
@@ -147,7 +156,11 @@ def _make_trial_summary(trials: list[dict[str, Any]]) -> dict[str, Any]:
         "mean_root_visited": _mean(root_visited),
         "mean_root_expanded": _mean(root_expanded),
         "mean_root_candidates": _mean(root_candidates),
-        "mean_tt_hit_rate_estimate": _mean(tt_hit_rates),
+        "mean_tt_requests": _mean(tt_requests),
+        "mean_tt_hits": _mean(tt_hits),
+        "mean_tt_misses": _mean(tt_misses),
+        "mean_tt_hit_rate": _mean(tt_hit_rates),
+        "mean_tt_hit_rate_estimate": _mean(tt_hit_rate_estimates),
     }
 
 
