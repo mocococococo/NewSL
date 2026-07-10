@@ -32,13 +32,43 @@ def _read_json(path: Path) -> dict[str, Any]:
     return data
 
 
+def _legacy_key(key: str) -> str:
+    return str(key).replace("-", "_")
+
+
+def _record_section(record: dict[str, Any], key: str) -> dict[str, Any]:
+    if key in record and isinstance(record[key], dict):
+        return record[key]
+    legacy_key = _legacy_key(key)
+    if legacy_key in record and isinstance(record[legacy_key], dict):
+        return record[legacy_key]
+    raise KeyError(f"record does not contain condition section: {key}")
+
+
+def _condition_info(record: dict[str, Any]) -> tuple[str, str, str, str]:
+    experiment = record.get("experiment", {})
+    if not isinstance(experiment, dict):
+        experiment = {}
+
+    condition_a_key = str(experiment.get("condition_a_key", "non-pwtt")).replace("_", "-")
+    condition_b_key = str(experiment.get("condition_b_key", "pwtt")).replace("_", "-")
+    condition_a_label = str(experiment.get("condition_a_label", condition_a_key))
+    condition_b_label = str(experiment.get("condition_b_label", condition_b_key))
+    return condition_a_key, condition_a_label, condition_b_key, condition_b_label
+
+
 def _is_position_record(record: dict[str, Any]) -> bool:
-    return (
-        isinstance(record.get("position"), dict)
-        and isinstance(record.get("non_pwtt"), dict)
-        and isinstance(record.get("pwtt"), dict)
-        and isinstance(record.get("comparison"), dict)
-    )
+    if not isinstance(record.get("position"), dict):
+        return False
+    if not isinstance(record.get("comparison"), dict):
+        return False
+    try:
+        condition_a_key, _, condition_b_key, _ = _condition_info(record)
+        _record_section(record, condition_a_key)
+        _record_section(record, condition_b_key)
+    except KeyError:
+        return False
+    return True
 
 
 def load_position_records(json_dir: Path) -> list[dict[str, Any]]:
@@ -60,40 +90,41 @@ def load_position_records(json_dir: Path) -> list[dict[str, Any]]:
 
 
 def _position_values(records: list[dict[str, Any]]) -> dict[str, np.ndarray]:
-    non_pwtt_sims = []
-    pwtt_sims = []
-    non_pwtt_nodes = []
-    pwtt_nodes = []
-    non_pwtt_hit = []
-    pwtt_hit = []
+    condition_a_key, _, condition_b_key, _ = _condition_info(records[0])
+    condition_a_sims = []
+    condition_b_sims = []
+    condition_a_nodes = []
+    condition_b_nodes = []
+    condition_a_hit = []
+    condition_b_hit = []
     sim_diff = []
     sim_ratio = []
     log_ratio = []
 
     for record in records:
-        non_summary = record["non_pwtt"]["summary"]
-        pwtt_summary = record["pwtt"]["summary"]
-        non_sim = float(non_summary["mean_simulations"])
-        pwtt_sim = float(pwtt_summary["mean_simulations"])
-        ratio = pwtt_sim / non_sim if non_sim > 0.0 else np.nan
+        condition_a_summary = _record_section(record, condition_a_key)["summary"]
+        condition_b_summary = _record_section(record, condition_b_key)["summary"]
+        condition_a_sim = float(condition_a_summary["mean_simulations"])
+        condition_b_sim = float(condition_b_summary["mean_simulations"])
+        ratio = condition_b_sim / condition_a_sim if condition_a_sim > 0.0 else np.nan
 
-        non_pwtt_sims.append(non_sim)
-        pwtt_sims.append(pwtt_sim)
-        non_pwtt_nodes.append(float(non_summary["mean_nodes"]))
-        pwtt_nodes.append(float(pwtt_summary["mean_nodes"]))
-        non_pwtt_hit.append(float(non_summary["mean_tt_hit_rate_estimate"]))
-        pwtt_hit.append(float(pwtt_summary["mean_tt_hit_rate_estimate"]))
-        sim_diff.append(pwtt_sim - non_sim)
+        condition_a_sims.append(condition_a_sim)
+        condition_b_sims.append(condition_b_sim)
+        condition_a_nodes.append(float(condition_a_summary["mean_nodes"]))
+        condition_b_nodes.append(float(condition_b_summary["mean_nodes"]))
+        condition_a_hit.append(float(condition_a_summary["mean_tt_hit_rate_estimate"]))
+        condition_b_hit.append(float(condition_b_summary["mean_tt_hit_rate_estimate"]))
+        sim_diff.append(condition_b_sim - condition_a_sim)
         sim_ratio.append(ratio)
         log_ratio.append(float(np.log(ratio)) if ratio > 0.0 else np.nan)
 
     return {
-        "non_pwtt_sims": np.asarray(non_pwtt_sims, dtype=float),
-        "pwtt_sims": np.asarray(pwtt_sims, dtype=float),
-        "non_pwtt_nodes": np.asarray(non_pwtt_nodes, dtype=float),
-        "pwtt_nodes": np.asarray(pwtt_nodes, dtype=float),
-        "non_pwtt_hit": np.asarray(non_pwtt_hit, dtype=float),
-        "pwtt_hit": np.asarray(pwtt_hit, dtype=float),
+        "condition_a_sims": np.asarray(condition_a_sims, dtype=float),
+        "condition_b_sims": np.asarray(condition_b_sims, dtype=float),
+        "condition_a_nodes": np.asarray(condition_a_nodes, dtype=float),
+        "condition_b_nodes": np.asarray(condition_b_nodes, dtype=float),
+        "condition_a_hit": np.asarray(condition_a_hit, dtype=float),
+        "condition_b_hit": np.asarray(condition_b_hit, dtype=float),
         "sim_diff": np.asarray(sim_diff, dtype=float),
         "sim_ratio": np.asarray(sim_ratio, dtype=float),
         "log_ratio": np.asarray(log_ratio, dtype=float),
@@ -127,16 +158,17 @@ def _safe_wilcoxon(values: np.ndarray, alternative: str) -> float:
 
 
 def print_report_from_records(records: list[dict[str, Any]]) -> None:
+    condition_a_key, condition_a_label, condition_b_key, condition_b_label = _condition_info(records[0])
     values = _position_values(records)
     n = len(records)
     x_repeats = int(records[0]["experiment"].get("execution_repeats_x", 1))
 
-    mean_non_sim = float(np.mean(values["non_pwtt_sims"]))
-    mean_pwtt_sim = float(np.mean(values["pwtt_sims"]))
-    mean_non_nodes = float(np.mean(values["non_pwtt_nodes"]))
-    mean_pwtt_nodes = float(np.mean(values["pwtt_nodes"]))
-    mean_non_hit = float(np.mean(values["non_pwtt_hit"]))
-    mean_pwtt_hit = float(np.mean(values["pwtt_hit"]))
+    mean_a_sim = float(np.mean(values["condition_a_sims"]))
+    mean_b_sim = float(np.mean(values["condition_b_sims"]))
+    mean_a_nodes = float(np.mean(values["condition_a_nodes"]))
+    mean_b_nodes = float(np.mean(values["condition_b_nodes"]))
+    mean_a_hit = float(np.mean(values["condition_a_hit"]))
+    mean_b_hit = float(np.mean(values["condition_b_hit"]))
     mean_diff = float(np.mean(values["sim_diff"]))
     median_diff = float(np.median(values["sim_diff"]))
     mean_ratio = float(np.nanmean(values["sim_ratio"]))
@@ -150,30 +182,32 @@ def print_report_from_records(records: list[dict[str, Any]]) -> None:
     wilcoxon_greater_p = _safe_wilcoxon(values["log_ratio"], "greater")
 
     print("-----------------------------------------------------")
-    print("PWTT search ablation summary")
+    print("PW/TT search ablation summary")
+    print(f"condition A: {condition_a_label} ({condition_a_key})")
+    print(f"condition B: {condition_b_label} ({condition_b_key})")
     print(f"positions: {n}, repeats per position: {x_repeats}")
-    print(f"non-PWTT mean simulations: {mean_non_sim:.3f}")
-    print(f"PWTT mean simulations: {mean_pwtt_sim:.3f}")
-    print(f"mean simulation diff (PWTT - non-PWTT): {mean_diff:.3f}")
-    print(f"median simulation diff (PWTT - non-PWTT): {median_diff:.3f}")
-    print(f"mean simulation increase rate: {(mean_ratio - 1.0) * 100:.3f}%")
-    print(f"median simulation increase rate: {(median_ratio - 1.0) * 100:.3f}%")
+    print(f"{condition_a_label} mean simulations: {mean_a_sim:.3f}")
+    print(f"{condition_b_label} mean simulations: {mean_b_sim:.3f}")
+    print(f"mean simulation diff ({condition_b_label} - {condition_a_label}): {mean_diff:.3f}")
+    print(f"median simulation diff ({condition_b_label} - {condition_a_label}): {median_diff:.3f}")
+    print(f"mean simulation increase rate ({condition_b_label} / {condition_a_label}): {(mean_ratio - 1.0) * 100:.3f}%")
+    print(f"median simulation increase rate ({condition_b_label} / {condition_a_label}): {(median_ratio - 1.0) * 100:.3f}%")
     print(f"mean log simulation ratio: {mean_log_ratio:.6f}")
     print(
         "bootstrap 95% CI of mean simulation increase rate: "
         f"[{ratio_ci_low * 100:.3f}, {ratio_ci_high * 100:.3f}]%"
     )
-    print(f"non-PWTT mean nodes: {mean_non_nodes:.3f}")
-    print(f"PWTT mean nodes: {mean_pwtt_nodes:.3f}")
-    print(f"non-PWTT estimated TT hit rate: {mean_non_hit * 100:.3f}%")
-    print(f"PWTT estimated TT hit rate: {mean_pwtt_hit * 100:.3f}%")
+    print(f"{condition_a_label} mean nodes: {mean_a_nodes:.3f}")
+    print(f"{condition_b_label} mean nodes: {mean_b_nodes:.3f}")
+    print(f"{condition_a_label} estimated TT hit rate: {mean_a_hit * 100:.3f}%")
+    print(f"{condition_b_label} estimated TT hit rate: {mean_b_hit * 100:.3f}%")
     print(
-        "Wilcoxon signed-rank test on log(sim_PWTT / sim_non_PWTT) "
+        f"Wilcoxon signed-rank test on log(sim_{condition_b_key} / sim_{condition_a_key}) "
         f"two-sided p: {_format_p_value(wilcoxon_two_sided_p)}"
     )
     print(
-        "Wilcoxon signed-rank test on log(sim_PWTT / sim_non_PWTT) "
-        f"one-sided p (PWTT > non-PWTT): {_format_p_value(wilcoxon_greater_p)}"
+        f"Wilcoxon signed-rank test on log(sim_{condition_b_key} / sim_{condition_a_key}) "
+        f"one-sided p ({condition_b_label} > {condition_a_label}): {_format_p_value(wilcoxon_greater_p)}"
     )
     print("-----------------------------------------------------")
 

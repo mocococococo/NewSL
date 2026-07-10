@@ -11,20 +11,24 @@ NEWSL_DIR = Path(__file__).resolve().parents[2]
 if str(NEWSL_DIR) not in sys.path:
     sys.path.insert(0, str(NEWSL_DIR))
 
-from experiment.src.pwtt_search_ablation_report import load_position_records
+from experiment.src.pwtt_search_ablation_report import (
+    _condition_info,
+    _record_section,
+    load_position_records,
+)
 
 
 EXPERIMENT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_TARGET_PATH = (
     EXPERIMENT_DIR
     / "data"
-    / "pwtt_search_ablation_end9_shot15_datasize1000_x1"
+    / "pwtt_search_ablation_non-pwtt_vs_pwtt_end9_shot15_datasize1000_x1"
 )
 
 
 COLORS = {
-    "non_pwtt": "#7A869A",
-    "pwtt": "#2563EB",
+    "condition_a": "#7A869A",
+    "condition_b": "#2563EB",
     "ratio": "#0F766E",
     "reference": "#3F3F46",
 }
@@ -47,23 +51,32 @@ def _bootstrap_mean_ci(values: np.ndarray, seed: int = 12345, resamples: int = 5
     return float(low), float(high)
 
 
-def _position_arrays(records: list[dict]) -> dict[str, np.ndarray]:
-    non_sims = []
-    pwtt_sims = []
+def _position_arrays(records: list[dict]) -> dict[str, np.ndarray | str]:
+    condition_a_key, condition_a_label, condition_b_key, condition_b_label = _condition_info(records[0])
+    condition_a_sims = []
+    condition_b_sims = []
     ratios = []
 
     for record in records:
-        non_sim = float(record["non_pwtt"]["summary"]["mean_simulations"])
-        pwtt_sim = float(record["pwtt"]["summary"]["mean_simulations"])
-        if non_sim <= 0.0:
+        condition_a_sim = float(
+            _record_section(record, condition_a_key)["summary"]["mean_simulations"]
+        )
+        condition_b_sim = float(
+            _record_section(record, condition_b_key)["summary"]["mean_simulations"]
+        )
+        if condition_a_sim <= 0.0:
             continue
-        non_sims.append(non_sim)
-        pwtt_sims.append(pwtt_sim)
-        ratios.append(pwtt_sim / non_sim)
+        condition_a_sims.append(condition_a_sim)
+        condition_b_sims.append(condition_b_sim)
+        ratios.append(condition_b_sim / condition_a_sim)
 
     return {
-        "non_sims": np.asarray(non_sims, dtype=float),
-        "pwtt_sims": np.asarray(pwtt_sims, dtype=float),
+        "condition_a_key": condition_a_key,
+        "condition_a_label": condition_a_label,
+        "condition_b_key": condition_b_key,
+        "condition_b_label": condition_b_label,
+        "condition_a_sims": np.asarray(condition_a_sims, dtype=float),
+        "condition_b_sims": np.asarray(condition_b_sims, dtype=float),
         "ratios": np.asarray(ratios, dtype=float),
     }
 
@@ -77,17 +90,19 @@ def _style_axes(ax: plt.Axes) -> None:
 
 def plot_mean_simulations(records: list[dict], save_path: Path) -> None:
     arrays = _position_arrays(records)
-    non_sims = arrays["non_sims"]
-    pwtt_sims = arrays["pwtt_sims"]
+    condition_a_sims = arrays["condition_a_sims"]
+    condition_b_sims = arrays["condition_b_sims"]
+    condition_a_label = str(arrays["condition_a_label"])
+    condition_b_label = str(arrays["condition_b_label"])
 
-    means = np.asarray([non_sims.mean(), pwtt_sims.mean()], dtype=float)
-    non_ci = _bootstrap_mean_ci(non_sims)
-    pwtt_ci = _bootstrap_mean_ci(pwtt_sims)
-    ci_low = np.asarray([non_ci[0], pwtt_ci[0]], dtype=float)
-    ci_high = np.asarray([non_ci[1], pwtt_ci[1]], dtype=float)
+    means = np.asarray([condition_a_sims.mean(), condition_b_sims.mean()], dtype=float)
+    condition_a_ci = _bootstrap_mean_ci(condition_a_sims)
+    condition_b_ci = _bootstrap_mean_ci(condition_b_sims)
+    ci_low = np.asarray([condition_a_ci[0], condition_b_ci[0]], dtype=float)
+    ci_high = np.asarray([condition_a_ci[1], condition_b_ci[1]], dtype=float)
     yerr = np.vstack([means - ci_low, ci_high - means])
 
-    labels = ["non-PWTT", "PWTT"]
+    labels = [condition_a_label, condition_b_label]
     x = np.arange(len(labels))
 
     fig, ax = plt.subplots(figsize=(5.2, 7.2))
@@ -97,7 +112,7 @@ def plot_mean_simulations(records: list[dict], save_path: Path) -> None:
         yerr=yerr,
         capsize=7,
         width=0.52,
-        color=[COLORS["non_pwtt"], COLORS["pwtt"]],
+        color=[COLORS["condition_a"], COLORS["condition_b"]],
         edgecolor="#18181B",
         linewidth=0.8,
         error_kw={"elinewidth": 1.2, "ecolor": "#18181B"},
@@ -117,8 +132,7 @@ def plot_mean_simulations(records: list[dict], save_path: Path) -> None:
 
     ax.set_xticks(x, labels, fontsize=12)
     ax.set_ylabel("Mean simulations", fontsize=13)
-    ax.set_title("Search Simulations by PWTT Setting", fontsize=15, pad=14)
-    ax.set_ylim(bottom=0)
+    ax.set_title("Search Simulations by PW/TT Setting", fontsize=15, pad=14)
     upper = max(ci_high.max() * 1.12, means.max() * 1.18)
     ax.set_ylim(0, upper)
     _style_axes(ax)
@@ -130,7 +144,10 @@ def plot_mean_simulations(records: list[dict], save_path: Path) -> None:
 
 
 def plot_simulation_ratio(records: list[dict], save_path: Path) -> None:
-    ratios = _position_arrays(records)["ratios"]
+    arrays = _position_arrays(records)
+    condition_a_label = str(arrays["condition_a_label"])
+    condition_b_label = str(arrays["condition_b_label"])
+    ratios = arrays["ratios"]
     ratios = ratios[np.isfinite(ratios)]
     if len(ratios) == 0:
         raise ValueError("No valid simulation ratios found.")
@@ -199,7 +216,7 @@ def plot_simulation_ratio(records: list[dict], save_path: Path) -> None:
     )
 
     ax.set_xlim(-0.55, 0.75)
-    ax.set_xticks([0], ["PWTT / non-PWTT"], fontsize=12)
+    ax.set_xticks([0], [f"{condition_b_label} / {condition_a_label}"], fontsize=12)
     ax.set_ylabel("Simulation ratio", fontsize=13)
     ax.set_title("Per-Position Simulation Ratio", fontsize=15, pad=14)
 
@@ -224,9 +241,10 @@ def main(
     target_path = Path(target_path)
     records = load_position_records(target_path)
     output_dir = Path(output_dir) if output_dir is not None else target_path
+    condition_a_key, _, condition_b_key, _ = _condition_info(records[0])
 
-    mean_path = output_dir / "pwtt_mean_simulations.png"
-    ratio_path = output_dir / "pwtt_simulation_ratio.png"
+    mean_path = output_dir / f"{condition_a_key}_vs_{condition_b_key}_mean_simulations.png"
+    ratio_path = output_dir / f"{condition_a_key}_vs_{condition_b_key}_simulation_ratio.png"
     plot_mean_simulations(records, mean_path)
     plot_simulation_ratio(records, ratio_path)
 

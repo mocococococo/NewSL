@@ -25,6 +25,56 @@ from transformer.utility import load_transformer_network
 
 DEFAULT_CNN_MODEL = "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin"
 
+CONDITION_PRESETS: dict[str, dict[str, Any]] = {
+    "pwtt": {
+        "key": "pwtt",
+        "label": "PW+TT",
+        "use_progressive_widening": True,
+        "use_transposition_table": True,
+    },
+    "non-pw": {
+        "key": "non-pw",
+        "label": "non-PW",
+        "use_progressive_widening": False,
+        "use_transposition_table": True,
+    },
+    "non-tt": {
+        "key": "non-tt",
+        "label": "non-TT",
+        "use_progressive_widening": True,
+        "use_transposition_table": False,
+    },
+    "non-pwtt": {
+        "key": "non-pwtt",
+        "label": "non-PWTT",
+        "use_progressive_widening": False,
+        "use_transposition_table": False,
+    },
+}
+LEGACY_CONDITION_KEYS = {
+    "non_pwtt": "non-pwtt",
+}
+
+
+def normalize_condition_key(condition: str) -> str:
+    key = str(condition).strip().lower().replace("_", "-")
+    key = LEGACY_CONDITION_KEYS.get(key, key)
+    if key not in CONDITION_PRESETS:
+        raise ValueError(
+            f"Unknown condition: {condition}. "
+            f"Choose from {sorted(CONDITION_PRESETS)}."
+        )
+    return key
+
+
+def get_condition_config(condition: str) -> dict[str, Any]:
+    key = normalize_condition_key(condition)
+    return dict(CONDITION_PRESETS[key])
+
+
+def _record_key(condition_key: str) -> str:
+    return normalize_condition_key(condition_key)
+
 
 def _resolve_model(model: str | Path) -> Path:
     model_path = Path(model)
@@ -48,13 +98,15 @@ def _save_json(save_file_path: Path, data: dict[str, Any]) -> None:
 
 
 def _build_output_stem(
+    condition_a_key: str,
+    condition_b_key: str,
     target_end: int,
     target_shot: int,
     data_size: int,
     x_repeats: int,
 ) -> str:
     return (
-        "pwtt_search_ablation"
+        f"pwtt_search_ablation_{condition_a_key}_vs_{condition_b_key}"
         f"_end{target_end}_shot{target_shot}"
         f"_datasize{data_size}_x{x_repeats}"
     )
@@ -114,8 +166,7 @@ def _run_single_search(
     use_transformer: bool,
     transformer_target_end: tuple[int, ...],
     transformer_target_shot: tuple[int, ...],
-    use_progressive_widening: bool,
-    use_transposition_table: bool,
+    condition: dict[str, Any],
     seed: int,
 ) -> tuple[tuple[float, float, int], dict[str, Any]]:
     _set_random_seed(seed)
@@ -133,11 +184,13 @@ def _run_single_search(
     )
     action, stats = mcts_search(
         root_state=root,
-        use_progressive_widening=use_progressive_widening,
-        use_transposition_table=use_transposition_table,
+        use_progressive_widening=bool(condition["use_progressive_widening"]),
+        use_transposition_table=bool(condition["use_transposition_table"]),
         return_stats=True,
     )
     stats = dict(stats)
+    stats["condition_key"] = condition["key"]
+    stats["condition_label"] = condition["label"]
     stats["selected_action"] = {
         "vx": float(action[0]),
         "vy": float(action[1]),
@@ -187,6 +240,8 @@ def run_experiment(
     transformer_models_by_shot: Optional[dict[int, str | Path]] = None,
     shuffle_seed: Optional[int] = 12345,
     search_seed: int = 24680,
+    condition_a: str = "non-pwtt",
+    condition_b: str = "pwtt",
 ) -> Path:
     if not (0 <= target_shot <= 15):
         raise ValueError(f"target_shot must be in [0, 15], got {target_shot}")
@@ -194,6 +249,11 @@ def run_experiment(
         raise ValueError(f"data_size must be positive, got {data_size}")
     if X <= 0:
         raise ValueError(f"X must be positive, got {X}")
+
+    condition_a_config = get_condition_config(condition_a)
+    condition_b_config = get_condition_config(condition_b)
+    if condition_a_config["key"] == condition_b_config["key"]:
+        raise ValueError("condition_a and condition_b must be different")
 
     device = get_torch_device(use_gpu=use_gpu)
     model_path = _resolve_model(model)
@@ -209,7 +269,14 @@ def run_experiment(
 
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=True)
-    output_stem = _build_output_stem(target_end, target_shot, data_size, X)
+    output_stem = _build_output_stem(
+        condition_a_config["key"],
+        condition_b_config["key"],
+        target_end,
+        target_shot,
+        data_size,
+        X,
+    )
     json_dir = save_dir / output_stem
     json_dir.mkdir(parents=True, exist_ok=True)
     position_index_width = max(6, len(str(max(data_size - 1, 0))))
@@ -225,10 +292,12 @@ def run_experiment(
         "transformer_models_by_shot": transformer_model_paths,
         "shuffle_seed": shuffle_seed,
         "search_seed": int(search_seed),
-        "condition_a_key": "non_pwtt",
-        "condition_a_label": "non-PWTT",
-        "condition_b_key": "pwtt",
-        "condition_b_label": "PWTT",
+        "condition_a": condition_a_config,
+        "condition_b": condition_b_config,
+        "condition_a_key": condition_a_config["key"],
+        "condition_a_label": condition_a_config["label"],
+        "condition_b_key": condition_b_config["key"],
+        "condition_b_label": condition_b_config["label"],
     }
     _save_json(json_dir / "metadata.json", experiment_metadata)
 
@@ -280,74 +349,72 @@ def run_experiment(
                 f"Processing position {position_count + 1}: "
                 f"log={one_log}, end={end}, shot={shot}"
             )
-            non_pwtt_trials: list[dict[str, Any]] = []
-            pwtt_trials: list[dict[str, Any]] = []
+            condition_a_trials: list[dict[str, Any]] = []
+            condition_b_trials: list[dict[str, Any]] = []
 
             for repeat_index in range(X):
                 pair_seed = int(search_seed + position_count * 100000 + repeat_index)
-                run_pwtt_first = ((position_count + repeat_index) % 2 == 1)
+                run_b_first = ((position_count + repeat_index) % 2 == 1)
 
-                if run_pwtt_first:
-                    _, pwtt_stats = _run_single_search(
+                if run_b_first:
+                    _, condition_b_stats = _run_single_search(
                         network,
                         transformer_networks or None,
                         root_state,
                         use_transformer,
                         transformer_target_end,
                         transformer_target_shot,
-                        True,
-                        True,
+                        condition_b_config,
                         pair_seed,
                     )
-                    _, non_pwtt_stats = _run_single_search(
+                    _, condition_a_stats = _run_single_search(
                         network,
                         transformer_networks or None,
                         root_state,
                         use_transformer,
                         transformer_target_end,
                         transformer_target_shot,
-                        False,
-                        False,
+                        condition_a_config,
                         pair_seed,
                     )
                 else:
-                    _, non_pwtt_stats = _run_single_search(
+                    _, condition_a_stats = _run_single_search(
                         network,
                         transformer_networks or None,
                         root_state,
                         use_transformer,
                         transformer_target_end,
                         transformer_target_shot,
-                        False,
-                        False,
+                        condition_a_config,
                         pair_seed,
                     )
-                    _, pwtt_stats = _run_single_search(
+                    _, condition_b_stats = _run_single_search(
                         network,
                         transformer_networks or None,
                         root_state,
                         use_transformer,
                         transformer_target_end,
                         transformer_target_shot,
-                        True,
-                        True,
+                        condition_b_config,
                         pair_seed,
                     )
 
-                non_pwtt_stats["repeat_index"] = int(repeat_index)
-                pwtt_stats["repeat_index"] = int(repeat_index)
-                non_pwtt_trials.append(non_pwtt_stats)
-                pwtt_trials.append(pwtt_stats)
+                condition_a_stats["repeat_index"] = int(repeat_index)
+                condition_b_stats["repeat_index"] = int(repeat_index)
+                condition_a_trials.append(condition_a_stats)
+                condition_b_trials.append(condition_b_stats)
 
-            non_pwtt_summary = _make_trial_summary(non_pwtt_trials)
-            pwtt_summary = _make_trial_summary(pwtt_trials)
+            condition_a_summary = _make_trial_summary(condition_a_trials)
+            condition_b_summary = _make_trial_summary(condition_b_trials)
             mean_sim_ratio = (
-                pwtt_summary["mean_simulations"] / non_pwtt_summary["mean_simulations"]
-                if non_pwtt_summary["mean_simulations"] > 0.0
+                condition_b_summary["mean_simulations"] / condition_a_summary["mean_simulations"]
+                if condition_a_summary["mean_simulations"] > 0.0
                 else 0.0
             )
             mean_log_sim_ratio = float(np.log(mean_sim_ratio)) if mean_sim_ratio > 0.0 else 0.0
 
+            condition_a_record_key = _record_key(condition_a_config["key"])
+            condition_b_record_key = _record_key(condition_b_config["key"])
             position_result = {
                 "experiment": experiment_metadata,
                 "position": {
@@ -359,25 +426,27 @@ def run_experiment(
                     "hammer_team": int(hammer),
                     "score_diff_for_team0": int(score_diff_for_team0),
                 },
-                "non_pwtt": {
-                    "condition_key": "non_pwtt",
-                    "condition_label": "non-PWTT",
-                    "trials": non_pwtt_trials,
-                    "summary": non_pwtt_summary,
+                condition_a_record_key: {
+                    "condition_key": condition_a_config["key"],
+                    "condition_label": condition_a_config["label"],
+                    "trials": condition_a_trials,
+                    "summary": condition_a_summary,
                 },
-                "pwtt": {
-                    "condition_key": "pwtt",
-                    "condition_label": "PWTT",
-                    "trials": pwtt_trials,
-                    "summary": pwtt_summary,
+                condition_b_record_key: {
+                    "condition_key": condition_b_config["key"],
+                    "condition_label": condition_b_config["label"],
+                    "trials": condition_b_trials,
+                    "summary": condition_b_summary,
                 },
                 "comparison": {
-                    "mean_sim_diff_pwtt_minus_non_pwtt": float(
-                        pwtt_summary["mean_simulations"] - non_pwtt_summary["mean_simulations"]
+                    "condition_a_key": condition_a_config["key"],
+                    "condition_b_key": condition_b_config["key"],
+                    "mean_sim_diff_b_minus_a": float(
+                        condition_b_summary["mean_simulations"] - condition_a_summary["mean_simulations"]
                     ),
-                    "mean_sim_ratio_pwtt_over_non_pwtt": float(mean_sim_ratio),
-                    "mean_sim_increase_rate": float(mean_sim_ratio - 1.0),
-                    "mean_log_sim_ratio": mean_log_sim_ratio,
+                    "mean_sim_ratio_b_over_a": float(mean_sim_ratio),
+                    "mean_sim_increase_rate_b_over_a": float(mean_sim_ratio - 1.0),
+                    "mean_log_sim_ratio_b_over_a": mean_log_sim_ratio,
                 },
             }
 

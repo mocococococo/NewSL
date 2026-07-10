@@ -26,6 +26,8 @@ def main() -> None:
         transformer_models_by_shot=None,
         shuffle_seed=12345,
         search_seed=24680,
+        condition_a="non-pw",
+        condition_b="pwtt",
     )
     print_report_from_json_dir(json_dir)
 
