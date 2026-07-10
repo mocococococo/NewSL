@@ -22,7 +22,7 @@ EXPERIMENT_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_TARGET_PATH = (
     EXPERIMENT_DIR
     / "data"
-    / "pwtt_search_ablation_non-pwtt_vs_pwtt_end9_shot15_datasize1000_x1"
+    / "pwtt_search_ablation_end9_shot15_datasize1000_x1"
 )
 
 
