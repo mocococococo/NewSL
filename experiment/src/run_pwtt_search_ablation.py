@@ -17,8 +17,8 @@ def main() -> None:
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
         target_end=9,
-        target_shot=15,
-        data_size=1,
+        target_shot=14,
+        data_size=1000,
         X=1,
         model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_gpu=True,
@@ -26,7 +26,7 @@ def main() -> None:
         transformer_models_by_shot=None,
         shuffle_seed=12345,
         search_seed=24680,
-        condition_a="non-tt",
+        condition_a="non-pw",
         condition_b="pwtt",
     )
     print_report_from_json_dir(json_dir)
