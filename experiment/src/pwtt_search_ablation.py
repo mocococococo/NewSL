@@ -19,6 +19,7 @@ if str(NEWSL_DIR) not in sys.path:
 from common.translate_state import convert_team_stoi, scores_to_scorediff_for_team0, stones_listdict_to_xy16
 from mcts.search import mcts_search, set_root_state as set_mcts_root_state
 from mcts.state import State
+from mcts.params import STATE_POS_SCALE
 from nn.utility import get_torch_device, load_network
 from transformer.utility import load_transformer_network
 
@@ -109,6 +110,7 @@ def _build_output_stem(
         f"pwtt_search_ablation_{condition_a_key}_vs_{condition_b_key}"
         f"_end{target_end}_shot{target_shot}"
         f"_datasize{data_size}_x{x_repeats}"
+        f"_posscale{STATE_POS_SCALE}"
     )
 
 
@@ -305,6 +307,7 @@ def run_experiment(
         "transformer_models_by_shot": transformer_model_paths,
         "shuffle_seed": shuffle_seed,
         "search_seed": int(search_seed),
+        "state_pos_scale": int(STATE_POS_SCALE),
         "condition_a": condition_a_config,
         "condition_b": condition_b_config,
         "condition_a_key": condition_a_config["key"],

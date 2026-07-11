@@ -18,7 +18,7 @@ def main() -> None:
         save_path=Path(__file__).resolve().parents[1] / "data",
         target_end=9,
         target_shot=15,
-        data_size=1000,
+        data_size=1,
         X=1,
         model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         use_gpu=True,
