@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional, Dict, Union
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
-from .node import Node, get_node, get_child_node, argmax_over_actions, clear_node_table, node_table_size, peek_node, count_reachable_nodes
+from .node import Node, get_node, get_child_node, argmax_over_actions, clear_node_table, node_table_size, peek_node, count_reachable_nodes, reset_tt_stats, get_tt_stats
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
 from .hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
@@ -76,6 +76,7 @@ def mcts_search(
     """
     # 最初にノードテーブルをクリア
     clear_node_table()
+    reset_tt_stats()
     reset_policy_selection_log()
     
     time_limit_sec = DEFAULT_TIME_LIMIT_SEC
@@ -223,6 +224,11 @@ def mcts_search(
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
     nodes = count_reachable_nodes(root)
+    tt_stats = get_tt_stats()
+    tt_requests = int(tt_stats["requests"])
+    tt_hits = int(tt_stats["hits"])
+    tt_misses = int(tt_stats["misses"])
+    tt_hit_rate = float(tt_hits / tt_requests) if tt_requests > 0 else 0.0
     search_stats = {
         "simulations": int(sims),
         "elapsed": float(elapsed_time),
@@ -230,6 +236,10 @@ def mcts_search(
         "root_visited": int(visited_children),
         "root_expanded": int(expanded_children),
         "root_candidates": int(len(root.actions)),
+        "tt_requests": tt_requests,
+        "tt_hits": tt_hits,
+        "tt_misses": tt_misses,
+        "tt_hit_rate": tt_hit_rate,
         "use_progressive_widening": bool(use_progressive_widening),
         "use_transposition_table": bool(use_transposition_table),
     }
@@ -239,6 +249,7 @@ def mcts_search(
         f"shot={root_state.shot_index} end={root_state.end} hammer={root_state.hammer_team} score_diff={root_state.score_diff}",
         f"simulations={sims} elapsed={elapsed_time:.2f}sec nodes={nodes}",
         f"root_children visited={visited_children} expanded={expanded_children} candidates={len(root.actions)}",
+        f"tt requests={tt_requests} hits={tt_hits} misses={tt_misses} hit_rate={tt_hit_rate:.6f}",
         f"progressive_widening={use_progressive_widening} transposition_table={use_transposition_table}",
         "-----------------------------------------------------",
     ]
@@ -247,6 +258,7 @@ def mcts_search(
     print("-----------------------------------------------------")
     print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {nodes}")
     print(f"MCTS root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
+    print(f"MCTS TT: requests={tt_requests}, hits={tt_hits}, misses={tt_misses}, hit_rate={tt_hit_rate:.6f}")
     print(
         "MCTS options: "
         f"progressive_widening={use_progressive_widening}, "

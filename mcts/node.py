@@ -16,11 +16,24 @@ ALL_ACTIONS: List[int] = list(range(N_ACTIONS))
 
 # 木（transposition用）
 _NODE_TABLE: Dict[tuple, "Node"] = {}
+_TT_STATS = {
+    "requests": 0,
+    "hits": 0,
+    "misses": 0,
+}
 
 def clear_node_table() -> None:
     """puct_search() 1回分の探索が終わったら木を破棄したい用途。"""
     _NODE_TABLE.clear()
     
+def reset_tt_stats() -> None:
+    _TT_STATS["requests"] = 0
+    _TT_STATS["hits"] = 0
+    _TT_STATS["misses"] = 0
+
+def get_tt_stats() -> Dict[str, int]:
+    return dict(_TT_STATS)
+
 def node_table_size() -> int:
     """現在 _NODE_TABLE に保持されているノード数（=到達した局面数）"""
     return len(_NODE_TABLE)
@@ -163,6 +176,13 @@ def get_child_node(
     use_transposition_table: bool = True,
 ) -> Node:
     if use_transposition_table:
+        child_key = child_state.key()
+        _TT_STATS["requests"] += 1
+        if child_key in _NODE_TABLE:
+            _TT_STATS["hits"] += 1
+        else:
+            _TT_STATS["misses"] += 1
+
         child = get_node(
             child_state,
             use_progressive_widening=parent.use_progressive_widening,
