@@ -25,7 +25,7 @@ TransformerVyMode = Literal["default", "high_resolution"]
 
 
 # Transformerで使用するY方向の分割構成を指定する。
-TRANSFORMER_VY_MODE: TransformerVyMode = "default"
+TRANSFORMER_VY_MODE: TransformerVyMode = "high_resolution"
 
 if TRANSFORMER_VY_MODE == "default":
     TRANSFORMER_VY_SHEET_SIZE = VY_SHEET_SIZE
