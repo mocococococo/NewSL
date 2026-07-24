@@ -5,8 +5,12 @@ from pathlib import Path
 from learning_param import BATCH_SIZE, EPOCHS
 from nn.learn import train_on_cpu, train_on_gpu
 from nn.generator import generate_supervised_learning_data
-from transformer.learn import train
+from transformer.learn import train, train_supervised
 from transformer.generator import generate_data
+from transformer.supervised_generator import (
+    generate_supervised_learning_data
+    as generate_transformer_supervised_learning_data,
+)
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
@@ -52,6 +56,30 @@ def train_transformer_main(model_name: str, use_gpu: bool):
     
     print(f"finish learning transformer model {model_name} !!")
 
+@click.command()
+@click.option('--model-name', type=click.STRING, default="transformer-supervised-model", help="保存するモデルの名前の指定")
+@click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
+def train_transformer_supervised(model_name: str, use_gpu: bool):
+    # プログラムのディレクトリ
+    program_dir = str(Path(__file__).resolve().parent)
+    # 対戦データのlogファイルがあるディレクトリ
+    log_dir = str(Path(__file__).resolve().parent / "LearnLog" / "jiritsu-vs-silicon")
+
+    print(f"start learning transformer model {model_name} !!")
+
+    generate_transformer_supervised_learning_data(program_dir, log_dir, data_size=20000)
+    # return
+    train_supervised(
+        program_dir=program_dir,
+        batch_size=BATCH_SIZE,
+        epochs=EPOCHS,
+        model_name=model_name,
+        use_gpu=use_gpu,
+    )
+
+    print(f"finish learning transformer model {model_name} !!")
+
 if __name__ == "__main__":
     # train_main()
-    train_transformer_main()
+    # train_transformer_main()
+    train_transformer_supervised()

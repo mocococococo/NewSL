@@ -22,6 +22,27 @@ from transformer.params import (
 TransformerDataSet = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
 
 
+def load_supervised_data_set(path: str | Path) -> TransformerDataSet:
+    """CNN版と同じクラス番号教師のデータセットを読み込む。
+
+    Args:
+        path (str | Path): データセットのファイルパス。
+
+    Returns:
+        TransformerDataSet:
+            ストーン特徴量、ゲーム特徴量、ストーンマスク、Policy、Value。
+    """
+    data = np.load(path, mmap_mode="r")
+    perm = np.random.permutation(len(data["value"]))
+    return (
+        data["stones"][perm],
+        data["games"][perm],
+        data["stone_masks"][perm],
+        data["policy"][perm].astype(np.float32),
+        data["value"][perm].astype(np.float32),
+    )
+
+
 def get_torch_device(use_gpu: bool) -> torch.device:
     """学習に使う torch.device を返す。"""
 
@@ -234,6 +255,7 @@ __all__ = [
     "get_torch_device",
     "load_transformer_network",
     "load_transformer_data_set",
+    "load_supervised_data_set",
     "print_learning_process",
     "print_evaluation_information",
     "split_train_test_set",

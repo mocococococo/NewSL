@@ -46,5 +46,4 @@ LEARNING_SCHEDULE = LEARNING_SCHEDULE_SGD
 DATA_SET_SIZE = BATCH_SIZE * 100
 
 # Policyのlossに対するValueのlossの重み比率
-"""Valueは使用しない"""
 SL_VALUE_WEIGHT = 1.0
