@@ -20,7 +20,7 @@ MOMENTUM=0.9
 # L2正則化の重み
 WEIGHT_DECAY = 1e-4
 
-EPOCHS = 50
+EPOCHS = 30
 
 # 学習率を変更するエポック数と変更後の学習率
 LEARNING_SCHEDULE_SGD = {
@@ -33,9 +33,9 @@ LEARNING_SCHEDULE_SGD = {
 
 LEARNING_SCHEDULE_ADAMW = {
     "learning_rate": {
-        19: 0.0001,
-        34: 0.00003,
-        44: 0.00001,
+        10: 0.0001,
+        20: 0.00003,
+        25: 0.00001,
     }
 }
 

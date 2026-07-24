@@ -11,6 +11,12 @@ from transformer.supervised_generator import (
     generate_supervised_learning_data
     as generate_transformer_supervised_learning_data,
 )
+from transformer import params as transformer_params
+
+# 25分割構成へ戻す場合はtransformer_params.DEFAULT_TRANSFORMER_CONFIGへ変更する。
+TRANSFORMER_SUPERVISED_CONFIG = (
+    transformer_params.HIGH_RESOLUTION_TRANSFORMER_CONFIG
+)
 
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
@@ -57,7 +63,7 @@ def train_transformer_main(model_name: str, use_gpu: bool):
     print(f"finish learning transformer model {model_name} !!")
 
 @click.command()
-@click.option('--model-name', type=click.STRING, default="transformer-supervised-model", help="保存するモデルの名前の指定")
+@click.option('--model-name', type=click.STRING, default="transformer-supervised-model-AdamW", help="保存するモデルの名前の指定")
 @click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
 def train_transformer_supervised(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ
@@ -65,9 +71,18 @@ def train_transformer_supervised(model_name: str, use_gpu: bool):
     # 対戦データのlogファイルがあるディレクトリ
     log_dir = str(Path(__file__).resolve().parent / "LearnLog" / "jiritsu-vs-silicon")
 
+    model_name = transformer_params.get_velocity_grid_model_name(
+        model_name,
+        TRANSFORMER_SUPERVISED_CONFIG.velocity_grid,
+    )
     print(f"start learning transformer model {model_name} !!")
 
-    generate_transformer_supervised_learning_data(program_dir, log_dir, data_size=20000)
+    generate_transformer_supervised_learning_data(
+        program_dir,
+        log_dir,
+        data_size=20000,
+        network_config=TRANSFORMER_SUPERVISED_CONFIG,
+    )
     # return
     train_supervised(
         program_dir=program_dir,
@@ -75,6 +90,7 @@ def train_transformer_supervised(model_name: str, use_gpu: bool):
         epochs=EPOCHS,
         model_name=model_name,
         use_gpu=use_gpu,
+        network_config=TRANSFORMER_SUPERVISED_CONFIG,
     )
 
     print(f"finish learning transformer model {model_name} !!")
