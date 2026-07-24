@@ -47,3 +47,4 @@ DATA_SET_SIZE = BATCH_SIZE * 100
 
 # Policyのlossに対するValueのlossの重み比率
 SL_VALUE_WEIGHT = 1.0
+RL_VALUE_WEIGHT = 1.0

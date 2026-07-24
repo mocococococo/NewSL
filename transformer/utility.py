@@ -89,13 +89,14 @@ def print_evaluation_information(
     epoch: int,
     iteration: int,
     start_time: float,
+    data_name: str = "Test",
 ) -> None:
     """評価用データの loss 情報を表示する。"""
 
     loss, policy_loss, value_loss = _calculate_losses(loss_data, iteration)
     testing_time = time.time() - start_time
 
-    print(f"Test {epoch} : loss = {loss:6f}, time = {testing_time:3f} seconds.")
+    print(f"{data_name} {epoch} : loss = {loss:6f}, time = {testing_time:3f} seconds.")
     print(f"\tpolicy loss : {policy_loss:6f}")
     print(f"\tvalue loss  : {value_loss:6f}")
 
