@@ -12,11 +12,9 @@ from nn.loss import calculate_sl_policy_loss, calculate_value_loss
 from learning_param import (
     BATCH_SIZE,
     EPOCHS,
-    LEARNING_SCHEDULE,
     LEARNING_SCHEDULE_SGD,
     LEARNING_SCHEDULE_ADAMW,
     MOMENTUM,
-    SL_LEARNING_RATE,
     SL_LEARNING_RATE_SGD,
     SL_LEARNING_RATE_ADAMW,
     SL_VALUE_WEIGHT,
@@ -282,16 +280,30 @@ def train_supervised(
     transformer_net = TransformerNetwork()
     transformer_net.to(device)
 
-    optimizer = torch.optim.SGD(
-        transformer_net.parameters(),
-        lr=SL_LEARNING_RATE,
-        momentum=MOMENTUM,
-        weight_decay=WEIGHT_DECAY,
-    )
+    if OPTIMIZER_NAME == "sgd":
+        optimizer = torch.optim.SGD(
+            transformer_net.parameters(),
+            lr=SL_LEARNING_RATE_SGD,
+            momentum=MOMENTUM,
+            weight_decay=WEIGHT_DECAY,
+        )
+        current_lr = SL_LEARNING_RATE_SGD
+        learning_schedule = LEARNING_SCHEDULE_SGD
+    elif OPTIMIZER_NAME == "adamw":
+        optimizer = torch.optim.AdamW(
+            transformer_net.parameters(),
+            lr=SL_LEARNING_RATE_ADAMW,
+            betas=(ADAM_BETA1, ADAM_BETA2),
+            eps=ADAM_EPS,
+            weight_decay=WEIGHT_DECAY,
+        )
+        current_lr = SL_LEARNING_RATE_ADAMW
+        learning_schedule = LEARNING_SCHEDULE_ADAMW
+    else:
+        raise ValueError(f"Unknown optimizer: {OPTIMIZER_NAME}")
 
     use_amp = device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
-    current_lr = SL_LEARNING_RATE
 
     loss_history = {
         "loss": [],
@@ -492,11 +504,11 @@ def train_supervised(
         else:
             print(f"Test {epoch} : no test batch.")
 
-        if epoch in LEARNING_SCHEDULE["learning_rate"]:
+        if epoch in learning_schedule["learning_rate"]:
             previous_lr = current_lr
             for group in optimizer.param_groups:
-                group["lr"] = LEARNING_SCHEDULE["learning_rate"][epoch]
-            current_lr = LEARNING_SCHEDULE["learning_rate"][epoch]
+                group["lr"] = learning_schedule["learning_rate"][epoch]
+            current_lr = learning_schedule["learning_rate"][epoch]
             print(f"Epoch {epoch}, learning rate has changed {previous_lr} -> {current_lr}")
 
     model_path = program_dir / "model" / f"{model_name}.bin"
