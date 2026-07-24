@@ -13,11 +13,6 @@ from transformer.supervised_generator import (
 )
 from transformer import params as transformer_params
 
-# 25分割構成へ戻す場合はtransformer_params.DEFAULT_TRANSFORMER_CONFIGへ変更する。
-TRANSFORMER_SUPERVISED_CONFIG = (
-    transformer_params.HIGH_RESOLUTION_TRANSFORMER_CONFIG
-)
-
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 
 @click.command()
@@ -71,9 +66,8 @@ def train_transformer_supervised(model_name: str, use_gpu: bool):
     # 対戦データのlogファイルがあるディレクトリ
     log_dir = str(Path(__file__).resolve().parent / "LearnLog" / "jiritsu-vs-silicon")
 
-    model_name = transformer_params.get_velocity_grid_model_name(
-        model_name,
-        TRANSFORMER_SUPERVISED_CONFIG.velocity_grid,
+    model_name = (
+        f"{model_name}{transformer_params.TRANSFORMER_MODEL_NAME_SUFFIX}"
     )
     print(f"start learning transformer model {model_name} !!")
 
@@ -81,7 +75,6 @@ def train_transformer_supervised(model_name: str, use_gpu: bool):
         program_dir,
         log_dir,
         data_size=20000,
-        network_config=TRANSFORMER_SUPERVISED_CONFIG,
     )
     # return
     train_supervised(
@@ -90,7 +83,6 @@ def train_transformer_supervised(model_name: str, use_gpu: bool):
         epochs=EPOCHS,
         model_name=model_name,
         use_gpu=use_gpu,
-        network_config=TRANSFORMER_SUPERVISED_CONFIG,
     )
 
     print(f"finish learning transformer model {model_name} !!")

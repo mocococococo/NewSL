@@ -2,14 +2,13 @@
 from __future__ import annotations
 from typing import Dict, List, Optional, Iterable, Any
 
-from board.constant import VX_SIZE, VY_SIZE
+from transformer.params import TRANSFORMER_ACTION_DIM
 from .state import State
 from .hybrid_policy import get_policy
 from .params import TOPK_INIT, TOPK_MAX, PW_C, PW_ALPHA
 
-# 行動空間： (vx, vy, spin) の全組合せを 0..2047 に潰す
-SPIN_SIZE = 2
-N_ACTIONS = VX_SIZE * VY_SIZE * SPIN_SIZE  # 2048
+# 行動空間： (vx, vy, spin) の全組合せを 0..N_ACTIONS-1 に潰す
+N_ACTIONS = TRANSFORMER_ACTION_DIM
 
 # どのノードでも同じ actions を使うので、1回だけ作る
 ALL_ACTIONS: List[int] = list(range(N_ACTIONS))

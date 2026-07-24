@@ -28,6 +28,7 @@ from learning_param import (
 )
 from transformer.loss import calculate_kld_loss
 from transformer.network import TransformerNetwork
+from transformer.params import TRANSFORMER_SUPERVISED_DATA_DIRECTORY
 from transformer.utility import (
     get_torch_device,
     load_supervised_data_set,
@@ -257,7 +258,7 @@ def _load_supervised_data_manifest(
         program_dir
         / "data"
         / "transformer"
-        / "supervised"
+        / TRANSFORMER_SUPERVISED_DATA_DIRECTORY
     )
     manifest_path = supervised_dir / "split_manifest.json"
     if not manifest_path.is_file():

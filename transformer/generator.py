@@ -29,9 +29,10 @@ from transformer.params import (
     GAME_FEAT_DIM,
     MAX_STONES,
     STONE_FEAT_DIM,
+    TRANSFORMER_VY_SIZE,
 )
 from mcts.search import mcts_search, set_root_state
-from board.constant import VX_SIZE, VY_SIZE
+from board.constant import VX_SIZE
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
@@ -43,7 +44,7 @@ def _flip_policy_target(policy_target):
     if policy.size != N_ACTIONS:
         raise ValueError(f"policy_target size must be {N_ACTIONS}, got {policy.size}")
 
-    policy_3d = policy.reshape(2, VY_SIZE, VX_SIZE)
+    policy_3d = policy.reshape(2, TRANSFORMER_VY_SIZE, VX_SIZE)
     flipped = policy_3d[::-1, :, ::-1]
     return flipped.reshape(N_ACTIONS).copy()
 

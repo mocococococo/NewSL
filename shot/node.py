@@ -3,9 +3,9 @@ from __future__ import annotations
 import math
 from typing import Dict, Iterable, Iterator, List, Optional
 
-from board.constant import VX_SIZE, VY_SIZE
 from mcts.hybrid_policy import get_policy
 from mcts.state import State
+from transformer.params import TRANSFORMER_ACTION_DIM
 
 from .params import (
     DEFAULT_SHOT_INITIAL_CANDIDATES,
@@ -14,8 +14,7 @@ from .params import (
 )
 
 # 行動空間: (vx, vy, spin) の全組み合わせを 0..N_ACTIONS-1 に畳む
-SPIN_SIZE = 2
-N_ACTIONS = VX_SIZE * VY_SIZE * SPIN_SIZE
+N_ACTIONS = TRANSFORMER_ACTION_DIM
 
 ALL_ACTIONS: List[int] = list(range(N_ACTIONS))
 

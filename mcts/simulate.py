@@ -5,13 +5,18 @@ import numpy as np
 
 from . import fast_simulator
 from .state import State
-from board.constant import VX_SIZE, VY_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
-                            VY_SHEET_MAX, VY_SHEET_SIZE, VY_EXTRA_SIZE
+from board.constant import VX_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
+                            VY_SHEET_MAX
+from transformer.params import (
+    TRANSFORMER_ACTION_DIM,
+    TRANSFORMER_VY_EXTRA_SIZE,
+    TRANSFORMER_VY_SHEET_SIZE,
+    TRANSFORMER_VY_SIZE,
+)
 from .params import STDDV_SPEED, STDDV_ANGLE
-from policy_shot import index_to_shot
 
-N_ACTIONS = VX_SIZE * VY_SIZE * 2  # 2048
-VEC_SIZE = VX_SIZE * VY_SIZE  # 1024
+N_ACTIONS = TRANSFORMER_ACTION_DIM
+VEC_SIZE = VX_SIZE * TRANSFORMER_VY_SIZE
 StonePos = Tuple[float, float]
 Stones16 = List[Optional[StonePos]]
 ShotNoise = Tuple[float, float]
@@ -39,20 +44,22 @@ def _vx_idx_to_value(vxi: int) -> float:
 
 def _vy_idx_to_value(vyi: int) -> float:
     # policy_shot と同じ：前半は VY_MIN..VY_SHEET_MAX、後半は VY_SHEET_MAX..VY_MAX
-    dvy = (VY_SHEET_MAX - VY_MIN) / VY_SHEET_SIZE
-    dvy_extra = (VY_MAX - VY_SHEET_MAX) / VY_EXTRA_SIZE
+    dvy = (VY_SHEET_MAX - VY_MIN) / TRANSFORMER_VY_SHEET_SIZE
+    dvy_extra = (
+        (VY_MAX - VY_SHEET_MAX) / TRANSFORMER_VY_EXTRA_SIZE
+    )
 
-    if vyi < VY_SHEET_SIZE:
+    if vyi < TRANSFORMER_VY_SHEET_SIZE:
         return VY_MIN + (vyi + 0.5) * dvy
     else:
-        vy2 = vyi - VY_SHEET_SIZE  # 高速域内のインデックス
+        vy2 = vyi - TRANSFORMER_VY_SHEET_SIZE  # 高速域内のインデックス
         return VY_SHEET_MAX + (vy2 + 0.5) * dvy_extra
 
 def decode_action(action: int) -> Tuple[float, float, int]:
     if not (0 <= action < N_ACTIONS):
         raise ValueError(f"action out of range: {action}")
 
-    board_len = VX_SIZE * VY_SIZE  # 1024
+    board_len = VEC_SIZE
 
     # spin: 0=cw, 1=ccw（policy_shot と同じ並び）
     if action >= board_len:
@@ -101,7 +108,7 @@ def simulator_step(state: State, action: int) -> State:
 
     vx, vy, spin = decode_action(action)
     vx, vy = _add_noise_to_vector(vx, vy, STDDV_SPEED, STDDV_ANGLE)
-    debug_vx, debug_vy, debug_spin = index_to_shot(action)
+    debug_vx, debug_vy, debug_spin = decode_action(action)
     
     if DEBUG_SIM_INDEX:
         print(f"[SIMULATOR_STEP] action={action} -> vx={vx:.3f} vy={vy:.3f} spin={spin}")

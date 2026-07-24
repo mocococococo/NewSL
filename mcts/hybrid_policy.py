@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from typing import Dict, List, Set, Tuple
 
+from board.constant import VX_SIZE, VY_SIZE
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
+from transformer.params import TRANSFORMER_ACTION_DIM
 
 from . import policy as cnn_policy
 from . import transformer_policy
@@ -18,6 +20,7 @@ _TRANSFORMER_NET = None
 _TRANSFORMER_NET_BY_SHOT: Dict[int, TransformerNetwork] = {}
 _SCORE_DIFF = 0
 _LOGGED_END_SHOTS: Set[Tuple[int, int]] = set()
+_CNN_ACTION_DIM = 2 * VX_SIZE * VY_SIZE
 
 
 def set_policy_context(
@@ -74,6 +77,14 @@ def _use_selected_transformer(state: State) -> None:
     transformer_policy.set_policy_context(_select_transformer_net(state), _SCORE_DIFF)
 
 
+def _check_cnn_action_space() -> None:
+    if TRANSFORMER_ACTION_DIM != _CNN_ACTION_DIM:
+        raise RuntimeError(
+            "現在のTransformerとCNNでは行動数が異なるため、"
+            "この探索中にCNNへ切り替えることはできません。"
+        )
+
+
 def reset_policy_selection_log() -> None:
     """mcts_search ごとにネットワーク選択ログをリセットする。"""
 
@@ -101,6 +112,7 @@ def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
         _log_selected_policy_once(state, "Transformer")
         _use_selected_transformer(state)
         return transformer_policy.get_policy_and_value(state)
+    _check_cnn_action_space()
     _log_selected_policy_once(state, "CNN")
     return cnn_policy.get_policy_and_value(state)
 
@@ -112,5 +124,6 @@ def get_policy(state: State) -> List[float]:
         _log_selected_policy_once(state, "Transformer")
         _use_selected_transformer(state)
         return transformer_policy.get_policy(state)
+    _check_cnn_action_space()
     _log_selected_policy_once(state, "CNN")
     return cnn_policy.get_policy(state)

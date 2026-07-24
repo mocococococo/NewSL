@@ -9,10 +9,44 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Literal
 
-from board.constant import VX_SIZE, VY_SIZE
+from board.constant import (
+    TRANSFORMER_HIGH_RESOLUTION_VY_EXTRA_SIZE,
+    TRANSFORMER_HIGH_RESOLUTION_VY_SHEET_SIZE,
+    TRANSFORMER_HIGH_RESOLUTION_VY_SIZE,
+    VX_SIZE,
+    VY_EXTRA_SIZE,
+    VY_SHEET_SIZE,
+    VY_SIZE,
+)
 
 
 ActivationName = Literal["relu", "gelu"]
+TransformerVyMode = Literal["default", "high_resolution"]
+
+
+# Transformerで使用するY方向の分割構成を指定する。
+TRANSFORMER_VY_MODE: TransformerVyMode = "default"
+
+if TRANSFORMER_VY_MODE == "default":
+    TRANSFORMER_VY_SHEET_SIZE = VY_SHEET_SIZE
+    TRANSFORMER_VY_EXTRA_SIZE = VY_EXTRA_SIZE
+    TRANSFORMER_VY_SIZE = VY_SIZE
+    TRANSFORMER_SUPERVISED_DATA_DIRECTORY = "supervised"
+    TRANSFORMER_MODEL_NAME_SUFFIX = ""
+elif TRANSFORMER_VY_MODE == "high_resolution":
+    TRANSFORMER_VY_SHEET_SIZE = TRANSFORMER_HIGH_RESOLUTION_VY_SHEET_SIZE
+    TRANSFORMER_VY_EXTRA_SIZE = TRANSFORMER_HIGH_RESOLUTION_VY_EXTRA_SIZE
+    TRANSFORMER_VY_SIZE = TRANSFORMER_HIGH_RESOLUTION_VY_SIZE
+    TRANSFORMER_SUPERVISED_DATA_DIRECTORY = (
+        f"supervised_vy{TRANSFORMER_VY_SIZE}"
+    )
+    TRANSFORMER_MODEL_NAME_SUFFIX = f"-vy{TRANSFORMER_VY_SIZE}"
+else:
+    raise ValueError(
+        f"未対応のTransformer Y分割構成です: {TRANSFORMER_VY_MODE}"
+    )
+
+TRANSFORMER_ACTION_DIM = 2 * VX_SIZE * TRANSFORMER_VY_SIZE
 
 
 MAX_STONES = 16
@@ -30,7 +64,7 @@ class TransformerNetworkConfig:
     # 入出力特徴量
     stone_feat_dim: int = STONE_FEAT_DIM
     game_feat_dim: int = GAME_FEAT_DIM
-    action_dim: int = 2 * VX_SIZE * VY_SIZE
+    action_dim: int = TRANSFORMER_ACTION_DIM
     value_dim: int = 17
     max_stones: int = MAX_STONES
 
@@ -62,6 +96,14 @@ def make_transformer_config(**overrides: object) -> TransformerNetworkConfig:
 
 __all__ = [
     "ActivationName",
+    "TransformerVyMode",
+    "TRANSFORMER_VY_MODE",
+    "TRANSFORMER_VY_SHEET_SIZE",
+    "TRANSFORMER_VY_EXTRA_SIZE",
+    "TRANSFORMER_VY_SIZE",
+    "TRANSFORMER_ACTION_DIM",
+    "TRANSFORMER_SUPERVISED_DATA_DIRECTORY",
+    "TRANSFORMER_MODEL_NAME_SUFFIX",
     "MAX_STONES",
     "STONE_FEAT_DIM",
     "GAME_FEAT_DIM",

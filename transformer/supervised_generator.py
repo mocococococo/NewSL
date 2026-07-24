@@ -11,8 +11,9 @@ import numpy as np
 
 from common.translate_state import scores_to_scorediff_for_team0, convert_team_stoi
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
-from nn.feature import generate_target_data, generate_value_data
-from transformer.feature import generate_input_features
+from nn.feature import generate_value_data
+from transformer.feature import generate_input_features, generate_target_data
+from transformer.params import TRANSFORMER_SUPERVISED_DATA_DIRECTORY
 
 
 TRAIN_DATA_RATIO = 0.9
@@ -105,7 +106,7 @@ def _save_full_data_set(
         program_dir,
         "data",
         "transformer",
-        "supervised",
+        TRANSFORMER_SUPERVISED_DATA_DIRECTORY,
         split_name,
         f"sl_data_{data_counter}",
     )
@@ -147,7 +148,7 @@ def _save_remaining_data(
         program_dir,
         "data",
         "transformer",
-        "supervised",
+        TRANSFORMER_SUPERVISED_DATA_DIRECTORY,
         split_name,
         f"sl_data_{data_counter}",
     )
@@ -177,7 +178,7 @@ def _save_split_manifest(
         Path(program_dir)
         / "data"
         / "transformer"
-        / "supervised"
+        / TRANSFORMER_SUPERVISED_DATA_DIRECTORY
     )
     supervised_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = supervised_dir / "split_manifest.json"
