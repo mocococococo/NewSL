@@ -7,6 +7,8 @@ BOARD_SIZE = BOARD_SIZE_X
 #vx, vyの離散化数
 VX_SIZE = 32
 VY_SIZE = 25
+VY_EXTRA_SIZE = 5
+VY_SHEET_SIZE = VY_SIZE - VY_EXTRA_SIZE
 #盤外のサイズ
 OB_SIZE = 1
 #ストーンの半径

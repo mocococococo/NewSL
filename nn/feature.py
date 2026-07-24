@@ -6,7 +6,8 @@ from typing import List, Optional, Tuple, Dict
 from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, STONE_RADIUS, \
                             X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, \
                             R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
-                            PLANES_SIZE, VX_SIZE, VY_SIZE, VY_SHEET_MAX
+                            PLANES_SIZE, VX_SIZE, VY_SIZE, VY_SHEET_MAX, \
+                            VY_SHEET_SIZE, VY_EXTRA_SIZE
 
 def discretization(x: float, y: float) -> int:
     """
@@ -34,12 +35,12 @@ def discretization_velocity(vx: float, vy: float) -> int:
     """
     連続速度 (vx,vy) を VX_SIZE × VY_SIZE 個のセルに割り当て、セルの1次元indexを返す
     x 軸は VX_MIN から VX_MAXで均等に分割
-    y 軸は VY_MIN から VY_SHEET_MAX まで均等に VY_SIZE - 5 分割し、VY_SHEET_MAX から VY_MAX までは別途均等に 5 分割する
+    y 軸は VY_MIN から VY_SHEET_MAX まで均等に VY_SHEET_SIZE 分割し、VY_SHEET_MAX から VY_MAX までは別途均等に VY_EXTRA_SIZE 分割する
     """
     # セル幅
     dvx = (VX_MAX - VX_MIN) / VX_SIZE
-    dvy = (VY_SHEET_MAX - VY_MIN) / (VY_SIZE - 5)
-    dvy_extra = (VY_MAX - VY_SHEET_MAX) / 5
+    dvy = (VY_SHEET_MAX - VY_MIN) / VY_SHEET_SIZE
+    dvy_extra = (VY_MAX - VY_SHEET_MAX) / VY_EXTRA_SIZE
     
     # clamp（境界ちょうども最後のセルに入れたいので VX_MAX/VY_MAX を少し内側扱い）
     vx = max(VX_MIN, min(vx, VX_MAX))
@@ -50,7 +51,7 @@ def discretization_velocity(vx: float, vy: float) -> int:
     if vy <= VY_SHEET_MAX:
         vyi = int((vy - VY_MIN) / dvy)
     else:
-        vyi = (VY_SIZE - 5) + int((vy - VY_SHEET_MAX) / dvy_extra)
+        vyi = VY_SHEET_SIZE + int((vy - VY_SHEET_MAX) / dvy_extra)
         
     # x==VX_MAX 等で vxi==VX_SIZE になり得るので丸める
     vxi = max(0, min(vxi, VX_SIZE - 1))

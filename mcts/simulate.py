@@ -5,7 +5,8 @@ import numpy as np
 
 from . import fast_simulator
 from .state import State
-from board.constant import VX_SIZE, VY_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, VY_SHEET_MAX
+from board.constant import VX_SIZE, VY_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
+                            VY_SHEET_MAX, VY_SHEET_SIZE, VY_EXTRA_SIZE
 from .params import STDDV_SPEED, STDDV_ANGLE
 from policy_shot import index_to_shot
 
@@ -37,14 +38,14 @@ def _vx_idx_to_value(vxi: int) -> float:
     return VX_MIN + (vxi + 0.5) * dvx
 
 def _vy_idx_to_value(vyi: int) -> float:
-    # policy_shot と同じ：前半(VY_SIZE-5)は VY_MIN..VY_SHEET_MAX、後半5binは VY_SHEET_MAX..VY_MAX
-    dvy = (VY_SHEET_MAX - VY_MIN) / (VY_SIZE - 5)
-    dvy_extra = (VY_MAX - VY_SHEET_MAX) / 5
+    # policy_shot と同じ：前半は VY_MIN..VY_SHEET_MAX、後半は VY_SHEET_MAX..VY_MAX
+    dvy = (VY_SHEET_MAX - VY_MIN) / VY_SHEET_SIZE
+    dvy_extra = (VY_MAX - VY_SHEET_MAX) / VY_EXTRA_SIZE
 
-    if vyi < (VY_SIZE - 5):
+    if vyi < VY_SHEET_SIZE:
         return VY_MIN + (vyi + 0.5) * dvy
     else:
-        vy2 = vyi - (VY_SIZE - 5)  # 0..4
+        vy2 = vyi - VY_SHEET_SIZE  # 高速域内のインデックス
         return VY_SHEET_MAX + (vy2 + 0.5) * dvy_extra
 
 def decode_action(action: int) -> Tuple[float, float, int]:

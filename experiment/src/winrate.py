@@ -26,7 +26,8 @@ from transformer.params import (
 from mcts.search import mcts_search, set_root_state
 from mcts.simulate import simulator_step
 from mcts.rollout import _end_score_diff_team0_minus_team1
-from board.constant import VX_MIN, VX_MAX, VY_MIN, VY_MAX, VY_SHEET_MAX, VX_SIZE, VY_SIZE
+from board.constant import VX_MIN, VX_MAX, VY_MIN, VY_MAX, VY_SHEET_MAX, \
+                           VX_SIZE, VY_SIZE, VY_SHEET_SIZE, VY_EXTRA_SIZE
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
@@ -46,13 +47,13 @@ def encode_action(vx: float, vy: float, spin: int) -> int:
     vxi = min(max(vxi, 0), VX_SIZE - 1)
 
     if vy <= VY_SHEET_MAX:
-        dvy = (VY_SHEET_MAX - VY_MIN) / (VY_SIZE - 5)
+        dvy = (VY_SHEET_MAX - VY_MIN) / VY_SHEET_SIZE
         vyi = int(round((vy - VY_MIN) / dvy - 0.5))
-        vyi = min(max(vyi, 0), (VY_SIZE - 5) - 1)
+        vyi = min(max(vyi, 0), VY_SHEET_SIZE - 1)
     else:
-        dvy_extra = (VY_MAX - VY_SHEET_MAX) / 5
-        vyi = (VY_SIZE - 5) + int(round((vy - VY_SHEET_MAX) / dvy_extra - 0.5))
-        vyi = min(max(vyi, VY_SIZE - 5), VY_SIZE - 1)
+        dvy_extra = (VY_MAX - VY_SHEET_MAX) / VY_EXTRA_SIZE
+        vyi = VY_SHEET_SIZE + int(round((vy - VY_SHEET_MAX) / dvy_extra - 0.5))
+        vyi = min(max(vyi, VY_SHEET_SIZE), VY_SIZE - 1)
 
     action = vyi * VX_SIZE + vxi
     if spin == 1:
