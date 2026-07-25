@@ -67,6 +67,7 @@ def mcts_search(
     use_value: bool = True,
     use_progressive_widening: bool = True,
     use_transposition_table: bool = True,
+    measure_tt_stats: bool = True,
     return_stats: bool = False,
     action_type: TransformerVyMode = "default",
 ) -> Union[SearchAction, SearchDataResult]:
@@ -78,7 +79,8 @@ def mcts_search(
     """
     # 最初にノードテーブルをクリア
     clear_node_table()
-    reset_tt_stats()
+    if measure_tt_stats:
+        reset_tt_stats()
     reset_policy_selection_log()
 
     def decode_search_action(action: int) -> SearchAction:
@@ -162,6 +164,7 @@ def mcts_search(
                 a,
                 state,
                 use_transposition_table=use_transposition_table,
+                measure_tt_stats=measure_tt_stats,
             )
             select_depth += 1
 
@@ -260,11 +263,17 @@ def mcts_search(
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
     nodes = count_reachable_nodes(root)
-    tt_stats = get_tt_stats()
-    tt_requests = int(tt_stats["requests"])
-    tt_hits = int(tt_stats["hits"])
-    tt_misses = int(tt_stats["misses"])
-    tt_hit_rate = float(tt_hits / tt_requests) if tt_requests > 0 else 0.0
+    if measure_tt_stats:
+        tt_stats = get_tt_stats()
+        tt_requests = int(tt_stats["requests"])
+        tt_hits = int(tt_stats["hits"])
+        tt_misses = int(tt_stats["misses"])
+        tt_hit_rate = float(tt_hits / tt_requests) if tt_requests > 0 else 0.0
+    else:
+        tt_requests = 0
+        tt_hits = 0
+        tt_misses = 0
+        tt_hit_rate = 0.0
     search_stats = {
         "simulations": int(sims),
         "elapsed": float(elapsed_time),
@@ -276,6 +285,7 @@ def mcts_search(
         "tt_hits": tt_hits,
         "tt_misses": tt_misses,
         "tt_hit_rate": tt_hit_rate,
+        "measure_tt_stats": bool(measure_tt_stats),
         "use_progressive_widening": bool(use_progressive_widening),
         "use_transposition_table": bool(use_transposition_table),
     }
@@ -285,7 +295,12 @@ def mcts_search(
         f"shot={root_state.shot_index} end={root_state.end} hammer={root_state.hammer_team} score_diff={root_state.score_diff}",
         f"simulations={sims} elapsed={elapsed_time:.2f}sec nodes={nodes}",
         f"root_children visited={visited_children} expanded={expanded_children} candidates={len(root.actions)}",
-        f"tt requests={tt_requests} hits={tt_hits} misses={tt_misses} hit_rate={tt_hit_rate:.6f}",
+        (
+            f"tt requests={tt_requests} hits={tt_hits} "
+            f"misses={tt_misses} hit_rate={tt_hit_rate:.6f}"
+            if measure_tt_stats
+            else "MCTS TT stats: disabled"
+        ),
         f"progressive_widening={use_progressive_widening} transposition_table={use_transposition_table}",
         "-----------------------------------------------------",
     ]
@@ -294,7 +309,10 @@ def mcts_search(
     print("-----------------------------------------------------")
     print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {nodes}")
     print(f"MCTS root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
-    print(f"MCTS TT: requests={tt_requests}, hits={tt_hits}, misses={tt_misses}, hit_rate={tt_hit_rate:.6f}")
+    if measure_tt_stats:
+        print(f"MCTS TT: requests={tt_requests}, hits={tt_hits}, misses={tt_misses}, hit_rate={tt_hit_rate:.6f}")
+    else:
+        print("MCTS TT stats: disabled")
     print(
         "MCTS options: "
         f"progressive_widening={use_progressive_widening}, "

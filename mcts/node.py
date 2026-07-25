@@ -194,14 +194,16 @@ def get_child_node(
     action: int,
     child_state: State,
     use_transposition_table: bool = True,
+    measure_tt_stats: bool = True,
 ) -> Node:
     if use_transposition_table:
-        child_key = child_state.key()
-        _TT_STATS["requests"] += 1
-        if child_key in _NODE_TABLE:
-            _TT_STATS["hits"] += 1
-        else:
-            _TT_STATS["misses"] += 1
+        if measure_tt_stats:
+            child_key = child_state.key()
+            _TT_STATS["requests"] += 1
+            if child_key in _NODE_TABLE:
+                _TT_STATS["hits"] += 1
+            else:
+                _TT_STATS["misses"] += 1
 
         child = get_node(
             child_state,

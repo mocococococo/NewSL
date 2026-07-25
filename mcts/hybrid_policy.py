@@ -133,7 +133,7 @@ def _log_selected_policy_once(state: State, selected_policy: str) -> None:
 
     _LOGGED_END_SHOTS.add(key)
     print(
-        f"[HYBRID] {selected_policy}を使用 "
+        f"[HYBRID] Using {selected_policy} "
         f"(end={state.end}, shot={state.shot_index})"
     )
 
@@ -147,17 +147,17 @@ def get_policy_and_value(
     if _should_use_search_based_model(state):
         model = _select_search_based_model(state)
         _check_transformer_action_space(model, action_type)
-        _log_selected_policy_once(state, "探索統計学習Transformer")
+        _log_selected_policy_once(state, "Search-based Transformer")
         _use_transformer(model)
         return transformer_policy.get_policy_and_value(state)
 
     if _SL_MODEL_IS_CNN:
         _check_cnn_action_space(action_type)
-        _log_selected_policy_once(state, "教師ありCNN")
+        _log_selected_policy_once(state, "Supervised CNN")
         return cnn_policy.get_policy_and_value(state)
 
     _check_transformer_action_space(_SL_TRANSFORMER_MODEL, action_type)
-    _log_selected_policy_once(state, "教師ありTransformer")
+    _log_selected_policy_once(state, "Supervised Transformer")
     _use_transformer(_SL_TRANSFORMER_MODEL)
     return transformer_policy.get_policy_and_value(state)
 
@@ -171,16 +171,16 @@ def get_policy(
     if _should_use_search_based_model(state):
         model = _select_search_based_model(state)
         _check_transformer_action_space(model, action_type)
-        _log_selected_policy_once(state, "探索統計学習Transformer")
+        _log_selected_policy_once(state, "Search-based Transformer")
         _use_transformer(model)
         return transformer_policy.get_policy(state)
 
     if _SL_MODEL_IS_CNN:
         _check_cnn_action_space(action_type)
-        _log_selected_policy_once(state, "教師ありCNN")
+        _log_selected_policy_once(state, "Supervised CNN")
         return cnn_policy.get_policy(state)
 
     _check_transformer_action_space(_SL_TRANSFORMER_MODEL, action_type)
-    _log_selected_policy_once(state, "教師ありTransformer")
+    _log_selected_policy_once(state, "Supervised Transformer")
     _use_transformer(_SL_TRANSFORMER_MODEL)
     return transformer_policy.get_policy(state)

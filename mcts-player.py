@@ -40,6 +40,7 @@ def resolve_stats_log_path(stats_log_path):
 @click.option('--transformer_target_shot', type=int, multiple=True, default=(15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
 @click.option('--use_progressive_widening', type=bool, default=True, help='use Progressive Widening (default: True)')
 @click.option('--use_transposition_table', type=bool, default=True, help='use Transposition Table (default: True)')
+@click.option('--measure_tt_stats', type=bool, default=False, help='TT統計を計測するかどうか (default: True)')
 
 def main(**kwargs):
     # 機械学習のモデルなど、時間のかかる処理はここで行います。
@@ -75,6 +76,7 @@ def main(**kwargs):
     transformer_target_shot = kwargs['transformer_target_shot']
     use_progressive_widening = kwargs['use_progressive_widening']
     use_transposition_table = kwargs['use_transposition_table']
+    measure_tt_stats = kwargs['measure_tt_stats']
 
     # SocketClientには以下の引数を渡すことができます
     # host : デジタルカーリングを実行しているサーバーのIPアドレスを指定します。名前解決可能であればホスト名でも指定可能です。
@@ -193,6 +195,7 @@ def main(**kwargs):
                 stats_log_path=stats_log_path,
                 use_progressive_widening=use_progressive_widening,
                 use_transposition_table=use_transposition_table,
+                measure_tt_stats=measure_tt_stats,
                 action_type=action_type,
             )
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
