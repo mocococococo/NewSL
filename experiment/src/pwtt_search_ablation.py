@@ -186,14 +186,14 @@ def _run_single_search(
 ) -> tuple[tuple[float, float, int], dict[str, Any]]:
     _set_random_seed(seed)
     root = set_mcts_root_state(
-        network=network,
+        sl_model=network,
         stones=_state_to_raw_stones(root_state),
         score_diff=root_state.score_diff,
         end=root_state.end,
         shot_index=root_state.shot_index,
         hammer_team=root_state.hammer_team,
-        transformer_network=transformer_network,
-        use_transformer=use_transformer,
+        search_based_model=transformer_network,
+        use_search_based_model=use_transformer,
         transformer_target_end=transformer_target_end,
         transformer_target_shot=transformer_target_shot,
     )

@@ -277,15 +277,15 @@ def main(
             # CNN モデルで検証
             score_index = position_count
             root = set_root_state(
-                network=cnn_network,
+                sl_model=cnn_network,
                 stones=stones,
                 score_diff=scorediff_for_team0,
                 end=end,
                 shot_index=shot,
                 hammer_team=hammer,
-                transformer_network=None,
+                search_based_model=None,
                 debug=False,
-                use_transformer=False,
+                use_search_based_model=False,
             )
             root_view_team = int(root.to_move())
             root_view_score_diff_before_shot = score_diff_for_team_view(
@@ -318,15 +318,15 @@ def main(
             
             # Transformer モデルで検証
             root = set_root_state(
-                network=cnn_network,
+                sl_model=cnn_network,
                 stones=stones,
                 score_diff=scorediff_for_team0,
                 end=end,
                 shot_index=shot,
                 hammer_team=hammer,
-                transformer_network=transformer_network,
+                search_based_model=transformer_network,
                 debug=False,
-                use_transformer=True,
+                use_search_based_model=True,
             )
             vx, vy, spin = mcts_search(root_state=root)
             encoded_action = encode_action(vx, vy, spin)

@@ -7,11 +7,7 @@ import torch
 
 from transformer.feature import generate_input_features
 from transformer.network import TransformerNetwork
-from transformer.params import DEFAULT_TRANSFORMER_CONFIG
 from .state import State
-
-N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
-N_VALUE_CLASSES = DEFAULT_TRANSFORMER_CONFIG.value_dim
 
 _TRANSFORMER_NET: TransformerNetwork | None = None
 _SCORE_DIFF: int | None = None
@@ -83,10 +79,16 @@ def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
         policy = policy_t.squeeze(0).detach().cpu().tolist()
         value = value_t.squeeze(0).detach().cpu().tolist()
 
-    if len(policy) != N_ACTIONS:
-        raise RuntimeError(f"policy length mismatch: {len(policy)} != {N_ACTIONS}")
-    if len(value) != N_VALUE_CLASSES:
-        raise RuntimeError(f"value length mismatch: {len(value)} != {N_VALUE_CLASSES}")
+    if len(policy) != _TRANSFORMER_NET.config.action_dim:
+        raise RuntimeError(
+            "policy length mismatch: "
+            f"{len(policy)} != {_TRANSFORMER_NET.config.action_dim}"
+        )
+    if len(value) != _TRANSFORMER_NET.config.value_dim:
+        raise RuntimeError(
+            "value length mismatch: "
+            f"{len(value)} != {_TRANSFORMER_NET.config.value_dim}"
+        )
 
     return policy, value
 

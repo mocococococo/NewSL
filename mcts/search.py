@@ -310,21 +310,22 @@ def mcts_search(
     return best_action
 
 def set_root_state(
-    network: DualNet,
+    sl_model: Union[DualNet, TransformerNetwork],
     stones: List[Optional[Dict]],
     score_diff: int,
     end: int,
     shot_index: int,
     hammer_team: int,
-    transformer_network: Optional[TransformerNetwork] = None,
     debug: bool = False,
-    use_transformer: bool = False,
     transformer_target_end: Tuple[int, ...] = (9, 10),  # transformerのターゲットとするエンド（複数指定可）
     transformer_target_shot: Tuple[int, ...] = (15,),  # transformerのターゲットとするショット（複数指定可）
+    sl_model_is_cnn: bool = True,
+    search_based_model: Optional[Union[TransformerNetwork, Dict[int, TransformerNetwork]]] = None,
+    use_search_based_model: bool = False,
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
-    - network: dual_net（policy用）
+    - sl_model: 教師あり学習モデル
     - stones: list[(x,y)|None] 16要素
     - score_diff: team0から見た得点差
     - end: 現在のエンド数
@@ -341,12 +342,13 @@ def set_root_state(
             print(f"root_state stone: x={p[0]} y={p[1]}" if p is not None else f"root_state stone: None")
         
 
-    # policy側のグローバルに network と scores_dict をセット
+    # policy側のグローバルにモデルと得点差をセット
     set_policy_context(
-        network,
-        score_diff,
-        transformer_net=transformer_network,
-        use_transformer=use_transformer,
+        sl_model=sl_model,
+        score_diff=score_diff,
+        sl_model_is_cnn=sl_model_is_cnn,
+        search_based_model=search_based_model,
+        use_search_based_model=use_search_based_model,
         transformer_target_end=transformer_target_end,
         transformer_target_shot=transformer_target_shot,
     )

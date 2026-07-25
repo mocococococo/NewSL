@@ -273,7 +273,7 @@ def generate_data(
 
                 # 勝てる可能性が少しでもある局面について、探索を行って教師データを生成する
                 root = set_root_state(
-                    network=network,
+                    sl_model=network,
                     stones=stones,
                     score_diff=expanded_score_diff,
                     end=end,

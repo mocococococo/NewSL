@@ -251,10 +251,11 @@ def set_root_state(
 
     # policy側のグローバルに network と scores_dict をセット
     set_policy_context(
-        network,
-        score_diff,
-        transformer_net=transformer_network,
-        use_transformer=use_transformer,
+        sl_model=network,
+        score_diff=score_diff,
+        sl_model_is_cnn=True,
+        search_based_model=transformer_network,
+        use_search_based_model=use_transformer,
         transformer_target_end=transformer_target_end,
         transformer_target_shot=transformer_target_shot,
     )

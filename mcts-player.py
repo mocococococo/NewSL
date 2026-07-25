@@ -5,6 +5,7 @@ from pathlib import Path
 from dc3client import SocketClient
 from dc3client.models import StoneRotation
 from nn.utility import get_torch_device, load_network
+from transformer.params import TRANSFORMER_VY_MODE
 from transformer.utility import load_transformer_network
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
     scores_to_scorediff_for_team0, convert_team_stoi
@@ -27,13 +28,14 @@ def resolve_stats_log_path(stats_log_path):
 @click.command()
 @click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
-@click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
-@click.option('--transformer_model', type=str, default="Transformer.bin", help='Transformer model name (default: Transformer.bin)')
+@click.option('--sl_model', type=str, default="Default.bin", help='教師あり学習モデル名 (default: Default.bin)')
+@click.option('--sl_model_is_cnn', type=bool, default=True, help='教師あり学習モデルがCNNかどうか (default: True)')
+@click.option('--transformer_model', type=str, default="Transformer.bin", help='探索統計学習Transformerモデル名 (default: Transformer.bin)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="MCTS_NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--stats_log_path', type=str, default=None, help='stats_log_path (default: None)')
-@click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
+@click.option('--use_search_based_model', type=bool, default=False, help='探索統計学習モデルを使用するかどうか (default: False)')
 @click.option('--transformer_target_end', type=int, multiple=True, default=(9, 10), help='transformer_target_end (default: 9). Can specify multiple values.')
 @click.option('--transformer_target_shot', type=int, multiple=True, default=(15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
 @click.option('--use_progressive_widening', type=bool, default=True, help='use Progressive Widening (default: True)')
@@ -61,13 +63,14 @@ def main(**kwargs):
     #   cli.get_new_game()
     host = kwargs['host']
     port = kwargs['port']
-    model = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['model']
+    sl_model_path = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['sl_model']
     transformer_model = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['transformer_model']
+    sl_model_is_cnn = kwargs['sl_model_is_cnn']
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
     debug = kwargs['debug']
     stats_log_path = resolve_stats_log_path(kwargs['stats_log_path'])
-    use_transformer = kwargs['use_transformer']
+    use_search_based_model = kwargs['use_search_based_model']
     transformer_target_end = kwargs['transformer_target_end']
     transformer_target_shot = kwargs['transformer_target_shot']
     use_progressive_widening = kwargs['use_progressive_widening']
@@ -98,14 +101,29 @@ def main(**kwargs):
     dc_message = cli.convert_dc(dc)
     is_ready = cli.get_is_ready()
 
-    device = get_torch_device(use_gpu=use_gpu)
-    network = load_network(model, use_gpu=use_gpu)
-    network.to(device)
-    transformer_network = None
-    if use_transformer:
+    action_type = "default" if sl_model_is_cnn else TRANSFORMER_VY_MODE
+    if sl_model_is_cnn:
+        device = get_torch_device(use_gpu=use_gpu)
+        sl_model = load_network(sl_model_path, use_gpu=use_gpu)
+        sl_model.to(device)
+    else:
+        sl_model = load_transformer_network(
+            sl_model_path,
+            use_gpu=use_gpu,
+            action_type=action_type,
+        )
+
+    search_based_model = None
+    if use_search_based_model:
         if not transformer_model.exists():
-            raise FileNotFoundError(f"transformer model not found: {transformer_model}")
-        transformer_network = load_transformer_network(transformer_model, use_gpu=use_gpu)
+            raise FileNotFoundError(
+                f"探索統計学習Transformerモデルが見つかりません: {transformer_model}"
+            )
+        search_based_model = load_transformer_network(
+            transformer_model,
+            use_gpu=use_gpu,
+            action_type=action_type,
+        )
         
     is_ready_message = cli.convert_is_ready(is_ready)
 
@@ -156,15 +174,16 @@ def main(**kwargs):
             score_diff_for_team0 = scores_to_scorediff_for_team0(scores)
 
             root_state = set_root_state(
-                network=network,
+                sl_model=sl_model,
                 stones=stones,
                 score_diff=score_diff_for_team0,
                 end=end,
                 shot_index=shot,
                 hammer_team=hammer,
-                transformer_network=transformer_network,
                 debug=debug,
-                use_transformer=use_transformer,
+                sl_model_is_cnn=sl_model_is_cnn,
+                search_based_model=search_based_model,
+                use_search_based_model=use_search_based_model,
                 transformer_target_end=transformer_target_end,
                 transformer_target_shot=transformer_target_shot,
             )
@@ -174,6 +193,7 @@ def main(**kwargs):
                 stats_log_path=stats_log_path,
                 use_progressive_widening=use_progressive_widening,
                 use_transposition_table=use_transposition_table,
+                action_type=action_type,
             )
             spin = StoneRotation.clockwise if spin == 0 else StoneRotation.counterclockwise
 

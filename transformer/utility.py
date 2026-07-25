@@ -16,6 +16,9 @@ from transformer.params import (
     GAME_FEAT_DIM,
     MAX_STONES,
     STONE_FEAT_DIM,
+    TRANSFORMER_VY_MODE,
+    TransformerVyMode,
+    get_transformer_action_dim,
 )
 
 
@@ -203,6 +206,7 @@ def split_train_test_set(
 def load_transformer_network(
     model_file_path: str | Path,
     use_gpu: bool,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
 ) -> TransformerNetwork:
     """学習済み TransformerNetwork を読み込んで返す。"""
 
@@ -211,7 +215,9 @@ def load_transformer_network(
     if not model_path.exists():
         raise FileNotFoundError(f"model file not found: {model_path}")
 
-    network = TransformerNetwork()
+    network = TransformerNetwork(
+        action_dim=get_transformer_action_dim(action_type),
+    )
     state_dict = torch.load(model_path, map_location=device)
     network.load_state_dict(state_dict)
     network.to(device)

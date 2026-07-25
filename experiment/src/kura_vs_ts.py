@@ -663,15 +663,15 @@ def main(
             # NewSL 側は transformer network を使って指定した探索で1手を選ぶ。
             if search_method == "mcts":
                 transformer_root = set_mcts_root_state(
-                    network=None,
+                    sl_model=None,
                     stones=stones,
                     score_diff=scorediff_for_team0,
                     end=end,
                     shot_index=shot,
                     hammer_team=hammer,
-                    transformer_network=transformer_network,
+                    search_based_model=transformer_network,
                     debug=False,
-                    use_transformer=True,
+                    use_search_based_model=True,
                     transformer_target_end=(target_end,),
                     transformer_target_shot=(target_shot,),
                 )
@@ -680,15 +680,15 @@ def main(
                 )
             else:
                 transformer_root = set_shot_root_state(
-                    network=None,
+                    sl_model=None,
                     stones=stones,
                     score_diff=scorediff_for_team0,
                     end=end,
                     shot_index=shot,
                     hammer_team=hammer,
-                    transformer_network=transformer_network,
+                    search_based_model=transformer_network,
                     debug=False,
-                    use_transformer=True,
+                    use_search_based_model=True,
                     transformer_target_end=(target_end,),
                     transformer_target_shot=(target_shot,),
                 )

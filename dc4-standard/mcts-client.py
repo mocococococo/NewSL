@@ -118,7 +118,7 @@ async def run_client(**kwargs):
                 score_diff_for_team0 = scores_to_scorediff_for_team0(scores) if scores else 0
                 
                 root_state = set_root_state(
-                    network=network,
+                    sl_model=network,
                     stones=stones,
                     score_diff=score_diff_for_team0,
                     end=end,
