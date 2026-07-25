@@ -2,16 +2,10 @@
 from __future__ import annotations
 from typing import Dict, List, Optional, Iterable, Any
 
-from transformer.params import TRANSFORMER_ACTION_DIM
+from transformer.params import TransformerVyMode, get_transformer_action_dim
 from .state import State
 from .hybrid_policy import get_policy
 from .params import TOPK_INIT, TOPK_MAX, PW_C, PW_ALPHA
-
-# 行動空間： (vx, vy, spin) の全組合せを 0..N_ACTIONS-1 に潰す
-N_ACTIONS = TRANSFORMER_ACTION_DIM
-
-# どのノードでも同じ actions を使うので、1回だけ作る
-ALL_ACTIONS: List[int] = list(range(N_ACTIONS))
 
 # 木（transposition用）
 _NODE_TABLE: Dict[tuple, "Node"] = {}
@@ -62,19 +56,26 @@ class Node:
     search.py が参照するフィールド/メソッドをそのまま用意する。
     """
 
-    def __init__(self, state: State, use_progressive_widening: bool = True):
+    def __init__(
+        self,
+        state: State,
+        use_progressive_widening: bool = True,
+        action_type: TransformerVyMode = "default",
+    ):
         self.state = state
         self.use_progressive_widening = use_progressive_widening
+        self.action_type = action_type
+        self.n_actions = get_transformer_action_dim(action_type)
 
         self.N: int = 0
-        self.actions: List[int] = ALL_ACTIONS
+        self.actions: List[int] = list(range(self.n_actions))
         self.children: Dict[int, List["Node"]] = {}
 
         # 展開後に埋まる
-        self.P: Optional[List[float]] = None   # len=2048
-        self.Nsa: Optional[List[int]] = None   # len=2048
-        self.W: Optional[List[float]] = None   # len=2048
-        self.Q: Optional[List[float]] = None   # len=2048
+        self.P: Optional[List[float]] = None
+        self.Nsa: Optional[List[int]] = None
+        self.W: Optional[List[float]] = None
+        self.Q: Optional[List[float]] = None
         
         self._policy_order: Optional[List[int]] = None  # Policyの降順 action list
         
@@ -108,44 +109,51 @@ class Node:
         if self.is_expanded():
             return
         # get_policy はグローバル関数としてどこかに定義されている前提（search.py想定）
-        policy = get_policy(self.state)  # type: ignore[name-defined]
+        policy = get_policy(self.state, action_type=self.action_type)
         self.expand(policy)
 
     def expand(self, policy) -> None:
         """
         policy は以下どちらでもOKにする:
-          - List[float]（len=2048）
+          - List[float]（len=self.n_actions）
           - Dict[int, float]（一部のみでもOK）
         """
-        P = [0.0] * N_ACTIONS
+        P = [0.0] * self.n_actions
 
         if isinstance(policy, dict):
             for a, p in policy.items():
-                if 0 <= a < N_ACTIONS:
+                if 0 <= a < self.n_actions:
                     P[a] = float(p)
         else:
             policy_list = list(policy)
-            if len(policy_list) != N_ACTIONS:
-                raise ValueError(f"policy policy must have length {N_ACTIONS}, got {len(policy_list)}")
+            if len(policy_list) != self.n_actions:
+                raise ValueError(
+                    "policy policy must have length "
+                    f"{self.n_actions}, got {len(policy_list)}"
+                )
             for i, p in enumerate(policy_list):
                 P[i] = float(p)
 
         s = sum(P)
         if s <= 0.0:
             # もし policy が壊れてても探索が止まらないように一様にする
-            u = 1.0 / N_ACTIONS
-            P = [u] * N_ACTIONS
+            u = 1.0 / self.n_actions
+            P = [u] * self.n_actions
         else:
             inv = 1.0 / s
             P = [p * inv for p in P]
 
         self.P = P
-        self.Nsa = [0] * N_ACTIONS
-        self.W = [0.0] * N_ACTIONS
-        self.Q = [0.0] * N_ACTIONS
+        self.Nsa = [0] * self.n_actions
+        self.W = [0.0] * self.n_actions
+        self.Q = [0.0] * self.n_actions
         
         # Pの大きい順に action を並べる
-        self._policy_order = sorted(range(N_ACTIONS), key=lambda a: self.P[a], reverse=True)
+        self._policy_order = sorted(
+            range(self.n_actions),
+            key=lambda a: self.P[a],
+            reverse=True,
+        )
         
         if self.use_progressive_widening:
             k0 = TOPK_INIT if TOPK_INIT < TOPK_MAX else TOPK_MAX
@@ -154,17 +162,30 @@ class Node:
             self.actions = list(self._policy_order)
 
 
-def get_node(state, use_progressive_widening: bool = True) -> Node:
+def get_node(
+    state,
+    use_progressive_widening: bool = True,
+    action_type: TransformerVyMode = "default",
+) -> Node:
     """
     同一局面（state.key()が同じ）なら同じNodeを返す。
     """
     k = state.key()
     n = _NODE_TABLE.get(k)
     if n is None:
-        n = Node(state, use_progressive_widening=use_progressive_widening)
+        n = Node(
+            state,
+            use_progressive_widening=use_progressive_widening,
+            action_type=action_type,
+        )
         _NODE_TABLE[k] = n
     elif n.use_progressive_widening != use_progressive_widening:
         raise ValueError("Node for the same state was requested with conflicting Progressive Widening settings.")
+    elif n.action_type != action_type:
+        raise ValueError(
+            "同じ局面に異なる行動種類のNodeが要求されました: "
+            f"{n.action_type} != {action_type}"
+        )
     return n
 
 
@@ -185,11 +206,13 @@ def get_child_node(
         child = get_node(
             child_state,
             use_progressive_widening=parent.use_progressive_widening,
+            action_type=parent.action_type,
         )
     else:
         child = Node(
             child_state,
             use_progressive_widening=parent.use_progressive_widening,
+            action_type=parent.action_type,
         )
 
     action_children = parent.children.setdefault(action, [])

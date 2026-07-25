@@ -8,15 +8,14 @@ from .state import State
 from board.constant import VX_SIZE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
                             VY_SHEET_MAX
 from transformer.params import (
-    TRANSFORMER_ACTION_DIM,
-    TRANSFORMER_VY_EXTRA_SIZE,
-    TRANSFORMER_VY_SHEET_SIZE,
-    TRANSFORMER_VY_SIZE,
+    TRANSFORMER_VY_MODE,
+    TransformerVyMode,
+    get_transformer_action_dim,
+    get_transformer_vy_sizes,
 )
 from .params import STDDV_SPEED, STDDV_ANGLE
 
-N_ACTIONS = TRANSFORMER_ACTION_DIM
-VEC_SIZE = VX_SIZE * TRANSFORMER_VY_SIZE
+N_ACTIONS = get_transformer_action_dim(TRANSFORMER_VY_MODE)
 StonePos = Tuple[float, float]
 Stones16 = List[Optional[StonePos]]
 ShotNoise = Tuple[float, float]
@@ -42,24 +41,31 @@ def _vx_idx_to_value(vxi: int) -> float:
     dvx = (VX_MAX - VX_MIN) / VX_SIZE
     return VX_MIN + (vxi + 0.5) * dvx
 
-def _vy_idx_to_value(vyi: int) -> float:
+def _vy_idx_to_value(
+    vyi: int,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> float:
     # policy_shot と同じ：前半は VY_MIN..VY_SHEET_MAX、後半は VY_SHEET_MAX..VY_MAX
-    dvy = (VY_SHEET_MAX - VY_MIN) / TRANSFORMER_VY_SHEET_SIZE
-    dvy_extra = (
-        (VY_MAX - VY_SHEET_MAX) / TRANSFORMER_VY_EXTRA_SIZE
-    )
+    vy_sheet_size, vy_extra_size, _ = get_transformer_vy_sizes(action_type)
+    dvy = (VY_SHEET_MAX - VY_MIN) / vy_sheet_size
+    dvy_extra = (VY_MAX - VY_SHEET_MAX) / vy_extra_size
 
-    if vyi < TRANSFORMER_VY_SHEET_SIZE:
+    if vyi < vy_sheet_size:
         return VY_MIN + (vyi + 0.5) * dvy
     else:
-        vy2 = vyi - TRANSFORMER_VY_SHEET_SIZE  # 高速域内のインデックス
+        vy2 = vyi - vy_sheet_size  # 高速域内のインデックス
         return VY_SHEET_MAX + (vy2 + 0.5) * dvy_extra
 
-def decode_action(action: int) -> Tuple[float, float, int]:
-    if not (0 <= action < N_ACTIONS):
+def decode_action(
+    action: int,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> Tuple[float, float, int]:
+    n_actions = get_transformer_action_dim(action_type)
+    _, _, vy_size = get_transformer_vy_sizes(action_type)
+    if not (0 <= action < n_actions):
         raise ValueError(f"action out of range: {action}")
 
-    board_len = VEC_SIZE
+    board_len = VX_SIZE * vy_size
 
     # spin: 0=cw, 1=ccw（policy_shot と同じ並び）
     if action >= board_len:
@@ -73,7 +79,7 @@ def decode_action(action: int) -> Tuple[float, float, int]:
     vyi = cell // VX_SIZE
 
     vx = _vx_idx_to_value(vxi)
-    vy = _vy_idx_to_value(vyi)
+    vy = _vy_idx_to_value(vyi, action_type)
     return vx, vy, spin
 
 def _add_noise_to_vector(
@@ -99,16 +105,20 @@ def _add_noise_to_vector(
     new_y = noisy_magnitude * np.sin(noisy_angle)
     return float(new_x), float(new_y)
 
-def simulator_step(state: State, action: int) -> State:
+def simulator_step(
+    state: State,
+    action: int,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> State:
     """
     1手進める。スコア計算やエンド更新はここではしない（shot_indexだけ進める）。
     """
     if state.is_end_terminal():
         return state
 
-    vx, vy, spin = decode_action(action)
+    vx, vy, spin = decode_action(action, action_type)
     vx, vy = _add_noise_to_vector(vx, vy, STDDV_SPEED, STDDV_ANGLE)
-    debug_vx, debug_vy, debug_spin = decode_action(action)
+    debug_vx, debug_vy, debug_spin = decode_action(action, action_type)
     
     if DEBUG_SIM_INDEX:
         print(f"[SIMULATOR_STEP] action={action} -> vx={vx:.3f} vy={vy:.3f} spin={spin}")

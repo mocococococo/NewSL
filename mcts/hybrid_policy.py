@@ -6,7 +6,11 @@ from typing import Dict, List, Set, Tuple
 from board.constant import VX_SIZE, VY_SIZE
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
-from transformer.params import TRANSFORMER_ACTION_DIM
+from transformer.params import (
+    TRANSFORMER_VY_MODE,
+    TransformerVyMode,
+    get_transformer_action_dim,
+)
 
 from . import policy as cnn_policy
 from . import transformer_policy
@@ -77,11 +81,25 @@ def _use_selected_transformer(state: State) -> None:
     transformer_policy.set_policy_context(_select_transformer_net(state), _SCORE_DIFF)
 
 
-def _check_cnn_action_space() -> None:
-    if TRANSFORMER_ACTION_DIM != _CNN_ACTION_DIM:
+def _check_cnn_action_space(action_type: TransformerVyMode) -> None:
+    action_dim = get_transformer_action_dim(action_type)
+    if action_dim != _CNN_ACTION_DIM:
         raise RuntimeError(
-            "現在のTransformerとCNNでは行動数が異なるため、"
-            "この探索中にCNNへ切り替えることはできません。"
+            "指定された行動種類とCNNでは行動数が異なります: "
+            f"{action_dim} != {_CNN_ACTION_DIM}"
+        )
+
+
+def _check_transformer_action_space(
+    state: State,
+    action_type: TransformerVyMode,
+) -> None:
+    action_dim = get_transformer_action_dim(action_type)
+    network_action_dim = _select_transformer_net(state).config.action_dim
+    if action_dim != network_action_dim:
+        raise RuntimeError(
+            "指定された行動種類とTransformerでは行動数が異なります: "
+            f"{action_dim} != {network_action_dim}"
         )
 
 
@@ -105,25 +123,33 @@ def _log_selected_policy_once(state: State, selected_policy: str) -> None:
     )
 
 
-def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
+def get_policy_and_value(
+    state: State,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> Tuple[List[float], List[float]]:
     """局面に応じて CNN / Transformer の推論を切り替える。"""
 
     if _should_use_transformer(state):
+        _check_transformer_action_space(state, action_type)
         _log_selected_policy_once(state, "Transformer")
         _use_selected_transformer(state)
         return transformer_policy.get_policy_and_value(state)
-    _check_cnn_action_space()
+    _check_cnn_action_space(action_type)
     _log_selected_policy_once(state, "CNN")
     return cnn_policy.get_policy_and_value(state)
 
 
-def get_policy(state: State) -> List[float]:
+def get_policy(
+    state: State,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> List[float]:
     """局面に応じて CNN / Transformer の policy 推論を切り替える。"""
 
     if _should_use_transformer(state):
+        _check_transformer_action_space(state, action_type)
         _log_selected_policy_once(state, "Transformer")
         _use_selected_transformer(state)
         return transformer_policy.get_policy(state)
-    _check_cnn_action_space()
+    _check_cnn_action_space(action_type)
     _log_selected_policy_once(state, "CNN")
     return cnn_policy.get_policy(state)

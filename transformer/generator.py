@@ -29,6 +29,7 @@ from transformer.params import (
     GAME_FEAT_DIM,
     MAX_STONES,
     STONE_FEAT_DIM,
+    TRANSFORMER_VY_MODE,
     TRANSFORMER_VY_SIZE,
 )
 from mcts.search import mcts_search, set_root_state
@@ -292,6 +293,7 @@ def generate_data(
                     root_state=root,
                     max_simulations=max_simulations,
                     is_create_data=True,
+                    action_type=TRANSFORMER_VY_MODE,
                 )
                 policy_distribution = _normalize_distribution(policy_target, N_ACTIONS, "policy_target")
                 value_distribution = _normalize_distribution(value_target, N_VALUE_CLASSES, "value_target")

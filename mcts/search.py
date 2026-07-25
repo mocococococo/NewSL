@@ -6,6 +6,7 @@ from typing import List, Tuple, Optional, Dict, Union
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
+from transformer.params import TransformerVyMode
 from .node import Node, get_node, get_child_node, argmax_over_actions, clear_node_table, node_table_size, peek_node, count_reachable_nodes, reset_tt_stats, get_tt_stats
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
@@ -67,9 +68,10 @@ def mcts_search(
     use_progressive_widening: bool = True,
     use_transposition_table: bool = True,
     return_stats: bool = False,
+    action_type: TransformerVyMode = "default",
 ) -> Union[SearchAction, SearchDataResult]:
     """
-    PUCTで探索して最善手(action_id: 0..2047)を返す。
+    PUCTで探索して最善手を返す。
     - max_simulations: シミュレーション回数上限
     - time_limit_sec: 時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
@@ -78,6 +80,9 @@ def mcts_search(
     clear_node_table()
     reset_tt_stats()
     reset_policy_selection_log()
+
+    def decode_search_action(action: int) -> SearchAction:
+        return decode_action(action, action_type=action_type)
     
     time_limit_sec = DEFAULT_TIME_LIMIT_SEC
         # if root_state.shot_index % 2 == 0 \
@@ -95,9 +100,17 @@ def mcts_search(
     dbg.log("[PUCT] " + summarize_stones(root_state.stones))
     
     if use_transposition_table:
-        root: Node = get_node(root_state, use_progressive_widening=use_progressive_widening)
+        root: Node = get_node(
+            root_state,
+            use_progressive_widening=use_progressive_widening,
+            action_type=action_type,
+        )
     else:
-        root = Node(root_state, use_progressive_widening=use_progressive_widening)
+        root = Node(
+            root_state,
+            use_progressive_widening=use_progressive_widening,
+            action_type=action_type,
+        )
     dbg.tic("root_expand")
     root.expand_if_needed()  # P(s,a) を入れる
     dbg.toc("root_expand")
@@ -108,7 +121,10 @@ def mcts_search(
     
     if dbg.enabled and root.P is not None:
         dbg.log("[PUCT] " + policy_stats(root.P))
-        dbg.log("[PUCT] root policy topk: " + format_topk_policy(root.P, debug_topk, decode_action))
+        dbg.log(
+            "[PUCT] root policy topk: "
+            + format_topk_policy(root.P, debug_topk, decode_search_action)
+        )
 
     
     start_time = time.perf_counter()
@@ -136,7 +152,11 @@ def mcts_search(
                 key=lambda a: node.Q[a] + cpuct * node.P[a] * ( (node.N ** 0.5) / (1 + node.Nsa[a]) )
             )
             path.append((node, a))
-            state = simulator_step(state, a)     # 1投進める
+            state = simulator_step(
+                state,
+                a,
+                action_type=action_type,
+            )  # 1投進める
             node = get_child_node(
                 node,
                 a,
@@ -150,7 +170,10 @@ def mcts_search(
         # 2) Expansion
         dbg.tic("expansion")
         if not is_end_terminal(state):
-            pi, value_probs = get_policy_and_value(state)
+            pi, value_probs = get_policy_and_value(
+                state,
+                action_type=action_type,
+            )
             v_to_move = (
                 _value_probs_to_winvalue(state, value_probs)
                 if use_value
@@ -167,7 +190,10 @@ def mcts_search(
         # 3) Rollout (エンド終端まで)
         dbg.tic("rollout")
         if is_end_terminal(state) or not use_value:
-            v = rollout_to_end_score(state)  # 「stateの手番視点」で返すのが楽
+            v = rollout_to_end_score(
+                state,
+                action_type=action_type,
+            )  # 「stateの手番視点」で返すのが楽
         else:
             assert v_to_move is not None
             # rolloutは簡易版のpolicyでやる（高速化のため）
@@ -192,7 +218,10 @@ def mcts_search(
             dbg.log(f"[PUCT] sim={sims} depth={select_depth} leaf_shot={state.shot_index} leaf_terminal={is_end_terminal(state)} v={v:.4g}")
             if pi is not None:
                 dbg.log("[PUCT] leaf " + policy_stats(pi))
-                dbg.log("[PUCT] leaf policy topk: " + format_topk_policy(pi, debug_topk, decode_action))
+                dbg.log(
+                    "[PUCT] leaf policy topk: "
+                    + format_topk_policy(pi, debug_topk, decode_search_action)
+                )
             
         sims += 1
 
@@ -212,13 +241,20 @@ def mcts_search(
             expanded_children += 1
             
     best_action_id = argmax_over_actions(root.actions, key=lambda a: root.Nsa[a])
-    best_action = decode_action(best_action_id)
+    best_action = decode_search_action(best_action_id)
     
     if dbg.enabled:
         dbg.log(f"[PUCT] done sims={sims} elapsed={time.perf_counter()-start_time:.3f}s ({(sims/(time.perf_counter()-start_time+1e-12)):.3f} sims/s)")
         dbg.log("[PUCT] timing: " + dbg.summary())
         if root.P is not None and root.Q is not None and root.Nsa is not None:
-            dbg.log("[PUCT] root Nsa topk: " + format_topk_root_visits(root, debug_topk, decode_action))
+            dbg.log(
+                "[PUCT] root Nsa topk: "
+                + format_topk_root_visits(
+                    root,
+                    debug_topk,
+                    decode_search_action,
+                )
+            )
         dbg.log(f"[PUCT] best a={best_action_id} -> {best_action}")
     
     # シミュレート回数と、シミュレート時間を表示する
