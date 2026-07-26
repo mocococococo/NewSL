@@ -34,6 +34,10 @@ from mcts import fast_simulator  # noqa: E402
 from mcts.search import mcts_search, set_root_state as set_mcts_root_state  # noqa: E402
 from mcts.simulate import decode_action, simulator_step  # noqa: E402
 from shot.search import shot_search, set_root_state as set_shot_root_state  # noqa: E402
+from shot_origin.search import (  # noqa: E402
+    shot_origin_search,
+    set_root_state as set_shot_origin_root_state,
+)
 from nn.utility import get_torch_device, load_network  # noqa: E402
 from transformer.params import TRANSFORMER_VY_MODE  # noqa: E402
 from transformer.utility import load_transformer_network  # noqa: E402
@@ -57,7 +61,7 @@ def _safe_filename_part(value: object, max_length: int = 96) -> str:
 def _simulation_label(search_method: str, mcts_simulations: Optional[int], shot_simulations: Optional[int]) -> str:
     if search_method == "mcts":
         simulations = mcts_simulations
-    elif search_method == "shot":
+    elif search_method in {"shot", "shot_origin"}:
         simulations = shot_simulations
     else:
         raise ValueError(f"unsupported search_method: {search_method}")
@@ -659,8 +663,11 @@ def plot_mcts_root_candidates(
     state_fields = _state_fields(dcl2_state)
 
     search_method = search_method.lower()
-    if search_method not in {"mcts", "shot"}:
-        raise ValueError(f"search_method must be 'mcts' or 'shot', got {search_method!r}")
+    if search_method not in {"mcts", "shot", "shot_origin"}:
+        raise ValueError(
+            "search_method must be 'mcts', 'shot', or 'shot_origin', "
+            f"got {search_method!r}"
+        )
 
     action_type = "default" if sl_model_is_cnn else TRANSFORMER_VY_MODE
     model_path = Path(model)
@@ -705,7 +712,7 @@ def plot_mcts_root_candidates(
             best_action_id,
             search_action_type,
         )
-    else:
+    elif search_method == "shot":
         search_action_type = action_type
         root_state = set_shot_root_state(
             network=network,
@@ -722,6 +729,30 @@ def plot_mcts_root_candidates(
             search_kwargs["max_simulations"] = int(shot_simulations)
 
         best_action_id, shot_stats = shot_search(**search_kwargs)
+        best_action = decode_action(best_action_id, action_type=search_action_type)
+        candidate_stats = _build_shot_candidate_stats(
+            shot_stats,
+            best_action_id,
+            search_action_type,
+        )
+
+    else:
+        search_action_type = action_type
+        root_state = set_shot_origin_root_state(
+            network=network,
+            **state_fields,
+            sl_model_is_cnn=sl_model_is_cnn,
+        )
+        search_kwargs = {
+            "root_state": root_state,
+            "is_create_data": True,
+            "use_value": use_value,
+            "action_type": search_action_type,
+        }
+        if shot_simulations is not None:
+            search_kwargs["max_simulations"] = int(shot_simulations)
+
+        best_action_id, shot_stats = shot_origin_search(**search_kwargs)
         best_action = decode_action(best_action_id, action_type=search_action_type)
         candidate_stats = _build_shot_candidate_stats(
             shot_stats,
@@ -792,16 +823,15 @@ if __name__ == "__main__":
         log_path=PROJECT_ROOT / "LearnLog" / "jiritsu-vs-silicon",
         # model=PROJECT_ROOT / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         model=PROJECT_ROOT / "model" / "transformer-supervised-model-AdamW-vy56.bin",
-        target_end=[8],
-        target_shot=[11],
-        # output_path=PROJECT_ROOT / "visualize" / "data" / "mcts_root_candidates_CNN.png",
+        target_end=[9],
+        target_shot=[5],
         output_path=None,
         shuffle_seed=None,
         sample_index=5,
         skip_unwinnable=True,
-        search_method="shot",
+        search_method="shot_origin",
         mcts_simulations=10000,
-        shot_simulations=10000,
+        shot_simulations=14320,
         use_gpu=True,
         sl_model_is_cnn=False,
         use_value=True,
