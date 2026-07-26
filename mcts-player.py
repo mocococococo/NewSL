@@ -13,6 +13,50 @@ from common.translate_state import convert_scores_to_dict, convert_stones_to_lis
 from mcts.search import set_root_state, mcts_search
 
 
+DEFAULT_TRANSFORMER_MODELS_BY_SHOT = {
+    4: "transformer-sl-9-4-model-06-28-adamw-epoch50-shot.bin",
+    5: "transformer-sl-9-5-model-06-27-adamw-epoch50-shot.bin",
+    6: "transformer-sl-9-6-model-06-19-adamw-epoch50-shot.bin",
+    7: "transformer-sl-9-7-model-06-18-adamw-epoch50-shot.bin",
+    8: "transformer-sl-9-8-model-06-16-adamw-epoch50-shot.bin",
+    9: "transformer-sl-9-9-model-06-14-adamw-epoch50-shot.bin",
+    10: "transformer-sl-9-10-model-06-11-adamw-epoch50-shot.bin",
+    11: "transformer-sl-9-11-model-06-09-adamw-epoch50-shot.bin",
+    12: "transformer-sl-9-12-model-06-08-adamw-epoch50-shot.bin",
+    13: "transformer-sl-9-13-model-06-06-adamw-epoch50-shot.bin",
+    14: "transformer-sl-9-14-model-06-04-adamw-epoch50-shot.bin",
+    15: "transformer-sl-9-15-model-06-02-adamw-epoch50-shot.bin",
+}
+
+
+def _model_path(model_name: str) -> Path:
+    return Path(__file__).resolve().parent / "model" / model_name
+
+
+def _load_transformer_networks_by_shot(
+    transformer_model: str | None,
+    transformer_models_by_shot: dict[int, str],
+    transformer_target_shot: tuple[int, ...],
+    use_gpu: bool,
+    action_type,
+):
+    networks_by_shot = {}
+    for shot in sorted(set(int(shot) for shot in transformer_target_shot)):
+        model_name = transformer_models_by_shot.get(shot, transformer_model)
+        if model_name is None:
+            raise ValueError(f"transformer model for shot {shot} is not configured")
+
+        model_path = _model_path(model_name)
+        if not model_path.exists():
+            raise FileNotFoundError(f"transformer model for shot {shot} not found: {model_path}")
+        networks_by_shot[shot] = load_transformer_network(
+            model_path,
+            use_gpu=use_gpu,
+            action_type=action_type,
+        )
+    return networks_by_shot
+
+
 def resolve_stats_log_path(stats_log_path):
     if not stats_log_path:
         return None
@@ -30,14 +74,26 @@ def resolve_stats_log_path(stats_log_path):
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
 @click.option('--sl_model', type=str, default="Default.bin", help='教師あり学習モデル名 (default: Default.bin)')
 @click.option('--sl_model_is_cnn', type=bool, default=True, help='教師あり学習モデルがCNNかどうか (default: True)')
-@click.option('--transformer_model', type=str, default="Transformer.bin", help='探索統計学習Transformerモデル名 (default: Transformer.bin)')
+@click.option('--transformer_model', type=str, default=None, help='Single Transformer model name used as fallback')
+@click.option('--transformer_model_4', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[4], help='Transformer model name for shot 4')
+@click.option('--transformer_model_5', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[5], help='Transformer model name for shot 5')
+@click.option('--transformer_model_6', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[6], help='Transformer model name for shot 6')
+@click.option('--transformer_model_7', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[7], help='Transformer model name for shot 7')
+@click.option('--transformer_model_8', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[8], help='Transformer model name for shot 8')
+@click.option('--transformer_model_9', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[9], help='Transformer model name for shot 9')
+@click.option('--transformer_model_10', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[10], help='Transformer model name for shot 10')
+@click.option('--transformer_model_11', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[11], help='Transformer model name for shot 11')
+@click.option('--transformer_model_12', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[12], help='Transformer model name for shot 12')
+@click.option('--transformer_model_13', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[13], help='Transformer model name for shot 13')
+@click.option('--transformer_model_14', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[14], help='Transformer model name for shot 14')
+@click.option('--transformer_model_15', type=str, default=DEFAULT_TRANSFORMER_MODELS_BY_SHOT[15], help='Transformer model name for shot 15')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="MCTS_NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
 @click.option('--stats_log_path', type=str, default=None, help='stats_log_path (default: None)')
 @click.option('--use_search_based_model', type=bool, default=False, help='探索統計学習モデルを使用するかどうか (default: False)')
 @click.option('--transformer_target_end', type=int, multiple=True, default=(9, 10), help='transformer_target_end (default: 9). Can specify multiple values.')
-@click.option('--transformer_target_shot', type=int, multiple=True, default=(15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
+@click.option('--transformer_target_shot', type=int, multiple=True, default=(4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,), help='transformer_target_shot (default: 15). Can specify multiple values.')
 @click.option('--use_progressive_widening', type=bool, default=True, help='use Progressive Widening (default: True)')
 @click.option('--use_transposition_table', type=bool, default=True, help='use Transposition Table (default: True)')
 @click.option('--measure_tt_stats', type=bool, default=False, help='TT統計を計測するかどうか (default: True)')
@@ -64,8 +120,22 @@ def main(**kwargs):
     #   cli.get_new_game()
     host = kwargs['host']
     port = kwargs['port']
-    sl_model_path = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['sl_model']
-    transformer_model = Path(Path(__file__).resolve().parents[0]) / "model" / kwargs['transformer_model']
+    sl_model_path = _model_path(kwargs['sl_model'])
+    transformer_model = kwargs['transformer_model']
+    transformer_models_by_shot = {
+        4: kwargs['transformer_model_4'],
+        5: kwargs['transformer_model_5'],
+        6: kwargs['transformer_model_6'],
+        7: kwargs['transformer_model_7'],
+        8: kwargs['transformer_model_8'],
+        9: kwargs['transformer_model_9'],
+        10: kwargs['transformer_model_10'],
+        11: kwargs['transformer_model_11'],
+        12: kwargs['transformer_model_12'],
+        13: kwargs['transformer_model_13'],
+        14: kwargs['transformer_model_14'],
+        15: kwargs['transformer_model_15'],
+    }
     sl_model_is_cnn = kwargs['sl_model_is_cnn']
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
@@ -117,14 +187,12 @@ def main(**kwargs):
 
     search_based_model = None
     if use_search_based_model:
-        if not transformer_model.exists():
-            raise FileNotFoundError(
-                f"探索統計学習Transformerモデルが見つかりません: {transformer_model}"
-            )
-        search_based_model = load_transformer_network(
+        search_based_model = _load_transformer_networks_by_shot(
             transformer_model,
-            use_gpu=use_gpu,
-            action_type=action_type,
+            transformer_models_by_shot,
+            transformer_target_shot,
+            use_gpu,
+            action_type,
         )
         
     is_ready_message = cli.convert_is_ready(is_ready)
