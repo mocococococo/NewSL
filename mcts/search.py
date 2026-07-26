@@ -15,7 +15,6 @@ from .rollout import rollout_to_end_score, score_to_winvalue
 from .params import DEFAULT_MAX_SIMULATIONS, DEFAULT_CPUCT, \
     DEFAULT_TIME_LIMIT_SEC, DEFAULT_TIME_LIMIT_SEC_LIST, DEFAULT_MAX_DEPTH
 from .create_mode import VALUE_CLASS_COUNT, record_value_histogram
-from .root_candidate_stats import RootCandidateStat, build_root_candidate_stats
 
 from .debugger import Debugger, summarize_stones, policy_stats, format_topk_policy, format_topk_root_visits
 
@@ -23,7 +22,6 @@ VALUE_CLASS_OFFSET = 8
 
 SearchAction = Tuple[float, float, int]
 SearchDataResult = Tuple[SearchAction, List[int], List[float]]
-SearchRootCandidateStatsResult = Tuple[SearchAction, List[RootCandidateStat]]
 
 def _emit_lines(lines: List[str], log_path: Optional[str]) -> None:
     if not log_path:
@@ -71,9 +69,8 @@ def mcts_search(
     use_transposition_table: bool = True,
     measure_tt_stats: bool = True,
     return_stats: bool = False,
-    return_root_candidate_stats: bool = False,
     action_type: TransformerVyMode = "default",
-) -> Union[SearchAction, SearchDataResult, SearchRootCandidateStatsResult]:
+) -> Union[SearchAction, SearchDataResult]:
     """
     PUCTで探索して最善手を返す。
     - max_simulations: シミュレーション回数上限
@@ -325,12 +322,6 @@ def mcts_search(
 
     if is_create_data:
         return best_action, root.Nsa.copy(), value_list
-    if return_root_candidate_stats:
-        return best_action, build_root_candidate_stats(
-            root,
-            best_action_id,
-            action_type=action_type,
-        )
     if return_stats:
         return best_action, search_stats
     

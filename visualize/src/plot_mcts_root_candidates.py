@@ -30,13 +30,61 @@ from common.translate_state import (  # noqa: E402
     convert_team_stoi,
     scores_to_scorediff_for_team0,
 )
+from mcts import fast_simulator  # noqa: E402
 from mcts.search import mcts_search, set_root_state as set_mcts_root_state  # noqa: E402
-from mcts.simulate import simulator_step  # noqa: E402
+from mcts.simulate import decode_action, simulator_step  # noqa: E402
+from shot.search import shot_search, set_root_state as set_shot_root_state  # noqa: E402
 from nn.utility import get_torch_device, load_network  # noqa: E402
 from transformer.params import TRANSFORMER_VY_MODE  # noqa: E402
 from transformer.utility import load_transformer_network  # noqa: E402
 
 CandidateStat = Dict[str, object]
+
+def _safe_filename_part(value: object, max_length: int = 96) -> str:
+    text = str(value).strip()
+    safe_chars = []
+    for ch in text:
+        if ch.isalnum() or ch in {"-", "_", "."}:
+            safe_chars.append(ch)
+        else:
+            safe_chars.append("_")
+    safe = "".join(safe_chars).strip("._")
+    if not safe:
+        safe = "unnamed"
+    return safe[:max_length]
+
+
+def _simulation_label(search_method: str, mcts_simulations: Optional[int], shot_simulations: Optional[int]) -> str:
+    if search_method == "mcts":
+        simulations = mcts_simulations
+    elif search_method == "shot":
+        simulations = shot_simulations
+    else:
+        raise ValueError(f"unsupported search_method: {search_method}")
+    return "simdefault" if simulations is None else f"sim{int(simulations)}"
+
+
+def _auto_output_path(
+    model: Path,
+    search_method: str,
+    sl_model_is_cnn: bool,
+    mcts_simulations: Optional[int],
+    shot_simulations: Optional[int],
+    state_fields: Dict[str, int],
+    sample_index: int,
+) -> Path:
+    model_kind = "cnn" if sl_model_is_cnn else "transformer"
+    parts = [
+        "root_candidates",
+        _safe_filename_part(search_method),
+        model_kind,
+        _safe_filename_part(model.stem),
+        _simulation_label(search_method, mcts_simulations, shot_simulations),
+        f"end{int(state_fields['end'])}",
+        f"shot{int(state_fields['shot_index'])}",
+        f"sample{int(sample_index)}",
+    ]
+    return PROJECT_ROOT / "visualize" / "data" / ("_".join(parts) + ".png")
 
 
 def _dcl2_paths(log_path: Path, shuffle_seed: Optional[int]) -> Iterable[Path]:
@@ -250,12 +298,110 @@ def _candidate_points(
     return points
 
 
+def _nominal_target_for_action(
+    action_id: int,
+    action_type: str,
+) -> Optional[Tuple[float, float]]:
+    vx, vy, spin = decode_action(action_id, action_type=action_type)
+    x, y = fast_simulator.shot2dest((vx, vy, spin))
+    if y <= 0:
+        return None
+    return float(x), float(y)
+
+
+def _build_mcts_candidate_stats(
+    root_visit_counts: List[int],
+    best_action_id: int,
+    action_type: str,
+) -> List[CandidateStat]:
+    stats: List[CandidateStat] = []
+    for action_id, visit_count in enumerate(root_visit_counts):
+        if int(visit_count) <= 0:
+            continue
+
+        vx, vy, spin = decode_action(action_id, action_type=action_type)
+        target = _nominal_target_for_action(action_id, action_type)
+        target_x = None if target is None else float(target[0])
+        target_y = None if target is None else float(target[1])
+        stats.append(
+            {
+                "action_id": int(action_id),
+                "visit_count": int(visit_count),
+                "q": None,
+                "prior": None,
+                "vx": float(vx),
+                "vy": float(vy),
+                "spin": int(spin),
+                "target_x": target_x,
+                "target_y": target_y,
+                "is_best": int(action_id) == int(best_action_id),
+                "is_active": True,
+            }
+        )
+
+    stats.sort(key=lambda stat: int(stat["visit_count"]), reverse=True)
+    return stats
+
+
+def _build_shot_candidate_stats(
+    shot_stats: List[CandidateStat],
+    best_action_id: int,
+    action_type: str,
+) -> List[CandidateStat]:
+    stats: List[CandidateStat] = []
+    for stat in shot_stats:
+        action_id = int(stat["action_id"])
+        vx, vy, spin = decode_action(action_id, action_type=action_type)
+        target = _nominal_target_for_action(action_id, action_type)
+        target_x = None if target is None else float(target[0])
+        target_y = None if target is None else float(target[1])
+        stats.append(
+            {
+                **stat,
+                "action_id": action_id,
+                "visit_count": int(stat["visit_count"]),
+                "q": float(stat["q"]),
+                "prior": float(stat["prior"]),
+                "vx": float(vx),
+                "vy": float(vy),
+                "spin": int(spin),
+                "target_x": target_x,
+                "target_y": target_y,
+                "is_best": action_id == int(best_action_id),
+                "is_active": bool(stat.get("is_survivor", False)),
+            }
+        )
+
+    stats.sort(
+        key=lambda item: (
+            int(item["visit_count"]),
+            float(item["q"]),
+            float(item["prior"]),
+        ),
+        reverse=True,
+    )
+    return stats
+
+
+def _best_action_id_from_visit_counts(root_visit_counts: List[int]) -> int:
+    if not root_visit_counts:
+        raise ValueError("root_visit_counts must not be empty")
+    best_action_id = max(range(len(root_visit_counts)), key=lambda a: int(root_visit_counts[a]))
+    if int(root_visit_counts[best_action_id]) <= 0:
+        raise ValueError("root_visit_counts contains no visited action")
+    return int(best_action_id)
+
+
 def _values_for_color(points: List[CandidateStat], color_by: str) -> Tuple[np.ndarray, str]:
     if color_by not in {"q", "visit_count", "prior"}:
         raise ValueError(f"unsupported color_by: {color_by}")
 
+    values = [point[color_by] for point in points]
+    if any(value is None for value in values):
+        raise ValueError(f"{color_by} is not available for these candidate stats")
+
     label = {"q": "Q", "visit_count": "visit count", "prior": "prior"}[color_by]
-    return np.asarray([float(point[color_by]) for point in points], dtype=np.float64), label
+    return np.asarray([float(value) for value in values], dtype=np.float64), label
 
 
 def _guide_curve_points(point: CandidateStat) -> Tuple[np.ndarray, np.ndarray]:
@@ -430,12 +576,14 @@ def _print_top_candidates(
         target_y = stat["target_y"]
         target_x_text = "None" if target_x is None else f"{float(target_x):.4f}"
         target_y_text = "None" if target_y is None else f"{float(target_y):.4f}"
+        q_text = "None" if stat["q"] is None else f"{float(stat['q']): .5f}"
+        prior_text = "None" if stat["prior"] is None else f"{float(stat['prior']): .6f}"
         print(
             f"{rank:>4} "
             f"{int(stat['action_id']):>9} "
             f"{int(stat['visit_count']):>6} "
-            f"{float(stat['q']):> .5f} "
-            f"{float(stat['prior']):> .6f} "
+            f"{q_text:>8} "
+            f"{prior_text:>9} "
             f"{int(stat['spin']):>4} "
             f"{float(stat['vx']):> .5f} "
             f"{float(stat['vy']):> .5f} "
@@ -479,11 +627,13 @@ def plot_mcts_root_candidates(
     model: Path,
     target_end: List[int],
     target_shot: List[int],
-    output_path: Path,
+    output_path: Optional[Path] = None,
     shuffle_seed: Optional[int] = None,
     sample_index: int = 0,
     skip_unwinnable: bool = True,
+    search_method: str = "mcts",
     mcts_simulations: Optional[int] = None,
+    shot_simulations: Optional[int] = None,
     use_gpu: bool = True,
     sl_model_is_cnn: bool = True,
     use_value: bool = True,
@@ -491,7 +641,7 @@ def plot_mcts_root_candidates(
     use_transposition_table: bool = True,
     measure_tt_stats: bool = False,
     min_visit: int = 1,
-    color_by: str = "q",
+    color_by: str = "visit_count",
     split_by_spin: bool = False,
     console_top_count: int = 10,
     draw_guides: bool = True,
@@ -508,32 +658,82 @@ def plot_mcts_root_candidates(
     )
     state_fields = _state_fields(dcl2_state)
 
+    search_method = search_method.lower()
+    if search_method not in {"mcts", "shot"}:
+        raise ValueError(f"search_method must be 'mcts' or 'shot', got {search_method!r}")
+
     action_type = "default" if sl_model_is_cnn else TRANSFORMER_VY_MODE
-    network = _load_model(Path(model), use_gpu, sl_model_is_cnn, action_type)
-    root_state = set_mcts_root_state(
-        sl_model=network,
-        **state_fields,
-        sl_model_is_cnn=sl_model_is_cnn,
-    )
+    model_path = Path(model)
+    if output_path is None:
+        output_path = _auto_output_path(
+            model_path,
+            search_method,
+            sl_model_is_cnn,
+            mcts_simulations,
+            shot_simulations,
+            state_fields,
+            sample_index,
+        )
+    else:
+        output_path = Path(output_path)
 
-    mcts_kwargs = {
-        "root_state": root_state,
-        "return_root_candidate_stats": True,
-        "use_value": use_value,
-        "use_progressive_widening": use_progressive_widening,
-        "use_transposition_table": use_transposition_table,
-        "measure_tt_stats": measure_tt_stats,
-        "action_type": action_type,
-    }
-    if mcts_simulations is not None:
-        mcts_kwargs["max_simulations"] = int(mcts_simulations)
+    network = _load_model(model_path, use_gpu, sl_model_is_cnn, action_type)
 
-    best_action, candidate_stats = mcts_search(**mcts_kwargs)
+    if search_method == "mcts":
+        root_state = set_mcts_root_state(
+            sl_model=network,
+            **state_fields,
+            sl_model_is_cnn=sl_model_is_cnn,
+        )
+        search_action_type = action_type
+        search_kwargs = {
+            "root_state": root_state,
+            "is_create_data": True,
+            "use_value": use_value,
+            "action_type": search_action_type,
+            "use_progressive_widening": use_progressive_widening,
+            "use_transposition_table": use_transposition_table,
+            "measure_tt_stats": measure_tt_stats,
+        }
+        if mcts_simulations is not None:
+            search_kwargs["max_simulations"] = int(mcts_simulations)
+
+        best_action, root_visit_counts, _ = mcts_search(**search_kwargs)
+        best_action_id = _best_action_id_from_visit_counts(root_visit_counts)
+        candidate_stats = _build_mcts_candidate_stats(
+            root_visit_counts,
+            best_action_id,
+            search_action_type,
+        )
+    else:
+        search_action_type = action_type
+        root_state = set_shot_root_state(
+            network=network,
+            **state_fields,
+            sl_model_is_cnn=sl_model_is_cnn,
+        )
+        search_kwargs = {
+            "root_state": root_state,
+            "is_create_data": True,
+            "use_value": use_value,
+            "action_type": search_action_type,
+        }
+        if shot_simulations is not None:
+            search_kwargs["max_simulations"] = int(shot_simulations)
+
+        best_action_id, shot_stats = shot_search(**search_kwargs)
+        best_action = decode_action(best_action_id, action_type=search_action_type)
+        candidate_stats = _build_shot_candidate_stats(
+            shot_stats,
+            best_action_id,
+            search_action_type,
+        )
+
     best_stat = _best_candidate_stat(candidate_stats)
     result_state = simulator_step(
         root_state,
         int(best_stat["action_id"]),
-        action_type=action_type,
+        action_type=search_action_type,
     )
     shot_team = root_state.to_move()
     shot_color = "red" if shot_team == 0 else "yellow"
@@ -543,7 +743,7 @@ def plot_mcts_root_candidates(
         score_diff_for_next = -score_diff_for_next
     score_diff_label = f"{score_diff_for_next:+d}"
     title = (
-        f"MCTS root candidates: end={state_fields['end']} "
+        f"{search_method.upper()} root candidates: end={state_fields['end']} "
         f"shot={state_fields['shot_index']} candidates={len(candidate_stats)}"
     )
     _plot_candidates(
@@ -551,7 +751,7 @@ def plot_mcts_root_candidates(
         root_state.stones,
         result_state.stones,
         best_stat,
-        Path(output_path),
+        output_path,
         title=title,
         shot_team_label=shot_team_label,
         score_diff_label=score_diff_label,
@@ -578,6 +778,7 @@ def plot_mcts_root_candidates(
     print(f"dcl2: {dcl2_path}")
     print(f"line_index: {line_index}")
     print(f"skip_unwinnable: {skip_unwinnable}")
+    print(f"search_method: {search_method}")
     print(f"next_shot: {shot_team_label}")
     print(f"score_diff_for_next_shot_team: {score_diff_label}")
     print(f"output: {output_path}")
@@ -591,13 +792,16 @@ if __name__ == "__main__":
         log_path=PROJECT_ROOT / "LearnLog" / "jiritsu-vs-silicon",
         # model=PROJECT_ROOT / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
         model=PROJECT_ROOT / "model" / "transformer-supervised-model-AdamW-vy56.bin",
-        target_end=[9],
-        target_shot=[15],
+        target_end=[8],
+        target_shot=[11],
         # output_path=PROJECT_ROOT / "visualize" / "data" / "mcts_root_candidates_CNN.png",
-        output_path=PROJECT_ROOT / "visualize" / "data" / "mcts_root_candidates_Transformer.png",
+        output_path=None,
         shuffle_seed=None,
-        sample_index=300,
-        mcts_simulations=1000,
+        sample_index=5,
+        skip_unwinnable=True,
+        search_method="shot",
+        mcts_simulations=10000,
+        shot_simulations=10000,
         use_gpu=True,
         sl_model_is_cnn=False,
         use_value=True,
@@ -605,7 +809,7 @@ if __name__ == "__main__":
         use_transposition_table=True,
         measure_tt_stats=False,
         min_visit=1,
-        color_by="q",
+        color_by="visit_count",
         split_by_spin=False,
         console_top_count=10,
         draw_guides=True,
