@@ -11,3 +11,4 @@ __pycache__/
 /prompt
 /experiment/data
 /experiment/plots
+/visualize/data

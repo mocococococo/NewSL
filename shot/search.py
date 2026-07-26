@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple, Union
 from common.translate_state import stones_listdict_to_xy16
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
+from transformer.params import TRANSFORMER_VY_MODE, TransformerVyMode
 
 from mcts.hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
 from mcts.rollout import rollout_to_end_score
@@ -47,6 +48,7 @@ def shot_search(
     stats_log_path: Optional[str] = None,
     is_create_data: bool = False,
     use_value: bool = True,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     SHOTで探索して最善手(action_id: 0..N_ACTIONS-1)を返す。
@@ -66,10 +68,11 @@ def shot_search(
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
 
     dbg = Debugger(debug, every=debug_every)
+    decode_search_action = lambda a: decode_action(a, action_type=action_type)
     dbg.log(f"[SHOT] start end={root_state.end} shot_index={root_state.shot_index} hammer={root_state.hammer_team} shot_team={root_state.to_move()}, score_diff={root_state.score_diff}")
     dbg.log("[SHOT] " + summarize_stones(root_state.stones))
 
-    root = Node(root_state)
+    root = Node(root_state, action_type=action_type)
     root.set_shot_budget(max_simulations)
     dbg.tic("root_expand")
     root.expand_if_needed()  # P(s,a) を入れ、policy上位から初期候補を作る
@@ -77,7 +80,7 @@ def shot_search(
 
     if dbg.enabled and root.P is not None:
         dbg.log("[SHOT] " + policy_stats(root.P))
-        dbg.log("[SHOT] root policy topk: " + format_topk_policy(root.P, debug_topk, decode_action))
+        dbg.log("[SHOT] root policy topk: " + format_topk_policy(root.P, debug_topk, decode_search_action))
         dbg.log("[SHOT] root " + root.round_info())
 
     start_time = time.perf_counter()
@@ -102,7 +105,7 @@ def shot_search(
             node.halve_actions_if_needed()
             a = node.select_action()
             path.append((node, a))
-            state = simulator_step(state, a)     # 1投進める
+            state = simulator_step(state, a, action_type=action_type)     # 1投進める
             node = node.child_for(a, state)
             select_depth += 1
 
@@ -111,7 +114,7 @@ def shot_search(
         # 2) Expansion
         dbg.tic("expansion")
         if not is_end_terminal(state):
-            pi, value_probs = get_policy_and_value(state)
+            pi, value_probs = get_policy_and_value(state, action_type=action_type)
             v_to_move = (
                 value_probs_to_winvalue(state, value_probs)
                 if use_value
@@ -128,7 +131,7 @@ def shot_search(
         # 3) Evaluation
         dbg.tic("evaluation")
         if is_end_terminal(state) or not use_value:
-            v = rollout_to_end_score(state)  # state の手番視点で返す
+            v = rollout_to_end_score(state, action_type=action_type)  # state の手番視点で返す
         else:
             assert v_to_move is not None
             v = -float(v_to_move)  # v_to_move は leaf の手番視点なので、直前手番の視点へ反転する
@@ -157,7 +160,7 @@ def shot_search(
             dbg.log(f"[SHOT] sim={sims} depth={select_depth} leaf_shot={state.shot_index} leaf_terminal={is_end_terminal(state)} v={v:.4g}")
             if pi is not None:
                 dbg.log("[SHOT] leaf " + policy_stats(pi))
-                dbg.log("[SHOT] leaf policy topk: " + format_topk_policy(pi, debug_topk, decode_action))
+                dbg.log("[SHOT] leaf policy topk: " + format_topk_policy(pi, debug_topk, decode_search_action))
             dbg.log("[SHOT] root " + root.round_info())
 
         sims += 1
@@ -186,13 +189,13 @@ def shot_search(
         best_actions,
         key=lambda a: (root.Q[a], root.Nsa[a], root.P[a]),
     )
-    best_action = decode_action(best_action_id)
+    best_action = decode_action(best_action_id, action_type=action_type)
 
     if dbg.enabled:
         dbg.log(f"[SHOT] done sims={sims} elapsed={time.perf_counter()-start_time:.3f}s ({(sims/(time.perf_counter()-start_time+1e-12)):.3f} sims/s)")
         dbg.log("[SHOT] timing: " + dbg.summary())
         if root.P is not None and root.Q is not None and root.Nsa is not None:
-            dbg.log("[SHOT] root topk: " + format_topk_root_shot(root, debug_topk, decode_action))
+            dbg.log("[SHOT] root topk: " + format_topk_root_shot(root, debug_topk, decode_search_action))
         dbg.log(f"[SHOT] best a={best_action_id} -> {best_action}")
 
     # シミュレーション回数と、シミュレーション時間を表示する
@@ -219,13 +222,14 @@ def shot_search(
 
 
 def set_root_state(
-    network: DualNet,
+    network: Optional[Union[DualNet, TransformerNetwork]],
     stones: List[Optional[Dict]],
     score_diff: int,
     end: int,
     shot_index: int,
     hammer_team: int,
     transformer_network: Optional[Union[TransformerNetwork, Dict[int, TransformerNetwork]]] = None,
+    sl_model_is_cnn: bool = True,
     debug: bool = False,
     use_transformer: bool = False,
     transformer_target_end: Tuple[int, ...] = (9, 10),
@@ -253,7 +257,7 @@ def set_root_state(
     set_policy_context(
         sl_model=network,
         score_diff=score_diff,
-        sl_model_is_cnn=True,
+        sl_model_is_cnn=sl_model_is_cnn,
         search_based_model=transformer_network,
         use_search_based_model=use_transformer,
         transformer_target_end=transformer_target_end,
