@@ -86,6 +86,8 @@ def resolve_stats_log_path(stats_log_path):
 @click.command()
 @click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=5000, help='Port number (default: 10000)')
+@click.option('--team', type=int, default=1, help='Team number (default: 1)')
+@click.option('--match_id', type=str, default=None, help='Match ID (default: 1)')
 @click.option('--sl_model', type=str, default="Default.bin", help='教師あり学習モデル名 (default: Default.bin)')
 @click.option('--sl_model_is_cnn', type=bool, default=True, help='教師あり学習モデルがCNNかどうか (default: True)')
 @click.option('--transformer_model', type=str, default=None, help='Single Transformer model name used as fallback')
@@ -118,6 +120,8 @@ async def run_client(**kwargs):
     # 引数の読み込み
     host = kwargs['host']
     port = kwargs['port']
+    team = kwargs['team']
+    match_id = kwargs['match_id']
     sl_model_path = _model_path(kwargs['sl_model'])
     transformer_model = kwargs['transformer_model']
     transformer_models_by_shot = {
@@ -144,18 +148,20 @@ async def run_client(**kwargs):
     use_progressive_widening = kwargs['use_progressive_widening']
     use_transposition_table = kwargs['use_transposition_table']
     measure_tt_stats = kwargs['measure_tt_stats']
+    match_team_name = MatchNameModel.team0 if team == 0 else MatchNameModel.team1
     
     # match_idの読み込みます。
-    json_path = Path(__file__).parents[1] / "match_id.json"
-    with open(json_path, "r") as f:
-        match_id = json.load(f)
+    match_id_path = Path(__file__).resolve().parent / "match_id.json"
+    if match_id is None:
+        with open(match_id_path, "r") as f:
+            match_id = json.load(f)
 
     # 最初のエンドにおいて、team0が先攻、team1が後攻です。
     # デフォルトではmatch_team_name=team1となっており、先攻に切り替えたい場合はDCClientのコンストラクタの引数にて
     # match_team_name=MatchNameModel.team0
     # としてください
     # クライアントの初期化（ログレベルはデフォルトでINFO、保存機能はデフォルトでTrue）
-    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=MatchNameModel.team0, auto_save_log=False, log_dir="logs")
+    client = DCClient(match_id=match_id, username=username, password=password, match_team_name=match_team_name, auto_save_log=True, log_dir="logs/vs-rele-ts-model")
 
     # ここで、接続先のサーバのアドレスとポートを指定します。
     # デフォルトではlocalhost:5000となっています。
@@ -220,7 +226,7 @@ async def run_client(**kwargs):
             next_shot_team = client.get_next_team()
             score = state_data.score
             logger.info(
-                f"end={state_data.end_number}, shot={state_data.shot_number}, total={state_data.total_shot_number}, "
+                f"end={state_data.end_number}, shot={state_data.team_shot_number}, total={state_data.total_shot_number}, "
                 f"next={state_data.next_shot_team}, score_t0={sum(score.team0) if score else None}, score_t1={sum(score.team1) if score else None}"
             )
             
