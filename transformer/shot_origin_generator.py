@@ -43,10 +43,9 @@ from transformer.utility import load_transformer_network
 
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
 N_VALUE_CLASSES = DEFAULT_TRANSFORMER_CONFIG.value_dim
-SPLIT_NAMES = ("train", "valid", "test")
 
 
-class SplitBuffer:
+class RawBuffer:
     def __init__(self) -> None:
         self.data_counter = 0
         self.log_counter = 1
@@ -56,6 +55,7 @@ class SplitBuffer:
         self.policy_data = []
         self.value_data = []
         self.win_value_data = []
+        self.game_ids = []
 
 
 def _flip_policy_target(policy_target):
@@ -82,48 +82,6 @@ def _normalize_distribution(target, expected_size: int, name: str) -> np.ndarray
         raise ValueError(f"{name} sum must be positive, got {total}")
 
     return (distribution / total).astype(np.float32, copy=False)
-
-
-def _validate_split_ratios(
-    train_ratio: float,
-    validation_ratio: float,
-    test_ratio: float,
-) -> tuple[float, float, float]:
-    ratios = (float(train_ratio), float(validation_ratio), float(test_ratio))
-    if any(ratio < 0.0 for ratio in ratios):
-        raise ValueError(f"split ratios must be non-negative, got {ratios}")
-    total = sum(ratios)
-    if total <= 0.0:
-        raise ValueError("at least one split ratio must be positive")
-    return tuple(ratio / total for ratio in ratios)
-
-
-def _split_bounds(
-    total_size: int,
-    train_ratio: float,
-    validation_ratio: float,
-    test_ratio: float,
-) -> tuple[int, int]:
-    train_ratio, validation_ratio, test_ratio = _validate_split_ratios(
-        train_ratio,
-        validation_ratio,
-        test_ratio,
-    )
-    train_end = int(total_size * train_ratio)
-    validation_end = train_end + int(total_size * validation_ratio)
-    return train_end, validation_end
-
-
-def _split_name_for_global_index(
-    global_index: int,
-    train_end: int,
-    validation_end: int,
-) -> str:
-    if global_index < train_end:
-        return "train"
-    if global_index < validation_end:
-        return "valid"
-    return "test"
 
 
 def _count_team_stones_on_sheet(stones, team: int) -> int:
@@ -186,6 +144,7 @@ def _save_data(
     policy_data: np.ndarray,
     value_data: np.ndarray,
     win_value_data: np.ndarray,
+    game_ids_data: np.ndarray,
     log_counter: int,
 ) -> None:
     save_file_path = Path(save_file_path)
@@ -197,6 +156,7 @@ def _save_data(
     policy = np.asarray(policy_data[0:DATA_SET_SIZE], dtype=np.float32)
     value = np.asarray(value_data[0:DATA_SET_SIZE], dtype=np.float32)
     win_value = np.asarray(win_value_data[0:DATA_SET_SIZE], dtype=np.float32)
+    game_ids = np.asarray(game_ids_data[0:DATA_SET_SIZE], dtype=str)
 
     if stones.ndim != 3 or stones.shape[1:] != (MAX_STONES, STONE_FEAT_DIM):
         raise ValueError(f"stones must have shape (N, {MAX_STONES}, {STONE_FEAT_DIM}), got {stones.shape}")
@@ -210,6 +170,8 @@ def _save_data(
         raise ValueError(f"value must have shape (N, {N_VALUE_CLASSES}), got {value.shape}")
     if win_value.ndim != 1:
         raise ValueError(f"win_value must have shape (N,), got {win_value.shape}")
+    if game_ids.ndim != 1 or game_ids.shape[0] != win_value.shape[0]:
+        raise ValueError(f"game_ids must have shape (N,), got {game_ids.shape}")
     if not np.all(np.isfinite(win_value)):
         raise ValueError("win_value contains non-finite values")
 
@@ -220,6 +182,7 @@ def _save_data(
         "policy": policy,
         "value": value,
         "win_value": win_value,
+        "game_ids": game_ids,
         "log_count": np.array(log_counter),
     }
     print(f"Saving data to {save_file_path}")
@@ -228,23 +191,20 @@ def _save_data(
 
 def _save_buffer(
     save_path: str | Path,
-    split_name: str,
     chunk_index: int,
-    buffer: SplitBuffer,
+    buffer: RawBuffer,
     sample_count: int,
     use_gpu: bool,
 ) -> None:
     _save_data(
-        Path(save_path)
-        / "raw"
-        / split_name
-        / f"sl_data_origin_raw_chunk{chunk_index}_{split_name}_{buffer.data_counter}",
+        Path(save_path) / "raw" / f"sl_data_origin_raw_chunk{chunk_index}_{buffer.data_counter}",
         buffer.stones_data[:sample_count],
         buffer.games_data[:sample_count],
         buffer.stone_masks_data[:sample_count],
         buffer.policy_data[:sample_count],
         buffer.value_data[:sample_count],
         buffer.win_value_data[:sample_count],
+        buffer.game_ids[:sample_count],
         buffer.log_counter,
     )
     buffer.data_counter += 1
@@ -255,37 +215,37 @@ def _save_buffer(
     del buffer.policy_data[:sample_count]
     del buffer.value_data[:sample_count]
     del buffer.win_value_data[:sample_count]
+    del buffer.game_ids[:sample_count]
     _cleanup_after_save(use_gpu)
-    print(f"{split_name} data counter: {buffer.data_counter}")
+    print(f"raw data counter: {buffer.data_counter}")
 
 
 def _flush_full_buffer(
     save_path: str | Path,
-    split_name: str,
     chunk_index: int,
-    buffer: SplitBuffer,
+    buffer: RawBuffer,
     use_gpu: bool,
 ) -> None:
     while len(buffer.value_data) >= DATA_SET_SIZE:
-        _save_buffer(save_path, split_name, chunk_index, buffer, DATA_SET_SIZE, use_gpu)
+        _save_buffer(save_path, chunk_index, buffer, DATA_SET_SIZE, use_gpu)
 
 
 def _flush_remainder_samples(
     save_path: str | Path,
-    split_name: str,
     chunk_index: int,
-    buffer: SplitBuffer,
+    buffer: RawBuffer,
     use_gpu: bool,
 ) -> None:
     sample_count = len(buffer.value_data)
-    print(f"{split_name} remaining_samples: {sample_count}")
+    print(f"raw remaining_samples: {sample_count}")
     if sample_count <= 0:
         return
-    _save_buffer(save_path, split_name, chunk_index, buffer, sample_count, use_gpu)
+    _save_buffer(save_path, chunk_index, buffer, sample_count, use_gpu)
 
 
 def _append_sample(
-    buffer: SplitBuffer,
+    buffer: RawBuffer,
+    game_id: str,
     stones_feature,
     game_feature,
     stone_mask,
@@ -299,6 +259,7 @@ def _append_sample(
     buffer.policy_data.append(policy_distribution)
     buffer.value_data.append(value_distribution)
     buffer.win_value_data.append(float(win_value_target))
+    buffer.game_ids.append(str(game_id))
 
 
 def generate_data(
@@ -322,9 +283,6 @@ def generate_data(
     chunk_start: int = 0,
     chunk_end: Optional[int] = None,
     chunk_size: Optional[int] = None,
-    train_ratio: float = 0.8,
-    validation_ratio: float = 0.1,
-    test_ratio: float = 0.1,
     policy_min_visit: int = 3,
     policy_delta_q: float = 1.0,
     policy_alpha_visit: float = 0.2,
@@ -367,9 +325,6 @@ def generate_data(
                 chunk_start=current_chunk_index,
                 chunk_end=current_chunk_index,
                 chunk_size=chunk_size,
-                train_ratio=train_ratio,
-                validation_ratio=validation_ratio,
-                test_ratio=test_ratio,
                 policy_min_visit=policy_min_visit,
                 policy_delta_q=policy_delta_q,
                 policy_alpha_visit=policy_alpha_visit,
@@ -393,7 +348,7 @@ def generate_data(
 
     chunk_index = chunk_start
     processed_logs = 0
-    split_buffers = {split_name: SplitBuffer() for split_name in SPLIT_NAMES}
+    buffer = RawBuffer()
 
     network = _load_primary_model(model, use_gpu=use_gpu, sl_model_is_cnn=sl_model_is_cnn)
 
@@ -430,30 +385,7 @@ def generate_data(
     else:
         target_indexed_log_files = list(enumerate(shuffled_log_files))
 
-    train_end, validation_end = _split_bounds(
-        len(shuffled_log_files),
-        train_ratio=train_ratio,
-        validation_ratio=validation_ratio,
-        test_ratio=test_ratio,
-    )
-    target_split_counts = {split_name: 0 for split_name in SPLIT_NAMES}
-    for global_index, _ in target_indexed_log_files:
-        target_split_counts[
-            _split_name_for_global_index(global_index, train_end, validation_end)
-        ] += 1
-    print(
-        "global split log bounds: "
-        f"train=[0:{train_end}), valid=[{train_end}:{validation_end}), "
-        f"test=[{validation_end}:{len(shuffled_log_files)})"
-    )
-    print(
-        "chunk split logs: "
-        + ", ".join(f"{name}={count}" for name, count in target_split_counts.items())
-    )
-
     for global_index, one_log in target_indexed_log_files:
-        split_name = _split_name_for_global_index(global_index, train_end, validation_end)
-        buffer = split_buffers[split_name]
         if not (log_path / one_log).is_dir():
             continue
         if processed_logs >= data_size:
@@ -468,7 +400,7 @@ def generate_data(
             if json.loads(dcl2_data[-2])["log"]["state"]:
                 processed_logs += 1
                 print(
-                    f"Processing {split_name} log: {one_log}, "
+                    f"Processing raw log: {one_log}, "
                     f"global index: {global_index}, "
                     f"total processed logs: {processed_logs}"
                 )
@@ -517,7 +449,7 @@ def generate_data(
                     )
 
                 scorediff_for_shot_team = expanded_score_diff if shot_team == 0 else -expanded_score_diff
-                print(f"split={split_name} shot={shot}, expanded_score_diff={scorediff_for_shot_team}")
+                print(f"shot={shot}, expanded_score_diff={scorediff_for_shot_team}")
 
                 max_possible_end_score = _count_team_stones_on_sheet(stones, shot_team) + 1
                 if max_possible_end_score + scorediff_for_shot_team < 0:
@@ -600,6 +532,7 @@ def generate_data(
 
                 _append_sample(
                     buffer,
+                    one_log,
                     stones_feature,
                     game_feature,
                     stone_mask,
@@ -624,6 +557,7 @@ def generate_data(
                 )
                 _append_sample(
                     buffer,
+                    one_log,
                     flipped_stones_feature,
                     flipped_game_feature,
                     flipped_stone_mask,
@@ -632,14 +566,13 @@ def generate_data(
                     float(win_value_target),
                 )
 
-                _flush_full_buffer(save_path, split_name, chunk_index, buffer, use_gpu)
+                _flush_full_buffer(save_path, chunk_index, buffer, use_gpu)
                 buffer.log_counter += 1
 
         if processed_logs >= data_size:
             break
 
-    for split_name, buffer in split_buffers.items():
-        _flush_remainder_samples(save_path, split_name, chunk_index, buffer, use_gpu)
+    _flush_remainder_samples(save_path, chunk_index, buffer, use_gpu)
 
 
 @click.command()
@@ -667,9 +600,6 @@ def main(start: int, end: int) -> None:
         chunk_start=start,
         chunk_end=end,
         chunk_size=BATCH_SIZE,
-        train_ratio=0.8,
-        validation_ratio=0.1,
-        test_ratio=0.1,
         policy_min_visit=3,
         policy_delta_q=1.0,
         policy_alpha_visit=0.2,

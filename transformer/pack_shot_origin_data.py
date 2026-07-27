@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
 from collections import deque
 from pathlib import Path
-from typing import Deque, Dict, Iterable, List
+from typing import Deque, Dict, Iterable
 
 import click
 import numpy as np
@@ -22,10 +23,12 @@ from transformer.params import (
     STONE_FEAT_DIM,
 )
 
-DATA_KEYS = ("stones", "games", "stone_masks", "policy", "value", "win_value")
+DATA_KEYS = ("stones", "games", "stone_masks", "policy", "value", "win_value", "game_ids")
+ARRAY_KEYS = ("stones", "games", "stone_masks", "policy", "value", "win_value")
 SPLIT_NAMES = ("train", "valid", "test")
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
 N_VALUE_CLASSES = DEFAULT_TRANSFORMER_CONFIG.value_dim
+HASH_MODULUS = 1 << 64
 
 
 class NpzBuffer:
@@ -69,6 +72,42 @@ def _sample_count(batch: Dict[str, np.ndarray]) -> int:
     return int(batch["win_value"].shape[0])
 
 
+def _normalize_split_ratios(
+    train_ratio: float,
+    valid_ratio: float,
+    test_ratio: float,
+) -> tuple[float, float, float]:
+    ratios = (float(train_ratio), float(valid_ratio), float(test_ratio))
+    if any(ratio < 0.0 for ratio in ratios):
+        raise ValueError(f"split ratios must be non-negative, got {ratios}")
+    total = sum(ratios)
+    if total <= 0.0:
+        raise ValueError("at least one split ratio must be positive")
+    return tuple(ratio / total for ratio in ratios)
+
+
+def _split_name_for_game_id(
+    game_id: str,
+    train_ratio: float,
+    valid_ratio: float,
+    test_ratio: float,
+) -> str:
+    train_ratio, valid_ratio, test_ratio = _normalize_split_ratios(
+        train_ratio,
+        valid_ratio,
+        test_ratio,
+    )
+    digest = hashlib.sha256(str(game_id).encode("utf-8")).digest()
+    hash_value = int.from_bytes(digest[:8], byteorder="big")
+    train_threshold = int(train_ratio * HASH_MODULUS)
+    valid_threshold = int((train_ratio + valid_ratio) * HASH_MODULUS)
+    if hash_value < train_threshold:
+        return "train"
+    if hash_value < valid_threshold:
+        return "valid"
+    return "test"
+
+
 def _load_npz(npz_path: Path) -> Dict[str, np.ndarray]:
     with np.load(npz_path) as data:
         missing_keys = [key for key in DATA_KEYS if key not in data]
@@ -88,13 +127,16 @@ def _validate_batch(batch: Dict[str, np.ndarray], source_path: Path) -> None:
         "policy": (sample_count, N_ACTIONS),
         "value": (sample_count, N_VALUE_CLASSES),
         "win_value": (sample_count,),
+        "game_ids": (sample_count,),
     }
     for key, expected_shape in expected_shapes.items():
         if batch[key].shape != expected_shape:
             raise ValueError(
                 f"{source_path}: {key} must have shape {expected_shape}, got {batch[key].shape}"
             )
-    for key in ("stones", "games", "policy", "value", "win_value"):
+    for key in ARRAY_KEYS:
+        if key == "stone_masks":
+            continue
         if not np.all(np.isfinite(batch[key])):
             raise ValueError(f"{source_path}: {key} contains non-finite values")
 
@@ -110,6 +152,7 @@ def _save_npz(save_file_path: Path, batch: Dict[str, np.ndarray], overwrite: boo
         "policy": np.asarray(batch["policy"], dtype=np.float32),
         "value": np.asarray(batch["value"], dtype=np.float32),
         "win_value": np.asarray(batch["win_value"], dtype=np.float32),
+        "game_ids": np.asarray(batch["game_ids"], dtype=str),
         "log_count": np.array(_sample_count(batch)),
     }
     print(f"Saving packed data to {save_file_path}")
@@ -117,69 +160,61 @@ def _save_npz(save_file_path: Path, batch: Dict[str, np.ndarray], overwrite: boo
 
 
 def _raw_file_sort_key(raw_file_path: Path) -> tuple[int, int, str]:
-    match = re.fullmatch(
-        r"sl_data_origin_raw_chunk(\d+)_(?:train|valid|test)_(\d+)\.npz",
-        raw_file_path.name,
-    )
+    match = re.fullmatch(r"sl_data_origin_raw_chunk(\d+)_(\d+)\.npz", raw_file_path.name)
     if match is None:
         return (10**18, 10**18, raw_file_path.name)
     return (int(match.group(1)), int(match.group(2)), raw_file_path.name)
 
 
-def _iter_raw_files(raw_split_path: Path) -> Iterable[Path]:
-    if not raw_split_path.exists():
+def _iter_raw_files(raw_path: Path) -> Iterable[Path]:
+    if not raw_path.exists():
         return []
-    return sorted(raw_split_path.glob("*.npz"), key=_raw_file_sort_key)
+    return sorted(raw_path.glob("*.npz"), key=_raw_file_sort_key)
 
 
-def _pack_split(
-    split_name: str,
-    raw_path: Path,
+def _split_batch_by_game_id(
+    batch: Dict[str, np.ndarray],
+    train_ratio: float,
+    valid_ratio: float,
+    test_ratio: float,
+) -> Dict[str, Dict[str, np.ndarray]]:
+    split_indices = {split_name: [] for split_name in SPLIT_NAMES}
+    for index, game_id in enumerate(batch["game_ids"]):
+        split_name = _split_name_for_game_id(
+            str(game_id),
+            train_ratio=train_ratio,
+            valid_ratio=valid_ratio,
+            test_ratio=test_ratio,
+        )
+        split_indices[split_name].append(index)
+
+    split_batches = {}
+    for split_name, indices in split_indices.items():
+        if not indices:
+            continue
+        split_batches[split_name] = {key: batch[key][indices] for key in DATA_KEYS}
+    return split_batches
+
+
+def _flush_full_buffers(
+    buffers: Dict[str, NpzBuffer],
+    output_counters: Dict[str, int],
+    saved_samples: Dict[str, int],
     save_path: Path,
     samples_per_file: int,
-    batch_size: int,
-    save_partial_batches: bool,
     overwrite: bool,
-) -> dict:
-    raw_split_path = raw_path / split_name
-    output_split_path = save_path / split_name
-    buffer = NpzBuffer()
-    output_counter = 0
-    raw_file_count = 0
-    loaded_samples = 0
-    saved_samples = 0
-
-    for raw_file_path in _iter_raw_files(raw_split_path):
-        raw_file_count += 1
-        batch = _load_npz(raw_file_path)
-        loaded_samples += _sample_count(batch)
-        buffer.append(batch)
+) -> None:
+    for split_name, buffer in buffers.items():
+        output_split_path = save_path / split_name
         while buffer.size >= samples_per_file:
             output_batch = buffer.pop(samples_per_file)
-            _save_npz(output_split_path / f"sl_data_origin_{output_counter}.npz", output_batch, overwrite)
-            saved_samples += _sample_count(output_batch)
-            output_counter += 1
-
-    if save_partial_batches:
-        partial_count = (buffer.size // batch_size) * batch_size
-        if partial_count > 0:
-            output_batch = buffer.pop(partial_count)
-            _save_npz(output_split_path / f"sl_data_origin_{output_counter}.npz", output_batch, overwrite)
-            saved_samples += _sample_count(output_batch)
-            output_counter += 1
-
-    dropped_samples = buffer.size
-    if dropped_samples > 0:
-        print(f"{split_name}: dropped {dropped_samples} samples (< batch_size or partial disabled)")
-
-    return {
-        "split": split_name,
-        "raw_files": raw_file_count,
-        "loaded_samples": loaded_samples,
-        "saved_files": output_counter,
-        "saved_samples": saved_samples,
-        "dropped_samples": dropped_samples,
-    }
+            _save_npz(
+                output_split_path / f"sl_data_origin_{output_counters[split_name]}.npz",
+                output_batch,
+                overwrite,
+            )
+            saved_samples[split_name] += _sample_count(output_batch)
+            output_counters[split_name] += 1
 
 
 def pack_shot_origin_data(
@@ -189,6 +224,9 @@ def pack_shot_origin_data(
     batch_size: int = BATCH_SIZE,
     save_partial_batches: bool = True,
     overwrite: bool = False,
+    train_ratio: float = 0.8,
+    valid_ratio: float = 0.1,
+    test_ratio: float = 0.1,
 ) -> None:
     raw_path = Path(raw_path)
     save_path = Path(save_path)
@@ -200,10 +238,71 @@ def pack_shot_origin_data(
         raise ValueError(
             f"samples_per_file must be a multiple of batch_size, got {samples_per_file} and {batch_size}"
         )
+    train_ratio, valid_ratio, test_ratio = _normalize_split_ratios(
+        train_ratio,
+        valid_ratio,
+        test_ratio,
+    )
 
     manifest_path = save_path / "pack_manifest.json"
     if manifest_path.exists() and not overwrite:
         raise FileExistsError(f"manifest already exists: {manifest_path}")
+
+    raw_files = list(_iter_raw_files(raw_path))
+    if not raw_files:
+        legacy_raw_files = list(raw_path.glob("*/*.npz")) if raw_path.exists() else []
+        message = f"raw files were not found directly under {raw_path}"
+        if legacy_raw_files:
+            message += "; split raw directories from the previous design were found, regenerate raw data"
+        raise FileNotFoundError(message)
+
+    buffers = {split_name: NpzBuffer() for split_name in SPLIT_NAMES}
+    output_counters = {split_name: 0 for split_name in SPLIT_NAMES}
+    loaded_samples = {split_name: 0 for split_name in SPLIT_NAMES}
+    saved_samples = {split_name: 0 for split_name in SPLIT_NAMES}
+    game_ids = {split_name: set() for split_name in SPLIT_NAMES}
+
+    for raw_file_path in raw_files:
+        batch = _load_npz(raw_file_path)
+        split_batches = _split_batch_by_game_id(
+            batch,
+            train_ratio=train_ratio,
+            valid_ratio=valid_ratio,
+            test_ratio=test_ratio,
+        )
+        for split_name, split_batch in split_batches.items():
+            sample_count = _sample_count(split_batch)
+            loaded_samples[split_name] += sample_count
+            game_ids[split_name].update(str(game_id) for game_id in split_batch["game_ids"])
+            buffers[split_name].append(split_batch)
+        _flush_full_buffers(
+            buffers=buffers,
+            output_counters=output_counters,
+            saved_samples=saved_samples,
+            save_path=save_path,
+            samples_per_file=samples_per_file,
+            overwrite=overwrite,
+        )
+
+    dropped_samples = {split_name: 0 for split_name in SPLIT_NAMES}
+    if save_partial_batches:
+        for split_name, buffer in buffers.items():
+            partial_count = (buffer.size // batch_size) * batch_size
+            if partial_count <= 0:
+                continue
+            output_batch = buffer.pop(partial_count)
+            _save_npz(
+                save_path / split_name / f"sl_data_origin_{output_counters[split_name]}.npz",
+                output_batch,
+                overwrite,
+            )
+            saved_samples[split_name] += _sample_count(output_batch)
+            output_counters[split_name] += 1
+
+    for split_name, buffer in buffers.items():
+        dropped_samples[split_name] = buffer.size
+        if buffer.size > 0:
+            print(f"{split_name}: dropped {buffer.size} samples (< batch_size or partial disabled)")
 
     manifest = {
         "raw_path": str(raw_path),
@@ -211,20 +310,23 @@ def pack_shot_origin_data(
         "samples_per_file": samples_per_file,
         "batch_size": batch_size,
         "save_partial_batches": save_partial_batches,
-        "splits": [],
+        "split_method": "sha256(game_id)",
+        "train_ratio": train_ratio,
+        "valid_ratio": valid_ratio,
+        "test_ratio": test_ratio,
+        "raw_files": len(raw_files),
+        "splits": [
+            {
+                "split": split_name,
+                "games": len(game_ids[split_name]),
+                "loaded_samples": loaded_samples[split_name],
+                "saved_files": output_counters[split_name],
+                "saved_samples": saved_samples[split_name],
+                "dropped_samples": dropped_samples[split_name],
+            }
+            for split_name in SPLIT_NAMES
+        ],
     }
-    for split_name in SPLIT_NAMES:
-        manifest["splits"].append(
-            _pack_split(
-                split_name=split_name,
-                raw_path=raw_path,
-                save_path=save_path,
-                samples_per_file=samples_per_file,
-                batch_size=batch_size,
-                save_partial_batches=save_partial_batches,
-                overwrite=overwrite,
-            )
-        )
 
     save_path.mkdir(parents=True, exist_ok=True)
     with manifest_path.open("w", encoding="utf-8") as manifest_file:
@@ -247,6 +349,9 @@ def main(overwrite: bool, save_partial_batches: bool) -> None:
         batch_size=BATCH_SIZE,
         save_partial_batches=save_partial_batches,
         overwrite=overwrite,
+        train_ratio=0.8,
+        valid_ratio=0.1,
+        test_ratio=0.1,
     )
 
 
