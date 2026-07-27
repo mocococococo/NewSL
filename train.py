@@ -35,9 +35,9 @@ def train_main(model_name: str, use_gpu: bool):
     print(f"finish learning model {model_name} !!")
 
 @click.command()
-@click.option('--model-name', type=click.STRING, default="transformer-sl-9-3-model-06-30-adamw-epoch50-shot", help="保存するモデルの名前の指定")
+@click.option('--model-name', type=click.STRING, default="transformer-sl-9-15-model-07-28-adamw-epoch50-shot", help="保存するモデルの名前の指定")
 @click.option('--use-gpu', type=click.BOOL, default=True, help="GPUの使用")
-def train_transformer_main(model_name: str, use_gpu: bool):
+def train_transformer_search_based(model_name: str, use_gpu: bool):
     # プログラムのディレクトリ
     program_dir = str(Path(__file__).resolve().parent)
     log_path = str("D:/all")
@@ -89,5 +89,5 @@ def train_transformer_supervised(model_name: str, use_gpu: bool):
 
 if __name__ == "__main__":
     # train_main()
-    # train_transformer_main()
-    train_transformer_supervised()
+    train_transformer_search_based()
+    # train_transformer_supervised()
