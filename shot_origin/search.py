@@ -23,7 +23,11 @@ from .create_mode import (
 from .debugger import Debugger, format_topk_root_shot, summarize_stones
 from .evaluator import value_probs_to_winvalue
 from .node import Node, argmax_over_actions, tree_size
-from .params import DEFAULT_SHOT_ORIGIN_MAX_DEPTH, DEFAULT_SHOT_ORIGIN_MAX_SIMULATIONS
+from .params import (
+    DEFAULT_SHOT_ORIGIN_MAX_DEPTH,
+    DEFAULT_SHOT_ORIGIN_MAX_SIMULATIONS,
+    DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED,
+)
 
 SearchAction = Tuple[float, float, int]
 SearchDataResult = Tuple[int, List[RootCandidateStat]]
@@ -77,6 +81,7 @@ def shot_origin_search(
     is_create_data: bool = False,
     use_value: bool = True,
     action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+    tie_break_seed: int = DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED,
 ) -> Union[SearchAction, SearchDataResult]:
     """Policy-free SHOT using round extra visits 1, 2, 3, ... ."""
     reset_policy_selection_log()
@@ -90,7 +95,7 @@ def shot_origin_search(
     )
     dbg.log("[SHOT_ORIGIN] " + summarize_stones(root_state.stones))
 
-    root = Node(root_state, action_type=action_type)
+    root = Node(root_state, action_type=action_type, tie_break_seed=tie_break_seed)
     root.expand_if_needed()
     dbg.log("[SHOT_ORIGIN] root " + root.round_info())
 
@@ -172,7 +177,7 @@ def shot_origin_search(
 
     best_action_id = argmax_over_actions(
         best_actions,
-        key=lambda a: (root.Q[a], root.Nsa[a], -a),
+        key=lambda a: (root.Q[a], root.Nsa[a], root.tie_break_value(a)),
     )
     best_action = decode_action(best_action_id, action_type=action_type)
 

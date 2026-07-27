@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import math
 from typing import Dict, Iterable, Iterator, List, Optional
 
 from mcts.state import State
 from transformer.params import TRANSFORMER_VY_MODE, TransformerVyMode, get_transformer_action_dim
 
-from .params import SHOT_ORIGIN_KEEP_RATIO
+from .params import DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED, SHOT_ORIGIN_KEEP_RATIO
 
 
 def argmax_over_actions(actions: Iterable[int], key):
@@ -34,10 +35,12 @@ class Node:
         self,
         state: State,
         action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+        tie_break_seed: int = DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED,
     ):
         self.state = state
         self.key = state.key()
         self.action_type = action_type
+        self.tie_break_seed = int(tie_break_seed)
         self.n_actions = get_transformer_action_dim(action_type)
 
         self.N: int = 0
@@ -49,6 +52,7 @@ class Node:
         self.W: Optional[List[float]] = None
         self.Q: Optional[List[float]] = None
 
+        self._tie_break_values = [self._make_tie_break_value(a) for a in range(self.n_actions)]
         self._round_index: int = 0
         self._round_visit_target: int = 0
 
@@ -59,12 +63,24 @@ class Node:
             if child.key == state_key:
                 return child
 
-        child = Node(state, action_type=self.action_type)
+        child = Node(
+            state,
+            action_type=self.action_type,
+            tie_break_seed=self.tie_break_seed,
+        )
         action_children.append(child)
         return child
 
     def children_for_action(self, action: int) -> List["Node"]:
         return self.children.get(action, [])
+
+    def _make_tie_break_value(self, action: int) -> float:
+        payload = f"{self.tie_break_seed}|{self.key!r}|{int(action)}".encode("utf-8")
+        digest = hashlib.sha256(payload).digest()
+        return int.from_bytes(digest[:8], byteorder="big") / float(1 << 64)
+
+    def tie_break_value(self, action: int) -> float:
+        return self._tie_break_values[action]
 
     def iter_children(self) -> Iterator["Node"]:
         for action_children in self.children.values():
@@ -115,7 +131,7 @@ class Node:
             keep_count = _keep_count_after_halving(len(self.actions))
             self.actions = sorted(
                 self.actions,
-                key=lambda a: (self.Q[a], self.Nsa[a], -a),
+                key=lambda a: (self.Q[a], self.Nsa[a], self.tie_break_value(a)),
                 reverse=True,
             )[:keep_count]
             self._round_index += 1
@@ -128,12 +144,12 @@ class Node:
         if need_actions:
             return argmax_over_actions(
                 need_actions,
-                key=lambda a: (-self.Nsa[a], -a),
+                key=lambda a: (-self.Nsa[a], self.tie_break_value(a)),
             )
 
         return argmax_over_actions(
             self.actions,
-            key=lambda a: (self.Q[a], self.Nsa[a], -a),
+            key=lambda a: (self.Q[a], self.Nsa[a], self.tie_break_value(a)),
         )
 
     def round_info(self) -> str:
