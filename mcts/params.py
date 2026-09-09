@@ -4,7 +4,7 @@ from __future__ import annotations
 # 探索
 DEFAULT_MAX_SIMULATIONS = 100000
 DEFAULT_CPUCT = 1.0
-DEFAULT_TIME_LIMIT_SEC = 2.5
+DEFAULT_TIME_LIMIT_SEC = 2.6
 DEFAULT_TIME_LIMIT_SEC_LIST = {
     0: 2.0,
     1: 2.0,
@@ -28,7 +28,7 @@ DEFAULT_TIME_LIMIT_SEC_LIST = {
 ROLLOUT_USE_GREEDY_POLICY = True  # Trueならargmax(policy)、Falseならサンプルなどに拡張
 
 # State.key 量子化
-STATE_POS_SCALE = 10000            # 座標をround(v*scale)して整数化
+STATE_POS_SCALE = 100            # 座標をround(v*scale)して整数化
 
 TOPK_INIT = 10 # rollout初手の候補数
 TOPK_MAX = 256 # rollout途中以降の最大候補数
