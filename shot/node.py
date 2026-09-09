@@ -3,9 +3,9 @@ from __future__ import annotations
 import math
 from typing import Dict, Iterable, Iterator, List, Optional
 
-from board.constant import VX_SIZE, VY_SIZE
 from mcts.hybrid_policy import get_policy
 from mcts.state import State
+from transformer.params import TRANSFORMER_VY_MODE, TransformerVyMode, get_transformer_action_dim
 
 from .params import (
     DEFAULT_SHOT_INITIAL_CANDIDATES,
@@ -13,11 +13,7 @@ from .params import (
     SHOT_MIN_VISITS_PER_ACTION,
 )
 
-# 行動空間: (vx, vy, spin) の全組み合わせを 0..N_ACTIONS-1 に畳む
-SPIN_SIZE = 2
-N_ACTIONS = VX_SIZE * VY_SIZE * SPIN_SIZE
 
-ALL_ACTIONS: List[int] = list(range(N_ACTIONS))
 
 def argmax_over_actions(actions: Iterable[int], key):
     """actions の中で key(a) が最大の a を返す。同値は先に出た方。"""
@@ -51,12 +47,18 @@ class Node:
     Sequential Halving の生存候補として更新する。
     """
 
-    def __init__(self, state: State):
+    def __init__(
+        self,
+        state: State,
+        action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+    ):
         self.state = state
         self.key = state.key()
+        self.action_type = action_type
+        self.n_actions = get_transformer_action_dim(action_type)
 
         self.N: int = 0
-        self.actions: List[int] = ALL_ACTIONS
+        self.actions: List[int] = list(range(self.n_actions))
         self.children: Dict[int, List["Node"]] = {}
 
         self.P: Optional[List[float]] = None
@@ -92,7 +94,7 @@ class Node:
             if child.key == state_key:
                 return child
 
-        child = Node(state)
+        child = Node(state, action_type=self.action_type)
         action_children.append(child)
         return child
 
@@ -114,7 +116,7 @@ class Node:
         """
         if self.is_expanded():
             return
-        pi = get_policy(self.state)
+        pi = get_policy(self.state, action_type=self.action_type)
         self.expand(pi)
 
     def expand(self, pi) -> None:
@@ -123,35 +125,35 @@ class Node:
           - List[float]: len=N_ACTIONS
           - Dict[int, float]: 一部の行動だけを持つ sparse 形式
         """
-        P = [0.0] * N_ACTIONS
+        P = [0.0] * self.n_actions
 
         if isinstance(pi, dict):
             for a, p in pi.items():
-                if 0 <= a < N_ACTIONS:
+                if 0 <= a < self.n_actions:
                     P[a] = float(p)
         else:
             pi_list = list(pi)
-            if len(pi_list) != N_ACTIONS:
-                raise ValueError(f"policy must have length {N_ACTIONS}, got {len(pi_list)}")
+            if len(pi_list) != self.n_actions:
+                raise ValueError(f"policy must have length {self.n_actions}, got {len(pi_list)}")
             for i, p in enumerate(pi_list):
                 P[i] = float(p)
 
         s = sum(P)
         if s <= 0.0:
-            u = 1.0 / N_ACTIONS
-            P = [u] * N_ACTIONS
+            u = 1.0 / self.n_actions
+            P = [u] * self.n_actions
         else:
             inv = 1.0 / s
             P = [p * inv for p in P]
 
         self.P = P
-        self.Nsa = [0] * N_ACTIONS
-        self.W = [0.0] * N_ACTIONS
-        self.Q = [0.0] * N_ACTIONS
+        self.Nsa = [0] * self.n_actions
+        self.W = [0.0] * self.n_actions
+        self.Q = [0.0] * self.n_actions
 
-        self._policy_order = sorted(range(N_ACTIONS), key=lambda a: self.P[a], reverse=True)
+        self._policy_order = sorted(range(self.n_actions), key=lambda a: self.P[a], reverse=True)
 
-        k0 = min(DEFAULT_SHOT_INITIAL_CANDIDATES, N_ACTIONS)
+        k0 = min(DEFAULT_SHOT_INITIAL_CANDIDATES, self.n_actions)
         self.actions = self._policy_order[:k0]
         self._round_index = 0
         self._round_visit_target = 0

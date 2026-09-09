@@ -6,7 +6,8 @@ from typing import List, Optional, Tuple, Dict
 from board.constant import BOARD_SIZE_X, BOARD_SIZE_Y, STONE_RADIUS, \
                             X_MIN, X_MAX, Y_MIN, Y_MAX, Y_TEE, \
                             R_HOUSE, VX_MIN, VX_MAX, VY_MIN, VY_MAX, \
-                            PLANES_SIZE, VX_SIZE, VY_SIZE, VY_SHEET_MAX
+                            PLANES_SIZE, VX_SIZE, VY_SHEET_MAX, \
+                            VY_SHEET_SIZE, VY_EXTRA_SIZE
 
 def discretization(x: float, y: float) -> int:
     """
@@ -30,16 +31,23 @@ def discretization(x: float, y: float) -> int:
 
     return yi * BOARD_SIZE_X + xi
 
-def discretization_velocity(vx: float, vy: float) -> int:
+def discretization_velocity(
+    vx: float,
+    vy: float,
+    vy_sheet_size: int = VY_SHEET_SIZE,
+    vy_extra_size: int = VY_EXTRA_SIZE,
+) -> int:
     """
-    連続速度 (vx,vy) を VX_SIZE × VY_SIZE 個のセルに割り当て、セルの1次元indexを返す
+    連続速度 (vx,vy) を VX_SIZE × (vy_sheet_size + vy_extra_size) 個のセルに割り当て、セルの1次元indexを返す
     x 軸は VX_MIN から VX_MAXで均等に分割
-    y 軸は VY_MIN から VY_SHEET_MAX まで均等に VY_SIZE - 5 分割し、VY_SHEET_MAX から VY_MAX までは別途均等に 5 分割する
+    y 軸は VY_MIN から VY_SHEET_MAX まで均等に vy_sheet_size 分割し、VY_SHEET_MAX から VY_MAX までは別途均等に vy_extra_size 分割する
     """
+    vy_size = vy_sheet_size + vy_extra_size
+
     # セル幅
     dvx = (VX_MAX - VX_MIN) / VX_SIZE
-    dvy = (VY_SHEET_MAX - VY_MIN) / (VY_SIZE - 5)
-    dvy_extra = (VY_MAX - VY_SHEET_MAX) / 5
+    dvy = (VY_SHEET_MAX - VY_MIN) / vy_sheet_size
+    dvy_extra = (VY_MAX - VY_SHEET_MAX) / vy_extra_size
     
     # clamp（境界ちょうども最後のセルに入れたいので VX_MAX/VY_MAX を少し内側扱い）
     vx = max(VX_MIN, min(vx, VX_MAX))
@@ -50,11 +58,11 @@ def discretization_velocity(vx: float, vy: float) -> int:
     if vy <= VY_SHEET_MAX:
         vyi = int((vy - VY_MIN) / dvy)
     else:
-        vyi = (VY_SIZE - 5) + int((vy - VY_SHEET_MAX) / dvy_extra)
+        vyi = vy_sheet_size + int((vy - VY_SHEET_MAX) / dvy_extra)
         
     # x==VX_MAX 等で vxi==VX_SIZE になり得るので丸める
     vxi = max(0, min(vxi, VX_SIZE - 1))
-    vyi = max(0, min(vyi, VY_SIZE - 1))
+    vyi = max(0, min(vyi, vy_size - 1))
     
     return vyi * VX_SIZE + vxi
 
@@ -234,17 +242,27 @@ def generate_input_planes(stones: List[Optional[dict]], end: int, shot: int, ham
 
 
 # Policy の正解データを作成する
-def generate_target_data(selected_move: dict) ->np.ndarray:
-    policy_plane = np.zeros(shape=(2, VX_SIZE * VY_SIZE))
+def generate_target_data(
+    selected_move: dict,
+    vy_sheet_size: int = VY_SHEET_SIZE,
+    vy_extra_size: int = VY_EXTRA_SIZE,
+) ->np.ndarray:
+    vy_size = vy_sheet_size + vy_extra_size
+    policy_plane = np.zeros(shape=(2, VX_SIZE * vy_size))
     vx = selected_move['velocity']['x']
     vy = selected_move['velocity']['y']
-    vindex = discretization_velocity(vx, vy)
+    vindex = discretization_velocity(
+        vx,
+        vy,
+        vy_sheet_size,
+        vy_extra_size,
+    )
     if selected_move['rotation'] == "cw":
         policy_plane[0][vindex] = 1
     else:
         policy_plane[1][vindex] = 1
     
-    return np.argmax(policy_plane.reshape((VX_SIZE * VY_SIZE) * 2).astype(np.int64))
+    return np.argmax(policy_plane.reshape((VX_SIZE * vy_size) * 2).astype(np.int64))
 
 
 def generate_value_data(scores: Dict[str, List[Optional[int]]], end: int, shot_team: int) -> int:

@@ -135,23 +135,30 @@ class TransformerSearchPlayer:
             )
 
         root_kwargs = {
-            "network": None,
             "stones": _state_to_raw_stones(state),
             "score_diff": state.score_diff,
             "end": state.end,
             "shot_index": state.shot_index,
             "hammer_team": state.hammer_team,
-            "transformer_network": self.networks_by_shot,
-            "use_transformer": True,
             "transformer_target_end": (self.target_end,),
             "transformer_target_shot": self.target_shots,
         }
 
         if self.search_method == "shot":
-            root = set_shot_root_state(**root_kwargs)
+            root = set_shot_root_state(
+                network=None,
+                transformer_network=self.networks_by_shot,
+                use_transformer=True,
+                **root_kwargs,
+            )
             vx, vy, spin = shot_search(root_state=root)
         else:
-            root = set_mcts_root_state(**root_kwargs)
+            root = set_mcts_root_state(
+                sl_model=None,
+                search_based_model=self.networks_by_shot,
+                use_search_based_model=True,
+                **root_kwargs,
+            )
             vx, vy, spin = mcts_search(root_state=root)
 
         return SearchAction(

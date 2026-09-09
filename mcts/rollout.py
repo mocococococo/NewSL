@@ -2,6 +2,7 @@
 import math
 
 from board.constant import Y_TEE, R_HOUSE, STONE_RADIUS
+from transformer.params import TRANSFORMER_VY_MODE, TransformerVyMode
 from .state import State, is_end_terminal
 from .simulate import simulator_step
 from .hybrid_policy import get_policy
@@ -98,7 +99,11 @@ def _to_move_defined_even_if_terminal(state: State) -> int:
     return 1 - state.to_move()
 
 
-def rollout_to_end_score(state: State, debug: bool = False) -> float:
+def rollout_to_end_score(
+    state: State,
+    debug: bool = False,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> float:
     """終端までプレイアウトし、返り値は「stateの手番視点」のスカラー"""
     global _SCORE_DEBUG
     if debug:
@@ -109,9 +114,9 @@ def rollout_to_end_score(state: State, debug: bool = False) -> float:
     s = state
     depth = 0
     while not is_end_terminal(s):
-        policy = get_policy(s)  # len=2048
+        policy = get_policy(s, action_type=action_type)
         a = max(range(len(policy)), key=lambda i: policy[i])  # まずは貪欲でOK
-        s = simulator_step(s, a)
+        s = simulator_step(s, a, action_type=action_type)
         depth += 1
 
     raw = _end_score_diff_team0_minus_team1(s.stones)

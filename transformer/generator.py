@@ -29,9 +29,11 @@ from transformer.params import (
     GAME_FEAT_DIM,
     MAX_STONES,
     STONE_FEAT_DIM,
+    TRANSFORMER_VY_MODE,
+    TRANSFORMER_VY_SIZE,
 )
 from mcts.search import mcts_search, set_root_state
-from board.constant import VX_SIZE, VY_SIZE
+from board.constant import VX_SIZE
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
@@ -43,7 +45,7 @@ def _flip_policy_target(policy_target):
     if policy.size != N_ACTIONS:
         raise ValueError(f"policy_target size must be {N_ACTIONS}, got {policy.size}")
 
-    policy_3d = policy.reshape(2, VY_SIZE, VX_SIZE)
+    policy_3d = policy.reshape(2, TRANSFORMER_VY_SIZE, VX_SIZE)
     flipped = policy_3d[::-1, :, ::-1]
     return flipped.reshape(N_ACTIONS).copy()
 
@@ -271,7 +273,7 @@ def generate_data(
 
                 # 勝てる可能性が少しでもある局面について、探索を行って教師データを生成する
                 root = set_root_state(
-                    network=network,
+                    sl_model=network,
                     stones=stones,
                     score_diff=expanded_score_diff,
                     end=end,
@@ -291,6 +293,7 @@ def generate_data(
                     root_state=root,
                     max_simulations=max_simulations,
                     is_create_data=True,
+                    action_type=TRANSFORMER_VY_MODE,
                 )
                 policy_distribution = _normalize_distribution(policy_target, N_ACTIONS, "policy_target")
                 value_distribution = _normalize_distribution(value_target, N_VALUE_CLASSES, "value_target")

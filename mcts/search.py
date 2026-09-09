@@ -6,6 +6,7 @@ from typing import List, Tuple, Optional, Dict, Union
 from common.translate_state import stones_listdict_to_xy16, scores_dict_to_list
 from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
+from transformer.params import TransformerVyMode
 from .node import Node, get_node, get_child_node, argmax_over_actions, clear_node_table, node_table_size, peek_node, count_reachable_nodes, reset_tt_stats, get_tt_stats
 from .state import State, is_end_terminal, score_diff_from_scores
 from .simulate import simulator_step, decode_action
@@ -66,18 +67,24 @@ def mcts_search(
     use_value: bool = True,
     use_progressive_widening: bool = True,
     use_transposition_table: bool = True,
+    measure_tt_stats: bool = True,
     return_stats: bool = False,
+    action_type: TransformerVyMode = "default",
 ) -> Union[SearchAction, SearchDataResult]:
     """
-    PUCTで探索して最善手(action_id: 0..2047)を返す。
+    PUCTで探索して最善手を返す。
     - max_simulations: シミュレーション回数上限
     - time_limit_sec: 時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
     """
     # 最初にノードテーブルをクリア
     clear_node_table()
-    reset_tt_stats()
+    if measure_tt_stats:
+        reset_tt_stats()
     reset_policy_selection_log()
+
+    def decode_search_action(action: int) -> SearchAction:
+        return decode_action(action, action_type=action_type)
     
     time_limit_sec = DEFAULT_TIME_LIMIT_SEC
         # if root_state.shot_index % 2 == 0 \
@@ -95,9 +102,17 @@ def mcts_search(
     dbg.log("[PUCT] " + summarize_stones(root_state.stones))
     
     if use_transposition_table:
-        root: Node = get_node(root_state, use_progressive_widening=use_progressive_widening)
+        root: Node = get_node(
+            root_state,
+            use_progressive_widening=use_progressive_widening,
+            action_type=action_type,
+        )
     else:
-        root = Node(root_state, use_progressive_widening=use_progressive_widening)
+        root = Node(
+            root_state,
+            use_progressive_widening=use_progressive_widening,
+            action_type=action_type,
+        )
     dbg.tic("root_expand")
     root.expand_if_needed()  # P(s,a) を入れる
     dbg.toc("root_expand")
@@ -108,7 +123,10 @@ def mcts_search(
     
     if dbg.enabled and root.P is not None:
         dbg.log("[PUCT] " + policy_stats(root.P))
-        dbg.log("[PUCT] root policy topk: " + format_topk_policy(root.P, debug_topk, decode_action))
+        dbg.log(
+            "[PUCT] root policy topk: "
+            + format_topk_policy(root.P, debug_topk, decode_search_action)
+        )
 
     
     start_time = time.perf_counter()
@@ -136,12 +154,17 @@ def mcts_search(
                 key=lambda a: node.Q[a] + cpuct * node.P[a] * ( (node.N ** 0.5) / (1 + node.Nsa[a]) )
             )
             path.append((node, a))
-            state = simulator_step(state, a)     # 1投進める
+            state = simulator_step(
+                state,
+                a,
+                action_type=action_type,
+            )  # 1投進める
             node = get_child_node(
                 node,
                 a,
                 state,
                 use_transposition_table=use_transposition_table,
+                measure_tt_stats=measure_tt_stats,
             )
             select_depth += 1
 
@@ -150,7 +173,10 @@ def mcts_search(
         # 2) Expansion
         dbg.tic("expansion")
         if not is_end_terminal(state):
-            pi, value_probs = get_policy_and_value(state)
+            pi, value_probs = get_policy_and_value(
+                state,
+                action_type=action_type,
+            )
             v_to_move = (
                 _value_probs_to_winvalue(state, value_probs)
                 if use_value
@@ -167,7 +193,10 @@ def mcts_search(
         # 3) Rollout (エンド終端まで)
         dbg.tic("rollout")
         if is_end_terminal(state) or not use_value:
-            v = rollout_to_end_score(state)  # 「stateの手番視点」で返すのが楽
+            v = rollout_to_end_score(
+                state,
+                action_type=action_type,
+            )  # 「stateの手番視点」で返すのが楽
         else:
             assert v_to_move is not None
             # rolloutは簡易版のpolicyでやる（高速化のため）
@@ -192,7 +221,10 @@ def mcts_search(
             dbg.log(f"[PUCT] sim={sims} depth={select_depth} leaf_shot={state.shot_index} leaf_terminal={is_end_terminal(state)} v={v:.4g}")
             if pi is not None:
                 dbg.log("[PUCT] leaf " + policy_stats(pi))
-                dbg.log("[PUCT] leaf policy topk: " + format_topk_policy(pi, debug_topk, decode_action))
+                dbg.log(
+                    "[PUCT] leaf policy topk: "
+                    + format_topk_policy(pi, debug_topk, decode_search_action)
+                )
             
         sims += 1
 
@@ -212,23 +244,36 @@ def mcts_search(
             expanded_children += 1
             
     best_action_id = argmax_over_actions(root.actions, key=lambda a: root.Nsa[a])
-    best_action = decode_action(best_action_id)
+    best_action = decode_search_action(best_action_id)
     
     if dbg.enabled:
         dbg.log(f"[PUCT] done sims={sims} elapsed={time.perf_counter()-start_time:.3f}s ({(sims/(time.perf_counter()-start_time+1e-12)):.3f} sims/s)")
         dbg.log("[PUCT] timing: " + dbg.summary())
         if root.P is not None and root.Q is not None and root.Nsa is not None:
-            dbg.log("[PUCT] root Nsa topk: " + format_topk_root_visits(root, debug_topk, decode_action))
+            dbg.log(
+                "[PUCT] root Nsa topk: "
+                + format_topk_root_visits(
+                    root,
+                    debug_topk,
+                    decode_search_action,
+                )
+            )
         dbg.log(f"[PUCT] best a={best_action_id} -> {best_action}")
     
     # シミュレート回数と、シミュレート時間を表示する
     elapsed_time = time.perf_counter() - start_time
     nodes = count_reachable_nodes(root)
-    tt_stats = get_tt_stats()
-    tt_requests = int(tt_stats["requests"])
-    tt_hits = int(tt_stats["hits"])
-    tt_misses = int(tt_stats["misses"])
-    tt_hit_rate = float(tt_hits / tt_requests) if tt_requests > 0 else 0.0
+    if measure_tt_stats:
+        tt_stats = get_tt_stats()
+        tt_requests = int(tt_stats["requests"])
+        tt_hits = int(tt_stats["hits"])
+        tt_misses = int(tt_stats["misses"])
+        tt_hit_rate = float(tt_hits / tt_requests) if tt_requests > 0 else 0.0
+    else:
+        tt_requests = 0
+        tt_hits = 0
+        tt_misses = 0
+        tt_hit_rate = 0.0
     search_stats = {
         "simulations": int(sims),
         "elapsed": float(elapsed_time),
@@ -240,6 +285,7 @@ def mcts_search(
         "tt_hits": tt_hits,
         "tt_misses": tt_misses,
         "tt_hit_rate": tt_hit_rate,
+        "measure_tt_stats": bool(measure_tt_stats),
         "use_progressive_widening": bool(use_progressive_widening),
         "use_transposition_table": bool(use_transposition_table),
     }
@@ -249,7 +295,12 @@ def mcts_search(
         f"shot={root_state.shot_index} end={root_state.end} hammer={root_state.hammer_team} score_diff={root_state.score_diff}",
         f"simulations={sims} elapsed={elapsed_time:.2f}sec nodes={nodes}",
         f"root_children visited={visited_children} expanded={expanded_children} candidates={len(root.actions)}",
-        f"tt requests={tt_requests} hits={tt_hits} misses={tt_misses} hit_rate={tt_hit_rate:.6f}",
+        (
+            f"tt requests={tt_requests} hits={tt_hits} "
+            f"misses={tt_misses} hit_rate={tt_hit_rate:.6f}"
+            if measure_tt_stats
+            else "MCTS TT stats: disabled"
+        ),
         f"progressive_widening={use_progressive_widening} transposition_table={use_transposition_table}",
         "-----------------------------------------------------",
     ]
@@ -258,7 +309,10 @@ def mcts_search(
     print("-----------------------------------------------------")
     print(f"MCTS search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {nodes}")
     print(f"MCTS root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
-    print(f"MCTS TT: requests={tt_requests}, hits={tt_hits}, misses={tt_misses}, hit_rate={tt_hit_rate:.6f}")
+    if measure_tt_stats:
+        print(f"MCTS TT: requests={tt_requests}, hits={tt_hits}, misses={tt_misses}, hit_rate={tt_hit_rate:.6f}")
+    else:
+        print("MCTS TT stats: disabled")
     print(
         "MCTS options: "
         f"progressive_widening={use_progressive_widening}, "
@@ -274,21 +328,22 @@ def mcts_search(
     return best_action
 
 def set_root_state(
-    network: DualNet,
+    sl_model: Union[DualNet, TransformerNetwork],
     stones: List[Optional[Dict]],
     score_diff: int,
     end: int,
     shot_index: int,
     hammer_team: int,
-    transformer_network: Optional[TransformerNetwork] = None,
     debug: bool = False,
-    use_transformer: bool = False,
     transformer_target_end: Tuple[int, ...] = (9, 10),  # transformerのターゲットとするエンド（複数指定可）
     transformer_target_shot: Tuple[int, ...] = (15,),  # transformerのターゲットとするショット（複数指定可）
+    sl_model_is_cnn: bool = True,
+    search_based_model: Optional[Union[TransformerNetwork, Dict[int, TransformerNetwork]]] = None,
+    use_search_based_model: bool = False,
 ) -> State:
     """
     プレイヤーがPUCT前に最初に呼ぶ想定。
-    - network: dual_net（policy用）
+    - sl_model: 教師あり学習モデル
     - stones: list[(x,y)|None] 16要素
     - score_diff: team0から見た得点差
     - end: 現在のエンド数
@@ -305,12 +360,13 @@ def set_root_state(
             print(f"root_state stone: x={p[0]} y={p[1]}" if p is not None else f"root_state stone: None")
         
 
-    # policy側のグローバルに network と scores_dict をセット
+    # policy側のグローバルにモデルと得点差をセット
     set_policy_context(
-        network,
-        score_diff,
-        transformer_net=transformer_network,
-        use_transformer=use_transformer,
+        sl_model=sl_model,
+        score_diff=score_diff,
+        sl_model_is_cnn=sl_model_is_cnn,
+        search_based_model=search_based_model,
+        use_search_based_model=use_search_based_model,
         transformer_target_end=transformer_target_end,
         transformer_target_shot=transformer_target_shot,
     )

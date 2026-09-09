@@ -1,18 +1,77 @@
 import click
+import torch
 
 from dc3client import SocketClient
+from dc3client.models import StoneRotation
 from nn.feature import generate_input_planes
 from nn.utility import get_torch_device, load_network
 from policy_shot import generate_move_from_policy
+from transformer.feature import generate_input_features
+from transformer.utility import load_transformer_network
+from mcts.simulate import decode_action
 from common.translate_state import convert_scores_to_dict, convert_stones_to_list, \
     scores_to_scorediff_for_team0, convert_team_stoi
 from common.print_console import print_stone_info_from_server
+
+
+def generate_move_from_transformer(
+    network,
+    stones,
+    end: int,
+    shot: int,
+    hammer: int,
+    score_diff_for_team0: int,
+    device: torch.device,
+):
+    """Y拡張TransformerのPolicyから投球を選択する。"""
+
+    stones_feature, game_feature, stone_mask = generate_input_features(
+        stones=stones,
+        end=end,
+        shot=shot,
+        hammer=hammer,
+        score_diff_for_team0=score_diff_for_team0,
+    )
+    stones_tensor = torch.tensor(
+        stones_feature,
+        dtype=torch.float32,
+        device=device,
+    ).unsqueeze(0)
+    game_tensor = torch.tensor(
+        game_feature,
+        dtype=torch.float32,
+        device=device,
+    ).unsqueeze(0)
+    stone_mask_tensor = torch.tensor(
+        stone_mask,
+        dtype=torch.bool,
+        device=device,
+    ).unsqueeze(0)
+
+    policy, _ = network.inference(
+        stones_tensor,
+        game_tensor,
+        stone_mask_tensor,
+    )
+    selected_action = int(torch.argmax(policy, dim=1).item())
+    selected_x, selected_y, spin = decode_action(
+        selected_action,
+        action_type="high_resolution",
+    )
+    selected_rotation = (
+        StoneRotation.clockwise
+        if spin == 0
+        else StoneRotation.counterclockwise
+    )
+    return selected_x, selected_y, selected_rotation
 
 
 @click.command()
 @click.option('--host', type=str, default="localhost", help='Host name (default: localhost)')
 @click.option('--port', type=int, default=10000, help='Port number (default: 10000)')
 @click.option('--model', type=str, default="Default.bin", help='Model name (default: sl-model.bin)')
+@click.option('--transformer_model', type=str, default="Transformer.bin", help='Transformer model name (default: Transformer.bin)')
+@click.option('--use_transformer', type=bool, default=False, help='use_transformer (default: False)')
 @click.option('--use_gpu', type=bool, default=True, help='use_gpu (default: True)')
 @click.option('--name', type=str, default="NewSL", help='AIname (default: True)')
 @click.option('--debug', type=bool, default=False, help='debug (default: False)')
@@ -39,6 +98,8 @@ def main(**kwargs):
     host = kwargs['host']
     port = kwargs['port']
     model = "./model/" + kwargs['model']
+    transformer_model = "./model/" + kwargs['transformer_model']
+    use_transformer = kwargs['use_transformer']
     use_gpu = kwargs['use_gpu']
     cli_name = kwargs['name']
     debug = kwargs['debug']
@@ -69,8 +130,16 @@ def main(**kwargs):
     is_ready = cli.get_is_ready()
 
     device = get_torch_device(use_gpu=use_gpu)
-    network = load_network(model, use_gpu=use_gpu)
-    network.to(device)
+    network = None
+    transformer_network = None
+    if use_transformer:
+        transformer_network = load_transformer_network(
+            transformer_model,
+            use_gpu=use_gpu,
+        )
+    else:
+        network = load_network(model, use_gpu=use_gpu)
+        network.to(device)
 
     is_ready_message = cli.convert_is_ready(is_ready)
 
@@ -124,9 +193,33 @@ def main(**kwargs):
             # print(f"[INFO] stones: {stones}")
             print_stone_info_from_server(stones, debug_on=debug)
             
-            inputplanes = generate_input_planes(stones=stones, end=end, shot=shot, hammer=hammer, score_diff_for_team0=score_diff_for_team0)
-
-            selected_x, selected_y, selected_rotation = generate_move_from_policy(network, inputplanes, shot)
+            if use_transformer:
+                selected_x, selected_y, selected_rotation = (
+                    generate_move_from_transformer(
+                        transformer_network,
+                        stones,
+                        end,
+                        shot,
+                        hammer,
+                        score_diff_for_team0,
+                        device,
+                    )
+                )
+            else:
+                inputplanes = generate_input_planes(
+                    stones=stones,
+                    end=end,
+                    shot=shot,
+                    hammer=hammer,
+                    score_diff_for_team0=score_diff_for_team0,
+                )
+                selected_x, selected_y, selected_rotation = (
+                    generate_move_from_policy(
+                        network,
+                        inputplanes,
+                        shot,
+                    )
+                )
     
             cli.move(x=selected_x, y=selected_y, rotation=selected_rotation)
         else:

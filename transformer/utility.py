@@ -16,10 +16,34 @@ from transformer.params import (
     GAME_FEAT_DIM,
     MAX_STONES,
     STONE_FEAT_DIM,
+    TRANSFORMER_VY_MODE,
+    TransformerVyMode,
+    get_transformer_action_dim,
 )
 
 
 TransformerDataSet = Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+
+
+def load_supervised_data_set(path: str | Path) -> TransformerDataSet:
+    """CNN版と同じクラス番号教師のデータセットを読み込む。
+
+    Args:
+        path (str | Path): データセットのファイルパス。
+
+    Returns:
+        TransformerDataSet:
+            ストーン特徴量、ゲーム特徴量、ストーンマスク、Policy、Value。
+    """
+    data = np.load(path, mmap_mode="r")
+    perm = np.random.permutation(len(data["value"]))
+    return (
+        data["stones"][perm],
+        data["games"][perm],
+        data["stone_masks"][perm],
+        data["policy"][perm].astype(np.float32),
+        data["value"][perm].astype(np.float32),
+    )
 
 
 def get_torch_device(use_gpu: bool) -> torch.device:
@@ -68,13 +92,14 @@ def print_evaluation_information(
     epoch: int,
     iteration: int,
     start_time: float,
+    data_name: str = "Test",
 ) -> None:
     """評価用データの loss 情報を表示する。"""
 
     loss, policy_loss, value_loss = _calculate_losses(loss_data, iteration)
     testing_time = time.time() - start_time
 
-    print(f"Test {epoch} : loss = {loss:6f}, time = {testing_time:3f} seconds.")
+    print(f"{data_name} {epoch} : loss = {loss:6f}, time = {testing_time:3f} seconds.")
     print(f"\tpolicy loss : {policy_loss:6f}")
     print(f"\tvalue loss  : {value_loss:6f}")
 
@@ -181,6 +206,7 @@ def split_train_test_set(
 def load_transformer_network(
     model_file_path: str | Path,
     use_gpu: bool,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
 ) -> TransformerNetwork:
     """学習済み TransformerNetwork を読み込んで返す。"""
 
@@ -189,7 +215,9 @@ def load_transformer_network(
     if not model_path.exists():
         raise FileNotFoundError(f"model file not found: {model_path}")
 
-    network = TransformerNetwork()
+    network = TransformerNetwork(
+        action_dim=get_transformer_action_dim(action_type),
+    )
     state_dict = torch.load(model_path, map_location=device)
     network.load_state_dict(state_dict)
     network.to(device)
@@ -234,6 +262,7 @@ __all__ = [
     "get_torch_device",
     "load_transformer_network",
     "load_transformer_data_set",
+    "load_supervised_data_set",
     "print_learning_process",
     "print_evaluation_information",
     "split_train_test_set",

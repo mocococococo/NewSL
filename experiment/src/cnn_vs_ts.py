@@ -225,29 +225,29 @@ def main(
             )
 
             cnn_root = set_root_state(
-                network=cnn_network,
+                sl_model=cnn_network,
                 stones=stones,
                 score_diff=scorediff_for_team0,
                 end=end,
                 shot_index=shot,
                 hammer_team=hammer,
-                transformer_network=None,
+                search_based_model=None,
                 debug=False,
-                use_transformer=False,
+                use_search_based_model=False,
             )
             cnn_vx, cnn_vy, cnn_spin = mcts_search(root_state=cnn_root)
             cnn_spin = 1 if int(cnn_spin) == 1 else 0
 
             transformer_root = set_root_state(
-                network=cnn_network,
+                sl_model=cnn_network,
                 stones=stones,
                 score_diff=scorediff_for_team0,
                 end=end,
                 shot_index=shot,
                 hammer_team=hammer,
-                transformer_network=transformer_network,
+                search_based_model=transformer_network,
                 debug=False,
-                use_transformer=True,
+                use_search_based_model=True,
                 transformer_target_end=(target_end,),
                 transformer_target_shot=(target_shot,),
             )

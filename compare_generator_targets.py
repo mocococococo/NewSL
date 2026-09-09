@@ -361,7 +361,7 @@ def compare_targets(
     network = load_network(model, use_gpu=use_gpu)
     network.to(device)
 
-    mcts_root = set_mcts_root_state(network=network, **state_fields)
+    mcts_root = set_mcts_root_state(sl_model=network, **state_fields)
     mcts_kwargs = {"root_state": mcts_root, "is_create_data": True}
     if mcts_simulations is not None:
         mcts_kwargs["max_simulations"] = mcts_simulations

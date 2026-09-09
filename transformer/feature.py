@@ -11,6 +11,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from nn.feature import generate_target_data as generate_cnn_target_data
 from board.constant import (
     STONE_RADIUS,
     X_MAX,
@@ -27,6 +28,8 @@ from transformer.params import (
     SCORE_DIFF_CLIP,
     SHOT_NORM_MAX,
     STONE_FEAT_DIM,
+    TRANSFORMER_VY_EXTRA_SIZE,
+    TRANSFORMER_VY_SHEET_SIZE,
 )
 
 
@@ -162,9 +165,20 @@ def generate_input_features(
     return stones_feature, game_feature, stone_mask
 
 
+def generate_target_data(selected_move: dict) -> np.ndarray:
+    """選択中のY分割構成でPolicyの教師データを生成する。"""
+
+    return generate_cnn_target_data(
+        selected_move,
+        TRANSFORMER_VY_SHEET_SIZE,
+        TRANSFORMER_VY_EXTRA_SIZE,
+    )
+
+
 __all__ = [
     "MAX_STONES",
     "STONE_FEAT_DIM",
     "GAME_FEAT_DIM",
     "generate_input_features",
+    "generate_target_data",
 ]
