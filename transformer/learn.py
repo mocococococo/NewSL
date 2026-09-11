@@ -48,16 +48,18 @@ def train(
     epochs: int = EPOCHS,
     model_name: str = "transformer-sl-model",
     use_gpu: bool = True,
+    data_dir: str | Path | None = None,
 ) -> None:
     """TransformerNetwork を教師あり学習する。"""
     torch.set_grad_enabled(True)
     program_dir = Path(program_dir)
     loss_history_path = make_loss_history_path(program_dir, model_name)
+    data_dir = Path(data_dir) if data_dir is not None else program_dir / "data"
 
-    print(program_dir / "data" / "sl_data_*.npz")
-    data_set = sorted(glob.glob(str(program_dir / "data" / "sl_data_*.npz")))
+    print(data_dir / "sl_data_*.npz")
+    data_set = sorted(glob.glob(str(data_dir / "sl_data_*.npz")))
     if not data_set:
-        raise FileNotFoundError(f"学習データが見つかりません: {program_dir / 'data' / 'sl_data_*.npz'}")
+        raise FileNotFoundError(f"学習データが見つかりません: {data_dir / 'sl_data_*.npz'}")
     print("success to get data_set.")
     print(data_set)
 

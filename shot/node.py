@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from typing import Dict, Iterable, Iterator, List, Optional
+from search_config import require_search_mode
 
 from mcts.hybrid_policy import get_policy
 from mcts.state import State
@@ -52,6 +53,7 @@ class Node:
         state: State,
         action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
     ):
+        require_search_mode("shot", action_type)
         self.state = state
         self.key = state.key()
         self.action_type = action_type

@@ -3,6 +3,7 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+from search_config import require_search_mode
 
 from common.translate_state import stones_listdict_to_xy16
 from nn.network.dual_net import DualNet
@@ -28,7 +29,7 @@ from .evaluator import value_probs_to_winvalue
 from .node import Node, argmax_over_actions, tree_size
 from .params import (
     DEFAULT_SHOT_MAX_DEPTH, DEFAULT_SHOT_MAX_SIMULATIONS,
-    DEFAULT_SHOT_TIME_LIMIT_SEC, DEFAULT_SHOT_MAX_SIMULATIONS_15,
+    DEFAULT_SHOT_TIME_LIMIT_SEC,
     DEFAULT_SHOT_INFERENCE_BATCH_SIZE,
 )
 
@@ -67,16 +68,15 @@ def shot_search(
     - inference_batch_size: 深さ1・value評価の教師生成でまとめる推論数の上限。
       1は逐次推論。2以上では浮動小数点の丸め差が生じる可能性がある。
     """
+    require_search_mode("shot", action_type)
+    if not isinstance(max_simulations, int) or isinstance(max_simulations, bool) or max_simulations < 1:
+        raise ValueError("max_simulations must be a positive integer")
     if not isinstance(inference_batch_size, int) or inference_batch_size < 1:
         raise ValueError("inference_batch_size must be a positive integer")
     # 最初に探索木の root を作る
     reset_policy_selection_log()
 
     time_limit_sec = DEFAULT_SHOT_TIME_LIMIT_SEC
-    if root_state.shot_index == 15:
-        max_simulations = DEFAULT_SHOT_MAX_SIMULATIONS_15
-        # if root_state.shot_index % 2 == 0 \
-        # else DEFAULT_SHOT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
 

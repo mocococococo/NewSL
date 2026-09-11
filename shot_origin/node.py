@@ -3,11 +3,15 @@ from __future__ import annotations
 import hashlib
 import math
 from typing import Dict, Iterable, Iterator, List, Optional
+from search_config import require_search_mode
 
 from mcts.state import State
 from transformer.params import TRANSFORMER_VY_MODE, TransformerVyMode, get_transformer_action_dim
 
-from .params import DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED, SHOT_ORIGIN_KEEP_RATIO
+from .params import (
+    DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED, SHOT_ORIGIN_KEEP_RATIO,
+    DEFAULT_SHOT_ORIGIN_INITIAL_CANDIDATES,
+)
 
 
 def argmax_over_actions(actions: Iterable[int], key):
@@ -37,11 +41,14 @@ class Node:
         action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
         tie_break_seed: int = DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED,
     ):
+        require_search_mode("shot_origin", action_type)
         self.state = state
         self.key = state.key()
         self.action_type = action_type
         self.tie_break_seed = int(tie_break_seed)
         self.n_actions = get_transformer_action_dim(action_type)
+        if self.n_actions != DEFAULT_SHOT_ORIGIN_INITIAL_CANDIDATES:
+            raise ValueError("shot_origin must start with the full configured action space")
 
         self.N: int = 0
         self.actions: List[int] = list(range(self.n_actions))

@@ -44,9 +44,11 @@ from transformer.shot_target import (
 )
 from transformer.utility import load_transformer_network
 from shot.search import shot_search, set_root_state
+from shot_origin.search import shot_origin_search, set_root_state as set_origin_root_state
 from shot.params import DEFAULT_SHOT_MAX_SIMULATIONS, DEFAULT_SHOT_INFERENCE_BATCH_SIZE
 from board.constant import VX_SIZE
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
+from search_config import SearchMode, get_search_settings, require_search_mode
 
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
 N_VALUE_CLASSES = DEFAULT_TRANSFORMER_CONFIG.value_dim
@@ -208,7 +210,7 @@ def generate_data(
     transformer_model: Optional[str | Path] = None,
     transformer_target_end: Optional[List[int]] = None,
     transformer_target_shot: Optional[List[int]] = None,
-    max_simulations: int = DEFAULT_SHOT_MAX_SIMULATIONS,
+    max_simulations: Optional[int] = None,
     use_gpu: bool = True,
     shuffle_seed: int = 0,
     chunk_start: int = 0,
@@ -227,6 +229,7 @@ def generate_data(
     inference_batch_size: int = DEFAULT_SHOT_INFERENCE_BATCH_SIZE,
     num_workers: int = 1,
     simulation_seed: int = 0,
+    search_mode: SearchMode = "shot",
 ) -> None:
     """Generate disjoint chunks; worker count does not change chunk RNG streams.
 
@@ -234,6 +237,9 @@ def generate_data(
     Files are saved under ``save_path/end{target_end}/shot{shot}/``;
     each requested shot has its own buffer and file counter.
     """
+    require_search_mode(search_mode)
+    if max_simulations is None:
+        max_simulations = get_search_settings(search_mode).max_simulations
     if not isinstance(inference_batch_size, int) or inference_batch_size < 1:
         raise ValueError("inference_batch_size must be a positive integer")
     if isinstance(num_workers, bool) or not isinstance(num_workers, int) or num_workers < 1:
@@ -269,6 +275,7 @@ def generate_data(
         value_delta_q=value_delta_q, value_alpha_visit=value_alpha_visit,
         value_beta_q=value_beta_q, value_lambda_best=value_lambda_best,
         inference_batch_size=inference_batch_size,
+        search_mode=search_mode,
     )
     jobs = []
     for chunk_index in range(chunk_start, chunk_end + 1):
@@ -365,14 +372,21 @@ def _generate_chunk(
     policy_delta_q, policy_alpha_visit, policy_beta_q, policy_lambda_best,
     value_min_visit, value_delta_q, value_alpha_visit, value_beta_q,
     value_lambda_best, inference_batch_size,
+    search_mode: SearchMode = "shot",
 ) -> None:
+    require_search_mode(search_mode)
     log_size = 0
     position_data: dict[tuple[int, int], _PositionData] = {}
     
     device = get_torch_device(use_gpu=use_gpu)
     model_path = _resolve_model_path(model)
-    network = load_network(model_path, use_gpu=use_gpu)
+    sl_model_is_cnn = search_mode == "shot"
+    network = (load_network(model_path, use_gpu=use_gpu) if sl_model_is_cnn
+               else load_transformer_network(model_path, use_gpu=use_gpu))
     network.to(device)
+    make_root = set_root_state if sl_model_is_cnn else set_origin_root_state
+    run_search = shot_search if sl_model_is_cnn else shot_origin_search
+    search_options = {"inference_batch_size": inference_batch_size} if sl_model_is_cnn else {}
 
     transformer_network = None
     transformer_target_end_tuple = (
@@ -460,7 +474,7 @@ def _generate_chunk(
                           f"scorediff_for_shot_team={scorediff_for_shot_team}")
                     continue
 
-                root = set_root_state(
+                root = make_root(
                     network=network,
                     stones=stones,
                     score_diff=expanded_score_diff,
@@ -471,6 +485,7 @@ def _generate_chunk(
                     use_transformer=use_transformer,
                     transformer_target_end=transformer_target_end_tuple,
                     transformer_target_shot=transformer_target_shot_tuple,
+                    sl_model_is_cnn=sl_model_is_cnn,
                 )
                 # Transformer 用の stone/game/mask 特徴量を生成する。
                 stones_feature, game_feature, stone_mask = generate_input_features(
@@ -481,11 +496,11 @@ def _generate_chunk(
                     score_diff_for_team0=expanded_score_diff
                 )
                 # 探索して、root候補統計から target を作る。
-                best_action_id, root_candidate_stats = shot_search(
+                best_action_id, root_candidate_stats = run_search(
                     root_state=root,
                     max_simulations=max_simulations,
                     is_create_data=True,
-                    inference_batch_size=inference_batch_size,
+                    **search_options,
                 )
                 policy_distribution = build_policy_target_from_shot_stats(
                     root_candidate_stats,
@@ -632,7 +647,7 @@ def main(chunk_start: int, chunk_end: int, inference_batch_size: int,
         / "transformer-sl-9-3-model-06-30-adamw-epoch50-shot.bin",
         transformer_target_end=[9],
         transformer_target_shot=[3],
-        max_simulations=1022,
+        max_simulations=DEFAULT_SHOT_MAX_SIMULATIONS,
         inference_batch_size=inference_batch_size,
         num_workers=num_workers,
         simulation_seed=simulation_seed,

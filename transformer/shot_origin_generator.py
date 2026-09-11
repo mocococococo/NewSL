@@ -23,6 +23,7 @@ from learning_param import BATCH_SIZE, DATA_SET_SIZE
 from mcts.state import score_diff_from_scores
 from nn.utility import get_torch_device, load_network
 from shot_origin.params import DEFAULT_SHOT_ORIGIN_MAX_SIMULATIONS
+from search_config import require_search_mode
 from shot_origin.search import set_root_state, shot_origin_search
 from transformer.feature import _shot_team, generate_input_features
 from transformer.params import (
@@ -294,6 +295,7 @@ def generate_data(
     value_beta_q: float = 0.5,
     value_lambda_best: float = 0.5,
 ) -> None:
+    require_search_mode("shot_origin")
     if chunk_end is None:
         chunk_end = chunk_start
     if chunk_start < 0:
@@ -339,6 +341,7 @@ def generate_data(
         return
 
     action_type = "default" if sl_model_is_cnn else TRANSFORMER_VY_MODE
+    require_search_mode("shot_origin", action_type)
     action_dim = get_transformer_action_dim(action_type)
     if action_dim != N_ACTIONS:
         raise ValueError(

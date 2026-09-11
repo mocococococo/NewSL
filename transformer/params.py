@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from typing import Literal
+from search_config import ACTIVE_SEARCH_SETTINGS
 
 from board.constant import (
     TRANSFORMER_HIGH_RESOLUTION_VY_EXTRA_SIZE,
@@ -24,8 +25,8 @@ ActivationName = Literal["relu", "gelu"]
 TransformerVyMode = Literal["default", "high_resolution"]
 
 
-# Transformerで使用するY方向の分割構成を指定する。
-TRANSFORMER_VY_MODE: TransformerVyMode = "default"
+# 行動構成は search_config.py の探索方式と一緒に切り替える。
+TRANSFORMER_VY_MODE: TransformerVyMode = ACTIVE_SEARCH_SETTINGS.action_type
 
 
 def get_transformer_vy_sizes(
@@ -57,6 +58,8 @@ def get_transformer_action_dim(vy_mode: TransformerVyMode) -> int:
     TRANSFORMER_VY_SIZE,
 ) = get_transformer_vy_sizes(TRANSFORMER_VY_MODE)
 TRANSFORMER_ACTION_DIM = get_transformer_action_dim(TRANSFORMER_VY_MODE)
+if TRANSFORMER_ACTION_DIM != ACTIVE_SEARCH_SETTINGS.action_count:
+    raise ValueError("Action dimensions in board/constant.py disagree with search_config.py")
 
 if TRANSFORMER_VY_MODE == "default":
     TRANSFORMER_SUPERVISED_DATA_DIRECTORY = "supervised"

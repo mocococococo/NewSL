@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
+from search_config import require_search_mode
 
 from common.translate_state import stones_listdict_to_xy16
 from nn.network.dual_net import DualNet
@@ -84,6 +85,9 @@ def shot_origin_search(
     tie_break_seed: int = DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED,
 ) -> Union[SearchAction, SearchDataResult]:
     """Policy-free SHOT using round extra visits 1, 2, 3, ... ."""
+    require_search_mode("shot_origin", action_type)
+    if not isinstance(max_simulations, int) or isinstance(max_simulations, bool) or max_simulations < 1:
+        raise ValueError("max_simulations must be a positive integer")
     reset_policy_selection_log()
 
     dbg = Debugger(debug, every=debug_every)
