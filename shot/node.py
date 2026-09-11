@@ -220,6 +220,26 @@ class Node:
             key=lambda a: (self.Q[a], self.Nsa[a], self.P[a]),
         )
 
+    def select_action_batch(self, batch_size: int) -> List[int]:
+        """統計を変更せず、逐次選択と同じ順序で各候補を1回だけ予約する。
+
+        同じ最小訪問回数の候補だけを選ぶ。選択済み候補のQが変わっても、
+        その訪問回数は残りの候補より多くなるため、この範囲の順序は変わらない。
+        呼び出し側は全結果を反映してから次の予約・候補半減を行う。
+        """
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+        assert self.P is not None and self.Q is not None and self.Nsa is not None
+
+        need_actions = [a for a in self.actions if self.Nsa[a] < self._round_visit_target]
+        if not need_actions:
+            return [self.select_action()]
+
+        min_visits = min(self.Nsa[a] for a in need_actions)
+        actions = [a for a in need_actions if self.Nsa[a] == min_visits]
+        # stable sort は同値の場合も select_action() と同じ actions 順を保つ。
+        return sorted(actions, key=lambda a: (self.P[a], self.Q[a]), reverse=True)[:batch_size]
+
     def round_info(self) -> str:
         return (
             f"round={self._round_index} active={len(self.actions)} "

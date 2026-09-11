@@ -1,4 +1,5 @@
 import time
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
@@ -8,7 +9,10 @@ from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
 from transformer.params import TRANSFORMER_VY_MODE, TransformerVyMode
 
-from mcts.hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
+from mcts.hybrid_policy import (
+    get_policy_and_value, get_value_probs, get_value_probs_batch,
+    reset_policy_selection_log, set_policy_context,
+)
 from mcts.rollout import rollout_to_end_score
 from mcts.simulate import decode_action, simulator_step
 from mcts.state import State, is_end_terminal
@@ -22,7 +26,11 @@ from .create_mode import (
 from .debugger import Debugger, format_topk_policy, format_topk_root_shot, policy_stats, summarize_stones
 from .evaluator import value_probs_to_winvalue
 from .node import Node, argmax_over_actions, tree_size
-from .params import DEFAULT_SHOT_MAX_DEPTH, DEFAULT_SHOT_MAX_SIMULATIONS, DEFAULT_SHOT_TIME_LIMIT_SEC, DEFAULT_SHOT_MAX_SIMULATIONS_15
+from .params import (
+    DEFAULT_SHOT_MAX_DEPTH, DEFAULT_SHOT_MAX_SIMULATIONS,
+    DEFAULT_SHOT_TIME_LIMIT_SEC, DEFAULT_SHOT_MAX_SIMULATIONS_15,
+    DEFAULT_SHOT_INFERENCE_BATCH_SIZE,
+)
 
 SearchAction = Tuple[float, float, int]
 SearchDataResult = Tuple[int, List[RootCandidateStat]]
@@ -49,13 +57,18 @@ def shot_search(
     is_create_data: bool = False,
     use_value: bool = True,
     action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+    inference_batch_size: int = DEFAULT_SHOT_INFERENCE_BATCH_SIZE,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     SHOTで探索して最善手(action_id: 0..N_ACTIONS-1)を返す。
     - max_simulations: シミュレーション回数上限
     - time_limit_sec: 時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
+    - inference_batch_size: 深さ1・value評価の教師生成でまとめる推論数の上限。
+      1は逐次推論。2以上では浮動小数点の丸め差が生じる可能性がある。
     """
+    if not isinstance(inference_batch_size, int) or inference_batch_size < 1:
+        raise ValueError("inference_batch_size must be a positive integer")
     # 最初に探索木の root を作る
     reset_policy_selection_log()
 
@@ -66,6 +79,10 @@ def shot_search(
         # else DEFAULT_SHOT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
     if is_create_data:
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
+
+    # 深さ1の教師生成では、末端から行動選択しないため子ノードと policy は不要。
+    value_only_leaf = is_create_data and max_depth == 1 and use_value
+    batch_value_leaf = value_only_leaf and inference_batch_size > 1 and not is_end_terminal(root_state)
 
     dbg = Debugger(debug, every=debug_every)
     decode_search_action = lambda a: decode_action(a, action_type=action_type)
@@ -86,6 +103,7 @@ def shot_search(
     start_time = time.perf_counter()
     sims = 0
     root_score_histograms: ScoreHistograms = {}
+    pending_leaves: deque[Tuple[int, State, Optional[List[float]]]] = deque()
 
     while sims < max_simulations:
         if time_limit_sec is not None and (time.perf_counter() - start_time) >= time_limit_sec:
@@ -99,28 +117,60 @@ def shot_search(
         dbg.tic("selection")
         select_depth = 0
 
-        while node.is_expanded() and (not is_end_terminal(state)) and select_depth < max_depth:
-            assert node.P is not None and node.Q is not None and node.Nsa is not None
+        if batch_value_leaf:
+            if not pending_leaves:
+                root.halve_actions_if_needed()
+                actions = root.select_action_batch(min(inference_batch_size, max_simulations - sims))
+                # 逐次実行と同じ順番で乱数を消費し、各候補を1回だけ評価する。
+                leaves = [simulator_step(root_state, a, action_type=action_type) for a in actions]
+                nonterminal_indices = [i for i, leaf in enumerate(leaves) if not is_end_terminal(leaf)]
+                dbg.toc("selection")
+                dbg.tic("batch_inference")
+                predictions = get_value_probs_batch(
+                    [leaves[i] for i in nonterminal_indices], action_type=action_type,
+                )
+                dbg.toc("batch_inference")
+                dbg.tic("selection")
+                values_by_index = dict(zip(nonterminal_indices, predictions))
+                pending_leaves.extend(
+                    (a, leaf, values_by_index.get(i))
+                    for i, (a, leaf) in enumerate(zip(actions, leaves))
+                )
+            a, state, batch_value_probs = pending_leaves.popleft()
+            path.append((root, a))
+            select_depth = 1
+        else:
+            while node.is_expanded() and (not is_end_terminal(state)) and select_depth < max_depth:
+                assert node.P is not None and node.Q is not None and node.Nsa is not None
 
-            node.halve_actions_if_needed()
-            a = node.select_action()
-            path.append((node, a))
-            state = simulator_step(state, a, action_type=action_type)     # 1投進める
-            node = node.child_for(a, state)
-            select_depth += 1
+                node.halve_actions_if_needed()
+                a = node.select_action()
+                path.append((node, a))
+                state = simulator_step(state, a, action_type=action_type)     # 1投進める
+                if not value_only_leaf:
+                    node = node.child_for(a, state)
+                select_depth += 1
 
         dbg.toc("selection")
 
         # 2) Expansion
         dbg.tic("expansion")
         if not is_end_terminal(state):
-            pi, value_probs = get_policy_and_value(state, action_type=action_type)
+            if value_only_leaf:
+                pi = None
+                if batch_value_leaf:
+                    assert batch_value_probs is not None
+                    value_probs = batch_value_probs
+                else:
+                    value_probs = get_value_probs(state, action_type=action_type)
+            else:
+                pi, value_probs = get_policy_and_value(state, action_type=action_type)
             v_to_move = (
                 value_probs_to_winvalue(state, value_probs)
                 if use_value
                 else None
             )
-            if not node.is_expanded():
+            if not value_only_leaf and not node.is_expanded():
                 node.expand(pi)
         else:
             pi = None
@@ -200,19 +250,34 @@ def shot_search(
 
     # シミュレーション回数と、シミュレーション時間を表示する
     elapsed_time = time.perf_counter() - start_time
+    if value_only_leaf:
+        children_summary = (
+            f"root_actions visited={visited_children} candidates={len(root.actions)} "
+            "leaf_nodes=omitted"
+        )
+        if batch_value_leaf:
+            children_summary += f" inference_batch_size={inference_batch_size}"
+    else:
+        children_summary = (
+            f"root_children visited={visited_children} expanded={expanded_children} "
+            f"candidates={len(root.actions)}"
+        )
     lines = [
         "-----------------------------------------------------",
         f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}]",
         f"shot={root_state.shot_index} end={root_state.end} hammer={root_state.hammer_team} score_diff={root_state.score_diff}",
         f"simulations={sims} elapsed={elapsed_time:.2f}sec nodes={tree_size(root)}",
-        f"root_children visited={visited_children} expanded={expanded_children} candidates={len(root.actions)}",
+        children_summary,
         "-----------------------------------------------------",
     ]
     if is_create_data:
         _emit_lines(lines, stats_log_path)
     print("-----------------------------------------------------")
     print(f"SHOT search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {tree_size(root)}")
-    print(f"SHOT root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
+    if value_only_leaf:
+        print(f"SHOT {children_summary}")
+    else:
+        print(f"SHOT root children: visited={visited_children}, expanded={expanded_children} (candidates={len(root.actions)})")
     print("-----------------------------------------------------")
 
     if is_create_data:

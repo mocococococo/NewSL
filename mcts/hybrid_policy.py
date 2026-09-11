@@ -162,6 +162,70 @@ def get_policy_and_value(
     return transformer_policy.get_policy_and_value(state)
 
 
+def get_value_probs(
+    state: State,
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> List[float]:
+    """通常の推論と同じモデルを選び、末端評価用の value 分布だけを返す。"""
+
+    if _should_use_search_based_model(state):
+        model = _select_search_based_model(state)
+        _check_transformer_action_space(model, action_type)
+        _log_selected_policy_once(state, "Search-based Transformer")
+        _use_transformer(model)
+        return transformer_policy.get_value_probs(state)
+
+    if _SL_MODEL_IS_CNN:
+        _check_cnn_action_space(action_type)
+        _log_selected_policy_once(state, "Supervised CNN")
+        return cnn_policy.get_value_probs(state)
+
+    _check_transformer_action_space(_SL_TRANSFORMER_MODEL, action_type)
+    _log_selected_policy_once(state, "Supervised Transformer")
+    _use_transformer(_SL_TRANSFORMER_MODEL)
+    return transformer_policy.get_value_probs(state)
+
+
+def get_value_probs_batch(
+    states: List[State],
+    action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
+) -> List[List[float]]:
+    """同じ推論context内の局面をモデル別にまとめ、入力順にvalueを返す。"""
+    if not states:
+        return []
+    if len(states) == 1:
+        return [get_value_probs(states[0], action_type=action_type)]
+
+    groups: Dict[TransformerNetwork | None, List[Tuple[int, State]]] = {}
+    for index, state in enumerate(states):
+        if _should_use_search_based_model(state):
+            model = _select_search_based_model(state)
+            _check_transformer_action_space(model, action_type)
+            label = "Search-based Transformer"
+        elif _SL_MODEL_IS_CNN:
+            model = None
+            _check_cnn_action_space(action_type)
+            label = "Supervised CNN"
+        else:
+            model = _SL_TRANSFORMER_MODEL
+            _check_transformer_action_space(model, action_type)
+            label = "Supervised Transformer"
+        _log_selected_policy_once(state, label)
+        groups.setdefault(model, []).append((index, state))
+
+    results: List[List[float]] = [[] for _ in states]
+    for model, indexed_states in groups.items():
+        batch = [state for _, state in indexed_states]
+        if model is None:
+            values = cnn_policy.get_value_probs_batch(batch)
+        else:
+            _use_transformer(model)
+            values = transformer_policy.get_value_probs_batch(batch)
+        for (index, _), value in zip(indexed_states, values):
+            results[index] = value
+    return results
+
+
 def get_policy(
     state: State,
     action_type: TransformerVyMode = TRANSFORMER_VY_MODE,

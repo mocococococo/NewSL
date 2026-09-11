@@ -43,8 +43,10 @@ def _get_network_device(transformer_net: TransformerNetwork) -> torch.device:
         return torch.device("cpu")
 
 
-def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
-    """State から Transformer を使って policy / value 分布を得る。"""
+def _prepare_inputs(
+    state: State, *, to_device: bool = True,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """両 head 推論と value 専用推論で同じ入力を使う。"""
 
     if _TRANSFORMER_NET is None:
         raise RuntimeError("transformer_net is not set. Call set_policy_context() first.")
@@ -64,13 +66,18 @@ def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
     game_tensor = torch.tensor(game_feature, dtype=torch.float32).unsqueeze(0)
     stone_mask_tensor = torch.tensor(stone_mask, dtype=torch.bool).unsqueeze(0)
 
+    if not to_device:
+        return stones_tensor, game_tensor, stone_mask_tensor
+    device = _get_network_device(_TRANSFORMER_NET)
+    return stones_tensor.to(device), game_tensor.to(device), stone_mask_tensor.to(device)
+
+
+def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
+    """State から Transformer を使って policy / value 分布を得る。"""
+
+    stones_tensor, game_tensor, stone_mask_tensor = _prepare_inputs(state)
     _TRANSFORMER_NET.eval()
     with torch.no_grad():
-        device = _get_network_device(_TRANSFORMER_NET)
-        stones_tensor = stones_tensor.to(device)
-        game_tensor = game_tensor.to(device)
-        stone_mask_tensor = stone_mask_tensor.to(device)
-
         policy_t, value_t = _TRANSFORMER_NET.inference(
             stones_tensor,
             game_tensor,
@@ -91,6 +98,46 @@ def get_policy_and_value(state: State) -> Tuple[List[float], List[float]]:
         )
 
     return policy, value
+
+
+def get_value_probs(state: State) -> List[float]:
+    """policy の計算・転送を省き、17クラスの value 分布を返す。"""
+
+    stones_tensor, game_tensor, stone_mask_tensor = _prepare_inputs(state)
+    _TRANSFORMER_NET.eval()
+    with torch.no_grad():
+        value_t = _TRANSFORMER_NET.inference_value(
+            stones_tensor, game_tensor, stone_mask_tensor,
+        )
+        value = value_t.squeeze(0).detach().cpu().tolist()
+
+    if len(value) != _TRANSFORMER_NET.config.value_dim:
+        raise RuntimeError(
+            "value length mismatch: "
+            f"{len(value)} != {_TRANSFORMER_NET.config.value_dim}"
+        )
+    return value
+
+
+def get_value_probs_batch(states: List[State]) -> List[List[float]]:
+    """入力をCPU上でまとめ、1回の推論・転送で各局面のvalue分布を返す。"""
+    if not states:
+        return []
+    if len(states) == 1:
+        return [get_value_probs(states[0])]
+
+    inputs = [_prepare_inputs(state, to_device=False) for state in states]
+    device = _get_network_device(_TRANSFORMER_NET)
+    stones, games, masks = (
+        torch.cat([sample[i] for sample in inputs], dim=0).to(device)
+        for i in range(3)
+    )
+    _TRANSFORMER_NET.eval()
+    with torch.no_grad():
+        values = _TRANSFORMER_NET.inference_value(stones, games, masks)
+        if tuple(values.shape) != (len(states), _TRANSFORMER_NET.config.value_dim):
+            raise RuntimeError(f"value batch shape mismatch: {tuple(values.shape)}")
+        return values.detach().cpu().tolist()
 
 
 def get_policy(state: State) -> List[float]:

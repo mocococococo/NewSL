@@ -34,9 +34,25 @@ class DualNet(nn.Module):
 
     def forward(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝播処理を実行する。
-        blocks_out = self.blocks(self.relu(self.bn_layer(self.conv_layer(input_plane))))
+        blocks_out = self._encode_board(input_plane)
 
         return self.policy_head(blocks_out), self.value_head(blocks_out)
+
+    def _encode_board(self, input_plane: torch.Tensor) -> torch.Tensor:
+        """両 head で共有する盤面特徴を計算する。"""
+        return self.blocks(self.relu(self.bn_layer(self.conv_layer(input_plane))))
+
+    @torch.no_grad()
+    def inference_value(self, input_plane: torch.Tensor) -> torch.Tensor:
+        """探索末端用に policy head を省き、value 分布だけを返す。"""
+        was_training = self.training
+        self.eval()
+        try:
+            blocks_out = self._encode_board(input_plane)
+            return self.softmax(self.value_head(blocks_out))
+        finally:
+            if was_training:
+                self.train()
 
     def forward_for_sl(self, input_plane: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         #前向き伝搬処理を実行する。教師有り学習で利用する。

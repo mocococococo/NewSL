@@ -8,6 +8,7 @@ __pycache__/
 *.log
 */logs
 /test
+/.temp
 /prompt
 /experiment/data
 /experiment/plots

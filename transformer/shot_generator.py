@@ -13,6 +13,10 @@ import sys
 import json
 import random
 import gc
+import subprocess
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional
 
@@ -40,12 +44,24 @@ from transformer.shot_target import (
 )
 from transformer.utility import load_transformer_network
 from shot.search import shot_search, set_root_state
-from shot.params import DEFAULT_SHOT_MAX_SIMULATIONS
+from shot.params import DEFAULT_SHOT_MAX_SIMULATIONS, DEFAULT_SHOT_INFERENCE_BATCH_SIZE
 from board.constant import VX_SIZE
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
 N_VALUE_CLASSES = DEFAULT_TRANSFORMER_CONFIG.value_dim
+
+
+@dataclass
+class _PositionData:
+    stones_data: list = field(default_factory=list)
+    games_data: list = field(default_factory=list)
+    stone_masks_data: list = field(default_factory=list)
+    policy_data: list = field(default_factory=list)
+    value_data: list = field(default_factory=list)
+    win_value_data: list = field(default_factory=list)
+    log_counter: int = 1
+    data_counter: int = 0
 
 
 def _flip_policy_target(policy_target):
@@ -121,7 +137,7 @@ def _mirror_stones_x(stones):
 
 
 def _save_data(
-    save_file_path: str,
+    save_file_path: str | Path,
     stones_data: np.ndarray,
     games_data: np.ndarray,
     stone_masks_data: np.ndarray,
@@ -208,59 +224,150 @@ def generate_data(
     value_alpha_visit: float = 0.5,
     value_beta_q: float = 0.5,
     value_lambda_best: float = 0.5,
+    inference_batch_size: int = DEFAULT_SHOT_INFERENCE_BATCH_SIZE,
+    num_workers: int = 1,
+    simulation_seed: int = 0,
 ) -> None:
+    """Generate disjoint chunks; worker count does not change chunk RNG streams.
+
+    ``shuffle_seed`` controls input order; ``simulation_seed`` controls search.
+    Files are saved under ``save_path/end{target_end}/shot{shot}/``;
+    each requested shot has its own buffer and file counter.
+    """
+    if not isinstance(inference_batch_size, int) or inference_batch_size < 1:
+        raise ValueError("inference_batch_size must be a positive integer")
+    if isinstance(num_workers, bool) or not isinstance(num_workers, int) or num_workers < 1:
+        raise ValueError("num_workers must be a positive integer")
+    if isinstance(simulation_seed, bool) or not isinstance(simulation_seed, int) or simulation_seed < 0:
+        raise ValueError("simulation_seed must be a non-negative integer")
     if chunk_end is None:
         chunk_end = chunk_start
     if chunk_start < 0:
         raise ValueError(f"chunk_start must be non-negative, got {chunk_start}")
     if chunk_end < chunk_start:
         raise ValueError(f"chunk_end must be greater than or equal to chunk_start, got {chunk_end}")
-    if chunk_start != chunk_end:
-        if chunk_size is None:
-            raise ValueError("chunk_size must be specified when running multiple chunks")
-        for current_chunk_index in range(chunk_start, chunk_end + 1):
-            generate_data(
-                log_path=log_path,
-                save_path=save_path,
-                data_size=data_size,
-                target_end=target_end,
-                use_end_augmentation=use_end_augmentation,
-                use_score_diff_augmentation=use_score_diff_augmentation,
-                target_shot=target_shot,
-                model=model,
-                use_transformer=use_transformer,
-                transformer_model=transformer_model,
-                transformer_target_end=transformer_target_end,
-                transformer_target_shot=transformer_target_shot,
-                max_simulations=max_simulations,
-                use_gpu=use_gpu,
-                shuffle_seed=shuffle_seed,
-                chunk_start=current_chunk_index,
-                chunk_end=current_chunk_index,
-                chunk_size=chunk_size,
-                policy_min_visit=policy_min_visit,
-                policy_delta_q=policy_delta_q,
-                policy_alpha_visit=policy_alpha_visit,
-                policy_beta_q=policy_beta_q,
-                policy_lambda_best=policy_lambda_best,
-                value_min_visit=value_min_visit,
-                value_delta_q=value_delta_q,
-                value_alpha_visit=value_alpha_visit,
-                value_beta_q=value_beta_q,
-                value_lambda_best=value_lambda_best,
-            )
+    if chunk_start != chunk_end and chunk_size is None:
+        raise ValueError("chunk_size must be specified when running multiple chunks")
+    if chunk_size is not None and (
+        isinstance(chunk_size, bool) or not isinstance(chunk_size, int) or chunk_size <= 0
+    ):
+        raise ValueError("chunk_size must be a positive integer")
+
+    # Freeze input order in the parent so worker scheduling cannot change membership.
+    log_files = sorted(os.listdir(log_path))
+    shuffled_log_files = random.Random(shuffle_seed).sample(log_files, len(log_files))
+    options = dict(
+        log_path=log_path, save_path=save_path, data_size=data_size,
+        target_end=target_end, use_end_augmentation=use_end_augmentation,
+        use_score_diff_augmentation=use_score_diff_augmentation, target_shot=target_shot,
+        model=model, use_transformer=use_transformer, transformer_model=transformer_model,
+        transformer_target_end=transformer_target_end, transformer_target_shot=transformer_target_shot,
+        max_simulations=max_simulations, use_gpu=use_gpu,
+        policy_min_visit=policy_min_visit, policy_delta_q=policy_delta_q,
+        policy_alpha_visit=policy_alpha_visit, policy_beta_q=policy_beta_q,
+        policy_lambda_best=policy_lambda_best, value_min_visit=value_min_visit,
+        value_delta_q=value_delta_q, value_alpha_visit=value_alpha_visit,
+        value_beta_q=value_beta_q, value_lambda_best=value_lambda_best,
+        inference_batch_size=inference_batch_size,
+    )
+    jobs = []
+    for chunk_index in range(chunk_start, chunk_end + 1):
+        start = chunk_index * chunk_size if chunk_size is not None else 0
+        stop = min(start + chunk_size, len(log_files)) if chunk_size is not None else len(log_files)
+        target_log_files = shuffled_log_files[start:stop]
+        print(f"chunk {chunk_index}: logs[{start}:{stop}] = {len(target_log_files)} files")
+        if target_log_files:
+            jobs.append((chunk_index, target_log_files, simulation_seed, options))
+
+    worker_count = min(num_workers, len(jobs))
+    if worker_count <= 1:
+        for job in jobs:
+            _run_chunk(*job)
         return
 
-    chunk_index = chunk_start
+    # CUDA contexts and mutable policy/simulator globals must belong to separate processes.
+    # Divide the parent's CPU thread budget instead of multiplying it by worker_count.
+    threads = max(1, torch.get_num_threads() // worker_count)
+    cudnn_flags = {name: getattr(torch.backends.cudnn, name) for name in (
+        "enabled", "allow_tf32", "benchmark", "deterministic",
+    )}
+    Path(save_path).mkdir(parents=True, exist_ok=True)
+    # Only process launch/wait runs in these threads; all search work is isolated.
+    # Files avoid platform-specific multiprocessing IPC and keep tensor data local.
+    with tempfile.TemporaryDirectory(prefix=".shot-workers-", dir=save_path) as temporary:
+        job_files = []
+        for job in jobs:
+            job_file = Path(temporary) / f"chunk-{job[0]}.json"
+            job_file.write_text(json.dumps(dict(
+                job=job, threads=threads, cudnn_flags=cudnn_flags,
+                matmul_allow_tf32=torch.backends.cuda.matmul.allow_tf32,
+                batch_size=BATCH_SIZE, data_set_size=DATA_SET_SIZE,
+            ), default=os.fspath), encoding="utf-8")
+            job_files.append((job[0], job_file))
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {executor.submit(_run_chunk_process, path): index for index, path in job_files}
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as exc:
+                    for pending in futures:
+                        pending.cancel()
+                    raise RuntimeError(f"chunk {futures[future]} failed") from exc
+
+
+def _run_chunk_process(job_file: Path) -> None:
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    if sys.dont_write_bytecode:
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+    command = [sys.executable, str(ROOT_DIR / "transformer" / "shot_chunk_worker.py"), str(job_file.resolve())]
+    # Explicitly forward output: hidden Windows processes may have no inherited console.
+    with subprocess.Popen(
+        command, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", errors="replace",
+        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+    ) as process:
+        for line in process.stdout:
+            print(line, end="", flush=True)
+        returncode = process.wait()
+        if returncode:
+            raise subprocess.CalledProcessError(returncode, command)
+
+
+def _initialize_chunk_worker(threads, cudnn_flags, matmul_allow_tf32):
+    torch.set_num_threads(threads)
+    for name, value in cudnn_flags.items():
+        setattr(torch.backends.cudnn, name, value)
+    torch.backends.cuda.matmul.allow_tf32 = matmul_allow_tf32
+
+
+def _seed_chunk(simulation_seed: int, chunk_index: int) -> None:
+    seed = np.random.SeedSequence([simulation_seed, chunk_index])
+    scalar_seed = int(seed.generate_state(1, dtype=np.uint64)[0])
+    random.seed(scalar_seed)
+    np.random.seed(seed.generate_state(4))
+    torch.manual_seed(scalar_seed)
+
+
+def _run_chunk(chunk_index, target_log_files, simulation_seed, options):
+    _seed_chunk(simulation_seed, chunk_index)
+    print(f"[SHOT chunk={chunk_index}] start pid={os.getpid()} "
+          f"threads={torch.get_num_threads()} simulation_seed={simulation_seed}", flush=True)
+    _generate_chunk(chunk_index=chunk_index, target_log_files=target_log_files, **options)
+    print(f"[SHOT chunk={chunk_index}] done", flush=True)
+
+
+def _generate_chunk(
+    *, chunk_index, target_log_files, log_path, save_path, data_size,
+    target_end, use_end_augmentation, use_score_diff_augmentation, target_shot,
+    model, use_transformer, transformer_model, transformer_target_end,
+    transformer_target_shot, max_simulations, use_gpu, policy_min_visit,
+    policy_delta_q, policy_alpha_visit, policy_beta_q, policy_lambda_best,
+    value_min_visit, value_delta_q, value_alpha_visit, value_beta_q,
+    value_lambda_best, inference_batch_size,
+) -> None:
     log_size = 0
-    log_counter = 1
-    data_counter = 0
-    stones_data = []
-    games_data = []
-    stone_masks_data = []
-    policy_data = []
-    value_data = []
-    win_value_data = []
+    position_data: dict[tuple[int, int], _PositionData] = {}
     
     device = get_torch_device(use_gpu=use_gpu)
     model_path = _resolve_model_path(model)
@@ -281,29 +388,6 @@ def generate_data(
             raise ValueError("transformer_target_shot must be specified when use_transformer is True")
         transformer_model_path = _resolve_model_path(transformer_model)
         transformer_network = load_transformer_network(transformer_model_path, use_gpu=use_gpu)
-
-    log_files = os.listdir(log_path)
-
-    rng = random.Random(shuffle_seed)
-    shuffled_log_files = rng.sample(log_files, len(log_files))
-
-    if chunk_size is not None:
-        if chunk_size <= 0:
-            raise ValueError(f"chunk_size must be positive, got {chunk_size}")
-        if chunk_index < 0:
-            raise ValueError(f"chunk_index must be non-negative, got {chunk_index}")
-
-        chunk_start_pos = chunk_index * chunk_size
-        chunk_end_pos = min(chunk_start_pos + chunk_size, len(shuffled_log_files))
-        target_log_files = shuffled_log_files[chunk_start_pos:chunk_end_pos]
-
-        print(
-            f"chunk {chunk_index}: "
-            f"logs[{chunk_start_pos}:{chunk_end_pos}] "
-            f"= {len(target_log_files)} files"
-        )
-    else:
-        target_log_files = shuffled_log_files
 
     for one_log in target_log_files:
         if not os.path.isdir(os.path.join(log_path, one_log)):
@@ -401,6 +485,7 @@ def generate_data(
                     root_state=root,
                     max_simulations=max_simulations,
                     is_create_data=True,
+                    inference_batch_size=inference_batch_size,
                 )
                 policy_distribution = build_policy_target_from_shot_stats(
                     root_candidate_stats,
@@ -445,12 +530,17 @@ def generate_data(
                     continue
 
                 # 生成した特徴量と target 分布を保存する。
-                stones_data.append(stones_feature)
-                games_data.append(game_feature)
-                stone_masks_data.append(stone_mask)
-                policy_data.append(policy_distribution)
-                value_data.append(value_distribution)
-                win_value_data.append(float(win_value_target))
+                position_key = (end, shot)
+                if position_key not in position_data:
+                    position_data[position_key] = _PositionData()
+                buffer = position_data[position_key]
+                position_path = Path(save_path) / f"end{end}" / f"shot{shot}"
+                buffer.stones_data.append(stones_feature)
+                buffer.games_data.append(game_feature)
+                buffer.stone_masks_data.append(stone_mask)
+                buffer.policy_data.append(policy_distribution)
+                buffer.value_data.append(value_distribution)
+                buffer.win_value_data.append(float(win_value_target))
 
                 mirrored_stones = _mirror_stones_x(stones)
                 flipped_stones_feature, flipped_game_feature, flipped_stone_mask = generate_input_features(
@@ -466,57 +556,67 @@ def generate_data(
                     N_ACTIONS,
                     "flipped_policy_target",
                 )
-                stones_data.append(flipped_stones_feature)
-                games_data.append(flipped_game_feature)
-                stone_masks_data.append(flipped_stone_mask)
-                policy_data.append(flipped_policy_distribution)
-                value_data.append(value_distribution.copy())
-                win_value_data.append(float(win_value_target))
+                buffer.stones_data.append(flipped_stones_feature)
+                buffer.games_data.append(flipped_game_feature)
+                buffer.stone_masks_data.append(flipped_stone_mask)
+                buffer.policy_data.append(flipped_policy_distribution)
+                buffer.value_data.append(value_distribution.copy())
+                buffer.win_value_data.append(float(win_value_target))
 
                 # 生成したデータを保存するコード
-                if len(value_data) >= DATA_SET_SIZE:
-                    print(f"sl_data{data_counter}")
-                    _save_data(os.path.join
-                            (
-                                save_path,
-                                f"sl_data_chunk{chunk_index}_{data_counter}"
-                            ),
-                        stones_data,
-                        games_data,
-                        stone_masks_data,
-                        policy_data,
-                        value_data,
-                        win_value_data,
-                        log_counter
+                if len(buffer.value_data) >= DATA_SET_SIZE:
+                    _save_data(
+                        position_path / f"sl_data_chunk{chunk_index}_{buffer.data_counter}",
+                        buffer.stones_data,
+                        buffer.games_data,
+                        buffer.stone_masks_data,
+                        buffer.policy_data,
+                        buffer.value_data,
+                        buffer.win_value_data,
+                        buffer.log_counter
                     )
-                    stones_data = stones_data[DATA_SET_SIZE:]
-                    games_data = games_data[DATA_SET_SIZE:]
-                    stone_masks_data = stone_masks_data[DATA_SET_SIZE:]
-                    policy_data = policy_data[DATA_SET_SIZE:]
-                    value_data = value_data[DATA_SET_SIZE:]
-                    win_value_data = win_value_data[DATA_SET_SIZE:]
-                    log_counter = 1
-                    data_counter += 1
+                    buffer.stones_data = buffer.stones_data[DATA_SET_SIZE:]
+                    buffer.games_data = buffer.games_data[DATA_SET_SIZE:]
+                    buffer.stone_masks_data = buffer.stone_masks_data[DATA_SET_SIZE:]
+                    buffer.policy_data = buffer.policy_data[DATA_SET_SIZE:]
+                    buffer.value_data = buffer.value_data[DATA_SET_SIZE:]
+                    buffer.win_value_data = buffer.win_value_data[DATA_SET_SIZE:]
+                    buffer.log_counter = 1
+                    buffer.data_counter += 1
                     _cleanup_after_save(use_gpu)
-                    print("data counter: ", data_counter)
+                    print("data counter: ", buffer.data_counter)
 
-                log_counter += 1
+                buffer.log_counter += 1
     
     # 端数データの保存
-    n_batches = len(value_data) // BATCH_SIZE
-    print("n_batches: ", n_batches)
-    if n_batches > 0:
-        _save_data(os.path.join(save_path, f"sl_data_chunk{chunk_index}_{data_counter}"), \
-            stones_data[0:n_batches*BATCH_SIZE], games_data[0:n_batches*BATCH_SIZE], \
-            stone_masks_data[0:n_batches*BATCH_SIZE], policy_data[0:n_batches*BATCH_SIZE], \
-            value_data[0:n_batches*BATCH_SIZE], win_value_data[0:n_batches*BATCH_SIZE], log_counter)
-        _cleanup_after_save(use_gpu)
+    for (end, shot), buffer in position_data.items():
+        position_path = Path(save_path) / f"end{end}" / f"shot{shot}"
+        n_batches = len(buffer.value_data) // BATCH_SIZE
+        print(f"end={end} shot={shot} n_batches: {n_batches}")
+        if n_batches > 0:
+            row_count = n_batches * BATCH_SIZE
+            _save_data(
+                position_path / f"sl_data_chunk{chunk_index}_{buffer.data_counter}",
+                buffer.stones_data[:row_count], buffer.games_data[:row_count],
+                buffer.stone_masks_data[:row_count], buffer.policy_data[:row_count],
+                buffer.value_data[:row_count], buffer.win_value_data[:row_count],
+                buffer.log_counter,
+            )
+            _cleanup_after_save(use_gpu)
     
 
 @click.command()
 @click.option('--chunk_start', type=int, required=True, help="chunk index to process")
 @click.option('--chunk_end', type=int, required=True, help="chunk index to process")
-def main(chunk_start: int, chunk_end: int) -> None:
+@click.option('--inference_batch_size', type=click.IntRange(min=1),
+              default=DEFAULT_SHOT_INFERENCE_BATCH_SIZE, show_default=True,
+              help="maximum leaf inference batch size; 1 preserves sequential inference")
+@click.option('--num_workers', type=click.IntRange(min=1), default=1, show_default=True,
+              help="maximum number of chunk worker processes sharing the GPU")
+@click.option('--simulation_seed', type=click.IntRange(min=0), default=0, show_default=True,
+              help="base search seed; each chunk has a reproducible independent stream")
+def main(chunk_start: int, chunk_end: int, inference_batch_size: int,
+         num_workers: int, simulation_seed: int) -> None:
     generate_data(
         log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
@@ -533,7 +633,10 @@ def main(chunk_start: int, chunk_end: int) -> None:
         transformer_target_end=[9],
         transformer_target_shot=[3],
         max_simulations=1022,
-        use_gpu=False,
+        inference_batch_size=inference_batch_size,
+        num_workers=num_workers,
+        simulation_seed=simulation_seed,
+        use_gpu=True,
         shuffle_seed=12345,
         chunk_start=chunk_start,
         chunk_end=chunk_end,

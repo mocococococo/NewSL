@@ -173,6 +173,19 @@ class TransformerNetwork(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """stones と game から policy/value logits を計算する。"""
 
+        board_feature = self._encode_board(stones, game, stone_mask)
+        policy_logits = self.policy_head(board_feature)
+        value_logits = self.value_head(board_feature)
+        return policy_logits, value_logits
+
+    def _encode_board(
+        self,
+        stones: torch.Tensor,
+        game: torch.Tensor,
+        stone_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """両 head で共有する盤面特徴を計算する。"""
+
         self._validate_stones(stones)
         stones = stones.to(dtype=torch.float32)
         batch_size, stone_count, _ = stones.shape
@@ -202,11 +215,7 @@ class TransformerNetwork(nn.Module):
         )
 
         # 最後の token は game token。これを盤面全体の代表特徴として使う。
-        board_feature = encoded[:, -1, :]
-
-        policy_logits = self.policy_head(board_feature)
-        value_logits = self.value_head(board_feature)
-        return policy_logits, value_logits
+        return encoded[:, -1, :]
 
     def forward_for_sl(
         self,
@@ -244,6 +253,24 @@ class TransformerNetwork(nn.Module):
         if was_training:
             self.train()
         return policy, value
+
+    @torch.no_grad()
+    def inference_value(
+        self,
+        stones: torch.Tensor,
+        game: torch.Tensor,
+        stone_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """探索末端用に policy head を省き、value 分布だけを返す。"""
+
+        was_training = self.training
+        self.eval()
+        try:
+            board_feature = self._encode_board(stones, game, stone_mask)
+            return F.softmax(self.value_head(board_feature), dim=-1)
+        finally:
+            if was_training:
+                self.train()
 
     def _validate_stones(self, stones: torch.Tensor) -> None:
         """stones が (B, max_stones, stone_feat_dim) であることを検証する。"""

@@ -25,7 +25,7 @@ TransformerVyMode = Literal["default", "high_resolution"]
 
 
 # Transformerで使用するY方向の分割構成を指定する。
-TRANSFORMER_VY_MODE: TransformerVyMode = "high_resolution"
+TRANSFORMER_VY_MODE: TransformerVyMode = "default"
 
 
 def get_transformer_vy_sizes(
