@@ -19,6 +19,12 @@ def main() -> None:
     shot_generator._initialize_chunk_worker(
         config["threads"], config["cudnn_flags"], config["matmul_allow_tf32"],
     )
+    if config.get("generator") == "shot_origin_raw":
+        from transformer import shot_origin_generator
+        shot_origin_generator.BATCH_SIZE = config["batch_size"]
+        shot_origin_generator.DATA_SET_SIZE = config["data_set_size"]
+        shot_origin_generator._run_raw_chunk(config["options"], config["simulation_seed"])
+        return
     shot_generator.BATCH_SIZE = config["batch_size"]
     shot_generator.DATA_SET_SIZE = config["data_set_size"]
     shot_generator._run_chunk(*config["job"])

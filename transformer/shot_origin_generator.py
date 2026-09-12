@@ -6,6 +6,8 @@ import json
 import os
 import random
 import sys
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import List, Optional
 
@@ -22,7 +24,7 @@ from common.translate_state import convert_team_stoi, scores_dict_to_list
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
 from mcts.state import score_diff_from_scores
 from nn.utility import get_torch_device, load_network
-from shot_origin.params import DEFAULT_SHOT_ORIGIN_MAX_SIMULATIONS
+from shot_origin.params import DEFAULT_SHOT_ORIGIN_MAX_SIMULATIONS, DEFAULT_SHOT_ORIGIN_INFERENCE_BATCH_SIZE
 from search_config import require_search_mode
 from shot_origin.search import set_root_state, shot_origin_search
 from transformer.feature import _shot_team, generate_input_features
@@ -294,51 +296,96 @@ def generate_data(
     value_alpha_visit: float = 0.5,
     value_beta_q: float = 0.5,
     value_lambda_best: float = 0.5,
+    inference_batch_size: int = DEFAULT_SHOT_ORIGIN_INFERENCE_BATCH_SIZE,
+    num_workers: int = 1,
+    simulation_seed: int = 0,
 ) -> None:
+    """Generate raw chunks with fixed input membership and a seed per chunk."""
+    options = dict(locals())
+    options.pop("num_workers")
+    options.pop("simulation_seed")
     require_search_mode("shot_origin")
+    for name, value in (("num_workers", num_workers), ("inference_batch_size", inference_batch_size)):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ValueError(f"{name} must be a positive integer")
+    if not isinstance(simulation_seed, int) or isinstance(simulation_seed, bool) or simulation_seed < 0:
+        raise ValueError("simulation_seed must be a non-negative integer")
     if chunk_end is None:
         chunk_end = chunk_start
     if chunk_start < 0:
         raise ValueError(f"chunk_start must be non-negative, got {chunk_start}")
     if chunk_end < chunk_start:
         raise ValueError(f"chunk_end must be greater than or equal to chunk_start, got {chunk_end}")
-    if chunk_start != chunk_end:
-        if chunk_size is None:
-            raise ValueError("chunk_size must be specified when running multiple chunks")
-        for current_chunk_index in range(chunk_start, chunk_end + 1):
-            generate_data(
-                log_path=log_path,
-                save_path=save_path,
-                data_size=data_size,
-                target_end=target_end,
-                use_end_augmentation=use_end_augmentation,
-                use_score_diff_augmentation=use_score_diff_augmentation,
-                target_shot=target_shot,
-                model=model,
-                sl_model_is_cnn=sl_model_is_cnn,
-                use_transformer=use_transformer,
-                transformer_model=transformer_model,
-                transformer_target_end=transformer_target_end,
-                transformer_target_shot=transformer_target_shot,
-                max_simulations=max_simulations,
-                use_gpu=use_gpu,
-                use_value=use_value,
-                shuffle_seed=shuffle_seed,
-                chunk_start=current_chunk_index,
-                chunk_end=current_chunk_index,
-                chunk_size=chunk_size,
-                policy_min_visit=policy_min_visit,
-                policy_delta_q=policy_delta_q,
-                policy_alpha_visit=policy_alpha_visit,
-                policy_beta_q=policy_beta_q,
-                policy_lambda_best=policy_lambda_best,
-                value_min_visit=value_min_visit,
-                value_delta_q=value_delta_q,
-                value_alpha_visit=value_alpha_visit,
-                value_beta_q=value_beta_q,
-                value_lambda_best=value_lambda_best,
-            )
+    if chunk_start != chunk_end and chunk_size is None:
+        raise ValueError("chunk_size must be specified when running multiple chunks")
+    if chunk_size is not None and (not isinstance(chunk_size, int) or isinstance(chunk_size, bool) or chunk_size < 1):
+        raise ValueError("chunk_size must be a positive integer")
+    # Preserve the dedicated generator's original enumeration and shuffle order.
+    log_files = os.listdir(log_path)
+    shuffled = random.Random(shuffle_seed).sample(log_files, len(log_files))
+    indexed = list(enumerate(shuffled))
+    options.pop("chunk_end")
+    options.pop("shuffle_seed")
+    options.pop("chunk_size")
+    jobs = []
+    for index in range(chunk_start, chunk_end + 1):
+        start = index * chunk_size if chunk_size is not None else 0
+        stop = min(start + chunk_size, len(indexed)) if chunk_size is not None else len(indexed)
+        if indexed[start:stop]:
+            jobs.append(dict(options, chunk_start=index, target_indexed_log_files=indexed[start:stop]))
+    worker_count = min(num_workers, len(jobs))
+    if worker_count <= 1:
+        for job in jobs:
+            _run_raw_chunk(job, simulation_seed)
         return
+
+    from transformer.shot_generator import _run_chunk_process
+    threads = max(1, torch.get_num_threads() // worker_count)
+    cudnn_flags = {name: getattr(torch.backends.cudnn, name) for name in (
+        "enabled", "allow_tf32", "benchmark", "deterministic",
+    )}
+    Path(save_path).mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix=".shot-workers-", dir=save_path) as temporary:
+        job_files = []
+        for job in jobs:
+            job_file = Path(temporary) / f"chunk-{job['chunk_start']}.json"
+            job_file.write_text(json.dumps(dict(
+                generator="shot_origin_raw", options=job, simulation_seed=simulation_seed,
+                threads=threads, cudnn_flags=cudnn_flags,
+                matmul_allow_tf32=torch.backends.cuda.matmul.allow_tf32,
+                batch_size=BATCH_SIZE, data_set_size=DATA_SET_SIZE,
+            ), default=os.fspath), encoding="utf-8")
+            job_files.append(job_file)
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = {executor.submit(_run_chunk_process, path): path.stem for path in job_files}
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except Exception as exc:
+                    for pending in futures:
+                        pending.cancel()
+                    raise RuntimeError(f"{futures[future]} failed") from exc
+
+
+def _run_raw_chunk(options, simulation_seed):
+    from transformer.shot_generator import _seed_chunk
+    index = options["chunk_start"]
+    _seed_chunk(simulation_seed, index)
+    print(f"[SHOT_ORIGIN chunk={index}] start pid={os.getpid()} "
+          f"threads={torch.get_num_threads()} simulation_seed={simulation_seed}", flush=True)
+    _generate_chunk(**options)
+    print(f"[SHOT_ORIGIN chunk={index}] done", flush=True)
+
+
+def _generate_chunk(
+    *, log_path, save_path, data_size, target_end, target_shot,
+    use_end_augmentation, use_score_diff_augmentation, model, sl_model_is_cnn,
+    use_transformer, transformer_model, transformer_target_end, transformer_target_shot,
+    max_simulations, use_gpu, use_value, chunk_start, target_indexed_log_files,
+    policy_min_visit, policy_delta_q, policy_alpha_visit, policy_beta_q, policy_lambda_best,
+    value_min_visit, value_delta_q, value_alpha_visit, value_beta_q, value_lambda_best,
+    inference_batch_size,
+):
 
     action_type = "default" if sl_model_is_cnn else TRANSFORMER_VY_MODE
     require_search_mode("shot_origin", action_type)
@@ -370,23 +417,6 @@ def generate_data(
         transformer_network = load_transformer_network(_resolve_model_path(transformer_model), use_gpu=use_gpu)
 
     log_path = Path(log_path)
-    log_files = os.listdir(log_path)
-    rng = random.Random(shuffle_seed)
-    shuffled_log_files = rng.sample(log_files, len(log_files))
-
-    if chunk_size is not None:
-        if chunk_size <= 0:
-            raise ValueError(f"chunk_size must be positive, got {chunk_size}")
-        chunk_start_pos = chunk_index * chunk_size
-        chunk_end_pos = min(chunk_start_pos + chunk_size, len(shuffled_log_files))
-        target_indexed_log_files = list(enumerate(shuffled_log_files))[chunk_start_pos:chunk_end_pos]
-        print(
-            f"chunk {chunk_index}: "
-            f"logs[{chunk_start_pos}:{chunk_end_pos}] "
-            f"= {len(target_indexed_log_files)} files"
-        )
-    else:
-        target_indexed_log_files = list(enumerate(shuffled_log_files))
 
     for global_index, one_log in target_indexed_log_files:
         if not (log_path / one_log).is_dir():
@@ -489,6 +519,7 @@ def generate_data(
                     is_create_data=True,
                     use_value=use_value,
                     action_type=action_type,
+                    inference_batch_size=inference_batch_size,
                 )
                 policy_distribution = build_policy_target_from_shot_stats(
                     root_candidate_stats,
@@ -581,7 +612,11 @@ def generate_data(
 @click.command()
 @click.option("--start", type=int, required=True, help="chunk index to process")
 @click.option("--end", type=int, required=True, help="chunk index to process")
-def main(start: int, end: int) -> None:
+@click.option("--inference_batch_size", type=click.IntRange(min=1),
+              default=DEFAULT_SHOT_ORIGIN_INFERENCE_BATCH_SIZE, show_default=True)
+@click.option("--num_workers", type=click.IntRange(min=1), default=1, show_default=True)
+@click.option("--simulation_seed", type=click.IntRange(min=0), default=0, show_default=True)
+def main(start: int, end: int, inference_batch_size: int, num_workers: int, simulation_seed: int) -> None:
     generate_data(
         log_path=ROOT_DIR / "LearnLog" / "all",
         save_path=ROOT_DIR / "data" / "shot_origin",
@@ -599,6 +634,9 @@ def main(start: int, end: int) -> None:
         max_simulations=DEFAULT_SHOT_ORIGIN_MAX_SIMULATIONS,
         use_gpu=True,
         use_value=True,
+        inference_batch_size=inference_batch_size,
+        num_workers=num_workers,
+        simulation_seed=simulation_seed,
         shuffle_seed=12345,
         chunk_start=start,
         chunk_end=end,

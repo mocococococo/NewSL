@@ -159,6 +159,18 @@ class Node:
             key=lambda a: (self.Q[a], self.Nsa[a], self.tie_break_value(a)),
         )
 
+    def select_action_batch(self, batch_size: int) -> List[int]:
+        """Reserve one visit per least-visited candidate in scalar selection order."""
+        if batch_size < 1:
+            raise ValueError("batch_size must be positive")
+        assert self.Nsa is not None
+        need_actions = [a for a in self.actions if self.Nsa[a] < self._round_visit_target]
+        if not need_actions:
+            return [self.select_action()]
+        min_visits = min(self.Nsa[a] for a in need_actions)
+        actions = [a for a in need_actions if self.Nsa[a] == min_visits]
+        return sorted(actions, key=self.tie_break_value, reverse=True)[:batch_size]
+
     def round_info(self) -> str:
         return (
             f"round={self._round_index} active={len(self.actions)} "

@@ -45,10 +45,10 @@ python transformer/shot_pipeline.py --chunk_start 0 --chunk_end 3
 | --- | --- |
 | `--chunk_start`, `--chunk_end` | 必須。終了チャンクを含む |
 | `--num_workers` | 生成4並列 |
-| `--inference_batch_size` | 64。SHOT のバッチ推論に使用。shot_origin は既存の逐次推論 |
+| `--inference_batch_size` | 64。shot / shot_origin の深さ1の教師生成で使用。1で逐次推論 |
 | `--simulation_seed` | 0 |
 | `--batch-size` | `learning_param.BATCH_SIZE`（現在1024） |
-| `--epochs` | `learning_param.EPOCHS`（現在30） |
+| `--epochs` | `learning_param.EPOCHS`（現在50） |
 | `--log-path` | リポジトリの `LearnLog/all` |
 | `--base-model` | 中央設定の方式に対応する既存モデル。shot は CNN、shot_origin は vy56 Transformer |
 | `--program-dir` | リポジトリ直下 |
@@ -72,3 +72,18 @@ python transformer/shot_pipeline.py --chunk_start 0 --chunk_end 3 --start-end 8 
 
 途中の shot から開始する場合は、同じ end の次 shot のモデルが上記の保存先に必要です。
 各 end の shot 15 から開始する場合、他の end の学習済みモデルは不要です。
+
+## shot_origin の単体生成
+
+`SEARCH_MODE = "shot_origin"` を選んで実行します。
+
+```powershell
+python transformer/shot_origin_generator.py --start 0 --end 3 --num_workers 4
+```
+
+単体生成の並列数は既定1、推論バッチサイズは既定64です。
+`--simulation_seed`（既定0）とチャンク番号から探索乱数を固定し、並列数によらず
+各チャンクに同じ入力と乱数を割り当てます。入力フォルダの列挙・シャッフル順は既存処理を使います。
+保存先は従来どおり `data/shot_origin/raw/` で、試合IDと端数を含めて保存します。
+バッチ推論では浮動小数点の数値差により半減時の候補・教師分布が変わる可能性があります。
+`--inference_batch_size 1` で、末端の子ノード作成とpolicy計算を省いた逐次推論になります。

@@ -386,7 +386,7 @@ def _generate_chunk(
     network.to(device)
     make_root = set_root_state if sl_model_is_cnn else set_origin_root_state
     run_search = shot_search if sl_model_is_cnn else shot_origin_search
-    search_options = {"inference_batch_size": inference_batch_size} if sl_model_is_cnn else {}
+    search_options = {"inference_batch_size": inference_batch_size}
 
     transformer_network = None
     transformer_target_end_tuple = (

@@ -1,5 +1,6 @@
 import random
 import time
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
@@ -10,7 +11,10 @@ from nn.network.dual_net import DualNet
 from transformer.network import TransformerNetwork
 from transformer.params import TRANSFORMER_VY_MODE, TransformerVyMode, get_transformer_action_dim
 
-from mcts.hybrid_policy import get_policy_and_value, reset_policy_selection_log, set_policy_context
+from mcts.hybrid_policy import (
+    get_policy_and_value, get_value_probs, get_value_probs_batch,
+    reset_policy_selection_log, set_policy_context,
+)
 from mcts.rollout import _end_score_diff_team0_minus_team1, score_to_winvalue
 from mcts.simulate import decode_action, simulator_step
 from mcts.state import State, is_end_terminal
@@ -28,6 +32,7 @@ from .params import (
     DEFAULT_SHOT_ORIGIN_MAX_DEPTH,
     DEFAULT_SHOT_ORIGIN_MAX_SIMULATIONS,
     DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED,
+    DEFAULT_SHOT_ORIGIN_INFERENCE_BATCH_SIZE,
 )
 
 SearchAction = Tuple[float, float, int]
@@ -83,12 +88,18 @@ def shot_origin_search(
     use_value: bool = True,
     action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
     tie_break_seed: int = DEFAULT_SHOT_ORIGIN_TIE_BREAK_SEED,
+    inference_batch_size: int = DEFAULT_SHOT_ORIGIN_INFERENCE_BATCH_SIZE,
 ) -> Union[SearchAction, SearchDataResult]:
     """Policy-free SHOT using round extra visits 1, 2, 3, ... ."""
     require_search_mode("shot_origin", action_type)
     if not isinstance(max_simulations, int) or isinstance(max_simulations, bool) or max_simulations < 1:
         raise ValueError("max_simulations must be a positive integer")
+    if not isinstance(inference_batch_size, int) or isinstance(inference_batch_size, bool) or inference_batch_size < 1:
+        raise ValueError("inference_batch_size must be a positive integer")
     reset_policy_selection_log()
+    # At depth one the leaf is evaluated but never selected from.
+    value_only_leaf = is_create_data and max_depth == 1 and use_value
+    batch_value_leaf = value_only_leaf and inference_batch_size > 1 and not is_end_terminal(root_state)
 
     dbg = Debugger(debug, every=debug_every)
     decode_search_action = lambda a: decode_action(a, action_type=action_type)
@@ -106,6 +117,7 @@ def shot_origin_search(
     start_time = time.perf_counter()
     sims = 0
     root_score_histograms: ScoreHistograms = {}
+    pending_leaves: deque[Tuple[int, State, Optional[List[float]]]] = deque()
 
     while sims < max_simulations:
         root.halve_actions_if_needed()
@@ -117,19 +129,39 @@ def shot_origin_search(
         state: State = root_state
         select_depth = 0
 
-        while node.is_expanded() and (not is_end_terminal(state)) and select_depth < max_depth:
-            assert node.Q is not None and node.Nsa is not None
-
-            node.halve_actions_if_needed()
-            a = node.select_action()
+        if batch_value_leaf:
+            if not pending_leaves:
+                actions = root.select_action_batch(min(inference_batch_size, max_simulations - sims))
+                # Consume simulator noise in the same order as sequential search.
+                leaves = [simulator_step(root_state, a, action_type=action_type) for a in actions]
+                indices = [i for i, leaf in enumerate(leaves) if not is_end_terminal(leaf)]
+                predictions = get_value_probs_batch([leaves[i] for i in indices], action_type=action_type)
+                values = dict(zip(indices, predictions))
+                pending_leaves.extend((a, leaf, values.get(i)) for i, (a, leaf) in enumerate(zip(actions, leaves)))
+            a, state, batch_value_probs = pending_leaves.popleft()
             path.append((node, a))
-            state = simulator_step(state, a, action_type=action_type)
-            node = node.child_for(a, state)
-            select_depth += 1
+            select_depth = 1
+        else:
+            while node.is_expanded() and (not is_end_terminal(state)) and select_depth < max_depth:
+                assert node.Q is not None and node.Nsa is not None
+
+                node.halve_actions_if_needed()
+                a = node.select_action()
+                path.append((node, a))
+                state = simulator_step(state, a, action_type=action_type)
+                if not value_only_leaf:
+                    node = node.child_for(a, state)
+                select_depth += 1
 
         value_probs = None
         if not is_end_terminal(state) and use_value:
-            _, value_probs = get_policy_and_value(state, action_type=action_type)
+            if batch_value_leaf:
+                assert batch_value_probs is not None
+                value_probs = batch_value_probs
+            elif value_only_leaf:
+                value_probs = get_value_probs(state, action_type=action_type)
+            else:
+                _, value_probs = get_policy_and_value(state, action_type=action_type)
             v_to_move = value_probs_to_winvalue(state, value_probs)
             v = -float(v_to_move)
         else:
@@ -205,6 +237,8 @@ def shot_origin_search(
 
     print("-----------------------------------------------------")
     print(f"SHOT_ORIGIN search simulations: {sims}, time: {elapsed_time:.2f} sec, nodes: {tree_size(root)}")
+    if value_only_leaf:
+        print(f"SHOT_ORIGIN leaf_nodes=omitted inference_batch_size={inference_batch_size}")
     print(
         "SHOT_ORIGIN root children: "
         f"visited={visited_children}, expanded={expanded_children} "
