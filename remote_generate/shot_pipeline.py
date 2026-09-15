@@ -243,10 +243,12 @@ class Pipeline:
         for attempt in range(self.config["control"]["connection_retries"] + 1):
             try:
                 return await asyncio.to_thread(function, *args, **kwargs)
-            except ConnectionUnavailable:
+            except ConnectionUnavailable as exc:
                 if attempt == self.config["control"]["connection_retries"]:
+                    progress(f"[SSH] 再試行上限に到達: {exc}")
                     raise
-                print(f"[SSH] connection unavailable; retry {attempt + 1}", flush=True)
+                progress(f"[SSH] 再試行 {attempt + 1}/{self.config['control']['connection_retries']} "
+                         f"({self.config['control']['retry_seconds']}秒後): {exc}")
                 await asyncio.sleep(self.config["control"]["retry_seconds"])
 
     async def prepare(self):
