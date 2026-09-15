@@ -119,6 +119,34 @@ python -m remote_generate.shot_pipeline --config remote_generate/config.jsonc
 各生成プロセスへ1チャンクを渡し、内部の生成関数には`num_workers=1`を指定します。
 処理が早く終わったワーカーへ、このPCが残りのチャンクを順次割り当てます。
 
+## 画面に表示する進捗
+
+SSH接続と事前確認、状態取得のログは、時刻とPC識別名を付けてこのPCの画面へ表示します。
+表示用ログはこのPCの標準エラー出力へ即時に出し、遠隔コマンドが返すJSONには混ぜません。
+
+| 表示 | 内容 |
+|---|---|
+| `[SSH][remote-01]` | 接続のたびに、中継サーバーへの接続開始・認証完了、VPN IP登録JSONの取得、遠隔PCへの接続開始・認証完了を表示します。認証情報の内容は出しません。 |
+| `[CHECK][PC名]` | 入力ログ・モデル・コード・実行環境の情報取得開始、完了までの秒数、照合結果を表示します。ワーカー状態の初期化・確認も表示します。 |
+| `[STATUS][PC名]` | 状態の取得開始と、取得した全ワーカーの状態を表示します。生成中・完了済みなら担当end・shot・チャンクも表示し、完了結果の成功・失敗やプロセス消失も区別します。 |
+
+定期確認は`control.poll_seconds`の待ち時間で行います。状態に変化がない場合も表示します。
+事前確認時の状態取得にも同じ表示を使います。
+
+```text
+[12:00:00] [CHECK][remote-01] 入力ログ・モデル・コード・実行環境を確認中 (ログ=LearnLog/all, チャンク=0〜7)
+[12:00:00] [SSH][remote-01] 接続開始: 中継サーバー ssh.cc.uec.ac.jp
+[12:00:01] [SSH][remote-01] 中継サーバーへのSSH接続・認証完了
+...
+[12:00:10] [CHECK][remote-01] 情報取得完了 (10.0秒)
+[12:00:10] [CHECK][remote-01] 入力ログ・モデル・コード・実行環境の照合OK
+[12:01:00] [STATUS][remote-01] 状態を取得中
+[12:01:01] [STATUS][remote-01] worker-0=running(end9/shot15/chunk4) | worker-1=completed(end9/shot15/chunk5)[成功] | worker-2=idle | worker-3=running(end9/shot15/chunk7)
+```
+
+従来の`[PIPELINE]`、`[ASSIGN]`、`[COLLECTED]`と学習ログも表示します。
+生成中の詳細ログは引き続き各PCの`log/remote-worker-N.log`へ保存します。
+
 ## 状態遷移と回収
 
 ```text

@@ -7,6 +7,7 @@ from datetime import datetime
 import ipaddress
 import json
 import os
+import sys
 import time
 
 import paramiko
@@ -87,9 +88,15 @@ class SSHConnection:
         self.secrets = secrets
         identifier(node["pc_id"])
 
+    def report(self, message):
+        # This runs on the coordinator, outside the remote command's JSON stream.
+        print(f"[{time.strftime('%H:%M:%S')}] [SSH][{self.node['pc_id']}] {message}",
+              file=sys.stderr, flush=True)
+
     @contextmanager
     def connect(self):
         seconds = self.transport["connect_timeout_seconds"]
+        self.report(f"接続開始: 中継サーバー {self.gateway['host']}")
         try:
             with paramiko.SSHClient() as gateway, paramiko.SSHClient() as remote:
                 gateway.load_host_keys(str(config_path(self.gateway["known_hosts"])))
@@ -107,10 +114,13 @@ class SSHConnection:
                 gateway.connect(hostname=self.gateway["host"], username=self.gateway["username"],
                                 key_filename=str(key), allow_agent=False, look_for_keys=False,
                                 timeout=seconds, banner_timeout=seconds, auth_timeout=seconds)
+                self.report("中継サーバーへのSSH接続・認証完了")
+                self.report(f"VPN IP登録JSONを取得中: {self.node['registry_path']}")
                 with gateway.open_sftp() as sftp:
                     sftp.get_channel().settimeout(self.transport["io_timeout_seconds"])
                     with sftp.open(self.node["registry_path"], "rb") as stream:
                         ip, port = parse_registry(stream.read(65537), self.node["pc_id"])
+                self.report(f"遠隔PCへ接続中: {ip}:{port}")
                 transport = gateway.get_transport()
                 if transport is None or not transport.is_active():
                     raise ConnectionUnavailable("Gateway transport is inactive")
@@ -121,6 +131,7 @@ class SSHConnection:
                                    username=self.node["username"], password=password,
                                    allow_agent=False, look_for_keys=False, timeout=seconds,
                                    banner_timeout=seconds, auth_timeout=seconds)
+                    self.report("遠隔PCへのSSH接続・認証完了")
                     yield remote
         except (paramiko.AuthenticationException, paramiko.BadHostKeyException,
                 FileNotFoundError, PermissionError, FileExistsError):

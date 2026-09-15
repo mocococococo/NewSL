@@ -25,6 +25,11 @@ def encoded(value):
     return base64.b64encode(json.dumps(value, ensure_ascii=True).encode()).decode()
 
 
+def progress(message):
+    """User-facing logs stay separate from machine-readable subprocess output."""
+    print(f"[{time.strftime('%H:%M:%S')}] {message}", file=sys.stderr, flush=True)
+
+
 def git(*args):
     return subprocess.check_output(["git", *args], cwd=store.ROOT, stderr=subprocess.PIPE).decode("utf-8").strip()
 
@@ -203,7 +208,21 @@ class Node:
         return json.loads(self.command([self.python, "-u", "-c", source, encoded(request)]))
 
     def status(self):
-        return json.loads(self.module("remote_status", "--pc-id", self.pc_id))
+        progress(f"[STATUS][{self.pc_id}] 状態を取得中")
+        state = json.loads(self.module("remote_status", "--pc-id", self.pc_id))
+        summaries = []
+        for row in state["workers"]:
+            summary = f"{row['worker_id']}={row['state']}"
+            job = row.get("job")
+            if job:
+                summary += f"(end{job['end']}/shot{job['shot']}/chunk{job['chunk']})"
+            if row["state"] == "running" and row.get("process_alive") is False:
+                summary += "[プロセス消失]"
+            if row["state"] == "completed":
+                summary += "[成功]" if (row.get("result") or {}).get("success") else "[失敗]"
+            summaries.append(summary)
+        progress(f"[STATUS][{self.pc_id}] " + " | ".join(summaries))
+        return state
 
 
 class Pipeline:
@@ -231,6 +250,7 @@ class Pipeline:
                 await asyncio.sleep(self.config["control"]["retry_seconds"])
 
     async def prepare(self):
+        progress("[CHECK] 事前確認を開始します")
         config_hash = store.object_hash({k: v for k, v in self.config.items() if k not in ("control", "transport")})
         local = await self.retry(self.nodes[0].status) if store.STATE.exists() else {}
         previous = local.get("pipeline")
@@ -239,23 +259,39 @@ class Pipeline:
                 raise ValueError("Resume needs matching generation, training and PC settings")
             self.state = previous
             if self.state["phase"] == "done":
+                progress("[CHECK] 保存された実行は全局面完了済みです")
                 return
         elif previous and previous["phase"] != "done":
             raise RuntimeError("An unfinished pipeline exists; use --resume")
-        probes = await asyncio.gather(*(self.retry(node.inspect, PROBE,
-                    dict(generation=self.config["generation"], log_path=node.spec["log_path"],
-                         fresh=not self.resume, sequence=positions(self.config))) for node in self.nodes))
+        async def inspect_node(node):
+            started = time.monotonic()
+            g = self.config["generation"]
+            progress(f"[CHECK][{node.pc_id}] 入力ログ・モデル・コード・実行環境を確認中 "
+                     f"(ログ={node.spec['log_path']}, チャンク={g['chunk_start']}〜{g['chunk_end']})")
+            try:
+                probe = await self.retry(node.inspect, PROBE,
+                    dict(generation=g, log_path=node.spec["log_path"],
+                         fresh=not self.resume, sequence=positions(self.config)))
+            except Exception:
+                progress(f"[CHECK][{node.pc_id}] 事前確認に失敗 ({time.monotonic() - started:.1f}秒)")
+                raise
+            progress(f"[CHECK][{node.pc_id}] 情報取得完了 ({time.monotonic() - started:.1f}秒)")
+            return probe
+
+        probes = await asyncio.gather(*(inspect_node(node) for node in self.nodes))
         baseline = self.state["baseline"] if self.resume else probes[0]
-        for probe in probes:
+        for node, probe in zip(self.nodes, probes):
             for key in ("source_sha256", "inputs", "base_sha256", "teacher_sha256", "branch", "runtime"):
                 if probe[key] != baseline[key]:
-                    raise ValueError(f"PCs or saved run differ: {key}")
+                    raise ValueError(f"{node.pc_id}: PCs or saved run differ: {key}")
             if not self.resume and probe["commit"] != baseline["commit"]:
-                raise ValueError("Start with the same Git commit on every PC")
+                raise ValueError(f"{node.pc_id}: Start with the same Git commit on every PC")
+            progress(f"[CHECK][{node.pc_id}] 入力ログ・モデル・コード・実行環境の照合OK")
         if not baseline["branch"]:
             raise ValueError("Use a Git branch, not detached HEAD")
         git("check-ref-format", "--branch", baseline["branch"])
         for node in self.nodes:
+            progress(f"[CHECK][{node.pc_id}] ワーカー状態を初期化・確認中")
             await self.retry(node.module, "state_store", "init", "--pc-id", node.pc_id,
                              "--workers", str(node.spec["workers"]))
             status = await self.retry(node.status)
@@ -270,6 +306,7 @@ class Pipeline:
                               sequence=positions(self.config), index=0, phase="generate", jobs={},
                               git_head=baseline["commit"])
             self.save()
+        progress("[CHECK] 全PCの事前確認が完了しました")
 
     def make_job(self, node, worker_id, chunk):
         end, shot = self.state["sequence"][self.state["index"]]
