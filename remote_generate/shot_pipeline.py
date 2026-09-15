@@ -30,6 +30,23 @@ def progress(message):
     print(f"[{time.strftime('%H:%M:%S')}] {message}", file=sys.stderr, flush=True)
 
 
+def validate_probe(pc_id, probe, baseline, *, resume, baseline_label):
+    """Require matching inputs/code; version differences alone are advisory."""
+    for key in ("source_sha256", "inputs", "base_sha256", "teacher_sha256", "branch"):
+        if probe[key] != baseline[key]:
+            raise ValueError(f"{pc_id}: PCs or saved run differ: {key}")
+    if not resume and probe["commit"] != baseline["commit"]:
+        raise ValueError(f"{pc_id}: Start with the same Git commit on every PC")
+    for label, expected, actual in zip(("Python", "PyTorch", "NumPy"), baseline["runtime"], probe["runtime"]):
+        if actual != expected:
+            if label == "Python":
+                expected = ".".join(map(str, expected))
+                actual = ".".join(map(str, actual))
+            progress(f"[WARN][{pc_id}] {label}のバージョン差: "
+                     f"{baseline_label}={expected}, {pc_id}={actual}。処理を続行します。")
+    progress(f"[CHECK][{pc_id}] 入力ログ・モデル・コードの照合OK")
+
+
 def git(*args):
     return subprocess.check_output(["git", *args], cwd=store.ROOT, stderr=subprocess.PIPE).decode("utf-8").strip()
 
@@ -282,13 +299,9 @@ class Pipeline:
 
         probes = await asyncio.gather(*(inspect_node(node) for node in self.nodes))
         baseline = self.state["baseline"] if self.resume else probes[0]
+        baseline_label = "保存された実行" if self.resume else self.nodes[0].pc_id
         for node, probe in zip(self.nodes, probes):
-            for key in ("source_sha256", "inputs", "base_sha256", "teacher_sha256", "branch", "runtime"):
-                if probe[key] != baseline[key]:
-                    raise ValueError(f"{node.pc_id}: PCs or saved run differ: {key}")
-            if not self.resume and probe["commit"] != baseline["commit"]:
-                raise ValueError(f"{node.pc_id}: Start with the same Git commit on every PC")
-            progress(f"[CHECK][{node.pc_id}] 入力ログ・モデル・コード・実行環境の照合OK")
+            validate_probe(node.pc_id, probe, baseline, resume=self.resume, baseline_label=baseline_label)
         if not baseline["branch"]:
             raise ValueError("Use a Git branch, not detached HEAD")
         git("check-ref-format", "--branch", baseline["branch"])

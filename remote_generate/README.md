@@ -20,6 +20,7 @@
 | `requirements.txt` | このPCに必要な追加ライブラリ`paramiko`、`python-dotenv`の一覧です。 |
 | `README.md` | この説明書です。 |
 | `tests/test_ssh_connection.py` | 接続失敗の段階表示を確認する単体テストです。SSHクライアント・トランスポート・認証ファイル参照を模擬し、実通信や生成を行いません。 |
+| `tests/test_preflight.py` | 事前照合の単体テストです。実行環境のバージョン差は警告で続行し、入力・モデル・コード等の不一致は停止することを確認します。 |
 
 通常、手動で起動するのはこのPCの`shot_pipeline.py`だけです。
 他のプログラムはパイプラインが関数またはSSH経由で呼び出します。
@@ -90,7 +91,7 @@ NewSL/
 ## 実行前の準備
 
 1. 今回の`remote_generate/`を含むコードをコミットし、各PCを同じブランチ・同じコミットに揃えます。未コミットのPythonコードで開始しません。これらの初回配布は自動学習ループの開始前に行います。
-2. 各PCに既存の生成・学習環境とCUDAを用意します。Pythonのmajor/minor、PyTorch、NumPyのバージョンを揃えます。このPCには`requirements.txt`の追加ライブラリも必要です。
+2. 各PCに既存の生成・学習環境とCUDAを用意します。Pythonのmajor/minor、PyTorch、NumPyのバージョン差は、両方の値を警告表示して続行します。完全一致は開始条件ではありません。このPCには`requirements.txt`の追加ライブラリも必要です。ライブラリの読み込み、CUDAの利用、生成時のモデル読み込みなどで実際にエラーが生じた場合は停止します。
 3. `config.jsonc`の生成範囲、PCごとのパス、並列数を確認します。遠隔PCはWindowsを対象とし、PowerShellとSSH環境から指定のPythonを実行できる必要があります。
 4. 各PCへ同じ入力ログとベースモデルを事前配置します。開始shotが15未満なら、同じendのshot+1の教師モデルも必要です。入力ログとベースモデルの初回コピーは、このパイプラインの対象外です。
 5. `.env`の`PC_PASSWORD`、中継用秘密鍵、既に確認済みのknown_hostsを用意します。遠隔PCのknown_hostsは、変更されるIPではなく`remote-01`などのPC識別名で確認します。
@@ -140,13 +141,23 @@ SSH接続と事前確認、状態取得のログは、時刻とPC識別名を付
 [12:00:01] [SSH][remote-01] [完了] 段階=中継サーバーへのSSH接続・認証 接続先=ssh.cc.uec.ac.jp:22 所要時間=1.0秒
 ...
 [12:00:10] [CHECK][remote-01] 情報取得完了 (10.0秒)
-[12:00:10] [CHECK][remote-01] 入力ログ・モデル・コード・実行環境の照合OK
+[12:00:10] [CHECK][remote-01] 入力ログ・モデル・コードの照合OK
 [12:01:00] [STATUS][remote-01] 状態を取得中
 [12:01:01] [STATUS][remote-01] worker-0=running(end9/shot15/chunk4) | worker-1=completed(end9/shot15/chunk5)[成功] | worker-2=idle | worker-3=running(end9/shot15/chunk7)
 ```
 
 従来の`[PIPELINE]`、`[ASSIGN]`、`[COLLECTED]`と学習ログも表示します。
 生成中の詳細ログは引き続き各PCの`log/remote-worker-N.log`へ保存します。
+
+実行環境にバージョン差がある場合は、異なる項目ごとに次のような警告を表示して続行します。
+新規実行はこのPC、`--resume`時は保存された実行のバージョンを比較元にします。
+
+```text
+[12:00:10] [WARN][remote-01] PyTorchのバージョン差: local=2.5.0+cu124, remote-01=2.5.0+cu121。処理を続行します。
+```
+
+入力ログ・モデル・コード・ブランチの一致と、新規実行時のコミット一致は引き続き必要です。
+バージョン差の警告は、互換性や生成結果の完全一致を保証するものではありません。
 
 接続の診断では、次の段階を区別します。
 
