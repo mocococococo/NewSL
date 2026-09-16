@@ -89,6 +89,20 @@ def collect_chunk(remote_name, chunk, end, shot):
         )
 
 
+def fill_slots(remote_name, workers, pending_chunks, running):
+    """
+    そのremoteの空きスロットに、pending_chunksからchunkを割り当てる
+    running[remote_name] は list[int]
+    """
+    while len(running[remote_name]) < workers and pending_chunks:
+        chunk = pending_chunks.pop(0)
+
+        print(f"\nASSIGN: {remote_name} <- chunk {chunk}")
+
+        start_chunk(remote_name, chunk)
+        running[remote_name].append(chunk)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("chunk_start", type=int)
@@ -99,109 +113,78 @@ def main():
     args = parser.parse_args()
 
     if args.chunk_end < args.chunk_start:
-        raise SystemExit(
-            "chunk_end must be >= chunk_start"
-        )
+        raise SystemExit("chunk_end must be >= chunk_start")
 
     remotes = load_remotes()
 
     if not remotes:
         raise SystemExit("No remotes configured.")
 
-    remote_names = list(remotes.keys())
+    pending_chunks = list(range(args.chunk_start, args.chunk_end + 1))
 
-    pending_chunks = list(
-        range(args.chunk_start, args.chunk_end + 1)
-    )
-
-    # remote_name -> chunk
-    running = {}
+    # remote_name -> list of running chunks
+    running = {name: [] for name in remotes.keys()}
 
     completed = []
 
     print("REMOTES:")
-    for name in remote_names:
-        print(f"  {name}")
+    for name, node in remotes.items():
+        workers = int(node.get("workers", 1))
+        print(f"  {name} (workers={workers})")
 
-    print(
-        f"CHUNKS: {args.chunk_start}-{args.chunk_end}"
-    )
+    print(f"CHUNKS: {args.chunk_start}-{args.chunk_end}")
 
-    # 最初のchunkを各PCへ割り当て
-    for remote_name in remote_names:
-        if not pending_chunks:
-            break
+    # 最初に各ノードをworkers分だけ埋める
+    for remote_name, node in remotes.items():
+        workers = int(node.get("workers", 1))
+        fill_slots(remote_name, workers, pending_chunks, running)
 
-        chunk = pending_chunks.pop(0)
-
-        print(
-            f"\nASSIGN: {remote_name} <- chunk {chunk}"
-        )
-
-        start_chunk(remote_name, chunk)
-
-        running[remote_name] = chunk
-
-    while running:
+    # 何か動いている間ループ
+    while any(running.values()):
         time.sleep(args.poll_seconds)
 
-        for remote_name in list(running):
-            chunk = running[remote_name]
+        for remote_name, node in remotes.items():
+            workers = int(node.get("workers", 1))
 
-            status, output = check_chunk(
-                remote_name,
-                chunk,
-                args.end,
-                args.shot,
-            )
-
-            print(
-                f"STATUS: {remote_name} "
-                f"chunk {chunk} -> {status}"
-            )
-
-            if status == "RUNNING":
-                continue
-
-            if status == "DONE":
-                print(
-                    f"COLLECT: {remote_name} chunk {chunk}"
-                )
-
-                collect_chunk(
+            # list(...) にしないとループ中にremoveできない
+            for chunk in list(running[remote_name]):
+                status, output = check_chunk(
                     remote_name,
                     chunk,
                     args.end,
                     args.shot,
                 )
 
-                completed.append(chunk)
+                print(
+                    f"STATUS: {remote_name} "
+                    f"chunk {chunk} -> {status}"
+                )
 
-                del running[remote_name]
+                if status == "RUNNING":
+                    continue
 
-                # 空いたPCに次のchunkを渡す
-                if pending_chunks:
-                    next_chunk = pending_chunks.pop(0)
+                if status == "DONE":
+                    print(f"COLLECT: {remote_name} chunk {chunk}")
 
-                    print(
-                        f"\nASSIGN: {remote_name} "
-                        f"<- chunk {next_chunk}"
-                    )
-
-                    start_chunk(
+                    collect_chunk(
                         remote_name,
-                        next_chunk,
+                        chunk,
+                        args.end,
+                        args.shot,
                     )
 
-                    running[remote_name] = next_chunk
+                    completed.append(chunk)
+                    running[remote_name].remove(chunk)
+                    continue
 
-                continue
+                raise RuntimeError(
+                    f"{remote_name}: chunk {chunk} "
+                    f"ended with status {status}\n"
+                    f"{output}"
+                )
 
-            raise RuntimeError(
-                f"{remote_name}: chunk {chunk} "
-                f"ended with status {status}\n"
-                f"{output}"
-            )
+            # 完了して空いたスロットに次chunkを入れる
+            fill_slots(remote_name, workers, pending_chunks, running)
 
     print("\nALL DONE")
     print(

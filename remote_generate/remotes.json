@@ -1,10 +1,13 @@
 {
   "local": {
     "type": "local",
-    "root": "C:/Users/kirby/Programs/DigitalCurling/NewSL"
+    "root": "C:/Users/kirby/Programs/DigitalCurling/NewSL",
+    "workers": 2
   },
   "remote-01": {
+    "type": "ssh",
     "host": "remote-01",
-    "root": "C:/Users/itolab/DigitalCurling/NewSL"
+    "root": "C:/Users/itolab/DigitalCurling/NewSL",
+    "workers": 2
   }
 }

@@ -2,6 +2,7 @@ import argparse
 import base64
 import subprocess
 import sys
+from pathlib import Path
 
 from remote_config import get_remote
 
@@ -19,44 +20,123 @@ def decode_output(data: bytes) -> str:
     return data.decode("utf-8", errors="replace")
 
 
+def check_local(root, chunk_start, chunk_end, end, shot):
+    root = Path(root)
+
+    output_dir = root / "data" / f"end{end}" / f"shot{shot}"
+    pid_file = (
+        root
+        / "log"
+        / "remote_generate"
+        / f"chunk_{chunk_start}_{chunk_end}.pid"
+    )
+    log_file = (
+        root
+        / "log"
+        / "remote_generate"
+        / f"chunk_{chunk_start}_{chunk_end}.log"
+    )
+
+    all_done = True
+    output_files = []
+
+    for chunk in range(chunk_start, chunk_end + 1):
+        files = sorted(
+            output_dir.glob(
+                f"sl_data_chunk{chunk}_*.npz"
+            )
+        )
+
+        if not files:
+            all_done = False
+        else:
+            output_files.extend(files)
+
+    if all_done:
+        print("STATUS: DONE")
+
+        for path in output_files:
+            print("OUTPUT:", path)
+
+        return
+
+    if not pid_file.exists():
+        print("STATUS: UNKNOWN")
+        print("PID file does not exist.")
+        print("LOG:", log_file)
+        return
+
+    try:
+        pid = int(
+            pid_file.read_text(
+                encoding="ascii"
+            ).strip()
+        )
+    except ValueError:
+        print("STATUS: UNKNOWN")
+        print("Invalid PID file.")
+        print("LOG:", log_file)
+        return
+
+    result = subprocess.run(
+        [
+            "tasklist",
+            "/FI",
+            f"PID eq {pid}",
+            "/FO",
+            "CSV",
+            "/NH",
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    stdout = result.stdout.decode(
+        "cp932",
+        errors="replace",
+    )
+
+    if str(pid) in stdout:
+        print("STATUS: RUNNING")
+        print("PID:", pid)
+        print("LOG:", log_file)
+        return
+
+    print("STATUS: STOPPED")
+    print("PID:", pid)
+    print(
+        "Process is no longer running "
+        "and output is incomplete."
+    )
+    print("LOG:", log_file)
+
+
 def ps_quote(value: str) -> str:
     return "'" + value.replace("'", "''") + "'"
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("remote_name")
-    parser.add_argument("chunk_start", type=int)
-    parser.add_argument("chunk_end", type=int, nargs="?")
-    parser.add_argument("--end", type=int, default=9)
-    parser.add_argument("--shot", type=int, default=2)
-    args = parser.parse_args()
-
-    remote = get_remote(args.remote_name)
-
-    host = remote["host"]
-    remote_root = remote["root"]
-
-    chunk_end = (
-        args.chunk_start
-        if args.chunk_end is None
-        else args.chunk_end
-    )
-
+def check_ssh(
+    host,
+    remote_root,
+    chunk_start,
+    chunk_end,
+    end,
+    shot,
+):
     root = ps_quote(remote_root)
 
     script = f"""
 $ProgressPreference = 'SilentlyContinue'
 
 $root = {root}
-$outputDir = Join-Path $root 'data\\end{args.end}\\shot{args.shot}'
-$pidFile = Join-Path $root 'log\\remote_generate\\chunk_{args.chunk_start}_{chunk_end}.pid'
-$logFile = Join-Path $root 'log\\remote_generate\\chunk_{args.chunk_start}_{chunk_end}.log'
+$outputDir = Join-Path $root 'data\\end{end}\\shot{shot}'
+$pidFile = Join-Path $root 'log\\remote_generate\\chunk_{chunk_start}_{chunk_end}.pid'
+$logFile = Join-Path $root 'log\\remote_generate\\chunk_{chunk_start}_{chunk_end}.log'
 
 $allDone = $true
 $outputFiles = @()
 
-for ($c = {args.chunk_start}; $c -le {chunk_end}; $c++) {{
+for ($c = {chunk_start}; $c -le {chunk_end}; $c++) {{
     $files = @(
         Get-ChildItem `
             -LiteralPath $outputDir `
@@ -142,6 +222,50 @@ Write-Output ("LOG: " + $logFile)
         print(stderr, end="", file=sys.stderr)
 
     raise SystemExit(result.returncode)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("remote_name")
+    parser.add_argument("chunk_start", type=int)
+    parser.add_argument("chunk_end", type=int, nargs="?")
+    parser.add_argument("--end", type=int, default=9)
+    parser.add_argument("--shot", type=int, default=2)
+    args = parser.parse_args()
+
+    node = get_remote(args.remote_name)
+
+    chunk_end = (
+        args.chunk_start
+        if args.chunk_end is None
+        else args.chunk_end
+    )
+
+    node_type = node["type"]
+
+    if node_type == "local":
+        check_local(
+            node["root"],
+            args.chunk_start,
+            chunk_end,
+            args.end,
+            args.shot,
+        )
+
+    elif node_type == "ssh":
+        check_ssh(
+            node["host"],
+            node["root"],
+            args.chunk_start,
+            chunk_end,
+            args.end,
+            args.shot,
+        )
+
+    else:
+        raise SystemExit(
+            f"Unknown node type: {node_type}"
+        )
 
 
 if __name__ == "__main__":
