@@ -26,14 +26,12 @@ def decode_output(data: bytes) -> str:
     )
 
 
-def read_last_log_line(path: Path) -> str:
-    """
-    ログファイル末尾付近から、
-    最後の空でない行を取得する。
-    """
-
+def read_last_log_lines(
+    path: Path,
+    line_count: int,
+):
     if not path.is_file():
-        return ""
+        return []
 
     try:
         with path.open("rb") as f:
@@ -42,7 +40,7 @@ def read_last_log_line(path: Path) -> str:
 
             read_size = min(
                 size,
-                8192,
+                65536,
             )
 
             f.seek(
@@ -59,21 +57,13 @@ def read_last_log_line(path: Path) -> str:
             if line.strip()
         ]
 
-        if not lines:
-            return ""
-
-        return lines[-1]
+        return lines[-line_count:]
 
     except OSError:
-        return ""
+        return []
 
 
 def get_running_pids_local():
-    """
-    tasklistを1回だけ実行して、
-    現在存在するPID一覧を取得する。
-    """
-
     result = subprocess.run(
         [
             "tasklist",
@@ -113,6 +103,7 @@ def scan_local_node(
     chunk_end,
     end,
     shot,
+    log_lines,
 ):
     root = Path(
         node["root"]
@@ -167,9 +158,10 @@ def scan_local_node(
             / f"chunk_{chunk}_{chunk}.log"
         )
 
-        last_log = (
-            read_last_log_line(
-                log_file
+        logs = (
+            read_last_log_lines(
+                log_file,
+                log_lines,
             )
         )
 
@@ -203,7 +195,7 @@ def scan_local_node(
         result[chunk] = {
             "node": node_name,
             "status": status,
-            "log": last_log,
+            "log": logs,
             "has_log": log_file.is_file(),
         }
 
@@ -228,6 +220,7 @@ def scan_ssh_node(
     chunk_end,
     end,
     shot,
+    log_lines,
 ):
     host = node["host"]
     remote_root = node["root"]
@@ -286,13 +279,13 @@ for (
     $hasLog = Test-Path `
         -LiteralPath $logFile
 
-    $lastLog = ""
+    $lastLog = @()
 
     if ($hasLog) {{
         $lines = @(
             Get-Content `
                 -LiteralPath $logFile `
-                -Tail 20 `
+                -Tail 100 `
                 -ErrorAction SilentlyContinue |
             Where-Object {{
                 $_.Trim().Length -gt 0
@@ -300,7 +293,10 @@ for (
         )
 
         if ($lines.Count -gt 0) {{
-            $lastLog = $lines[-1]
+            $lastLog = @(
+                $lines |
+                Select-Object -Last {log_lines}
+            )
         }}
     }}
 
@@ -339,7 +335,7 @@ for (
     $result += [PSCustomObject]@{{
         chunk   = $c
         status  = $status
-        log     = $lastLog
+        log     = @($lastLog)
         has_log = $hasLog
     }}
 }}
@@ -384,7 +380,7 @@ ConvertTo-Json `
             result[chunk] = {
                 "node": node_name,
                 "status": "ERROR",
-                "log": error,
+                "log": [error],
                 "has_log": False,
             }
 
@@ -408,10 +404,9 @@ ConvertTo-Json `
             result[chunk] = {
                 "node": node_name,
                 "status": "ERROR",
-                "log": (
-                    "Failed to parse "
-                    "remote response"
-                ),
+                "log": [
+                    "Failed to parse remote response"
+                ],
                 "has_log": False,
             }
 
@@ -430,13 +425,32 @@ ConvertTo-Json `
             item["chunk"]
         )
 
+        logs = item.get(
+            "log",
+            [],
+        )
+
+        if logs is None:
+            logs = []
+
+        elif isinstance(
+            logs,
+            str,
+        ):
+            logs = [logs]
+
+        elif not isinstance(
+            logs,
+            list,
+        ):
+            logs = [
+                str(logs)
+            ]
+
         result[chunk] = {
             "node": node_name,
             "status": item["status"],
-            "log": item.get(
-                "log",
-                "",
-            ),
+            "log": logs,
             "has_log": bool(
                 item.get(
                     "has_log",
@@ -454,6 +468,7 @@ def scan_all_nodes(
     chunk_end,
     end,
     shot,
+    log_lines,
 ):
     states = {
         chunk: []
@@ -477,6 +492,7 @@ def scan_all_nodes(
                     chunk_end,
                     end,
                     shot,
+                    log_lines,
                 )
             )
 
@@ -489,6 +505,7 @@ def scan_all_nodes(
                     chunk_end,
                     end,
                     shot,
+                    log_lines,
                 )
             )
 
@@ -511,11 +528,6 @@ def scan_all_nodes(
 def choose_state(
     node_states,
 ):
-    """
-    全PCの情報から、
-    一覧に表示する状態を1つ選ぶ。
-    """
-
     running = [
         state
         for state in node_states
@@ -532,17 +544,14 @@ def choose_state(
         return {
             "node": nodes,
             "status": "MULTIPLE",
-            "log": (
-                "Same chunk is running "
-                "on multiple nodes"
-            ),
+            "log": [
+                "Same chunk is running on multiple nodes"
+            ],
         }
 
     if len(running) == 1:
         return running[0]
 
-    # 完了したPCの中でも、
-    # ログを持っているPCを優先する。
     done_with_log = [
         state
         for state in node_states
@@ -606,14 +615,37 @@ def choose_state(
     return {
         "node": "-",
         "status": "PENDING",
-        "log": "",
+        "log": [],
     }
 
 
 def shorten(
-    text,
+    value,
     width=90,
 ):
+    if value is None:
+        text = ""
+
+    elif isinstance(
+        value,
+        str,
+    ):
+        text = value
+
+    elif isinstance(
+        value,
+        (dict, list),
+    ):
+        text = json.dumps(
+            value,
+            ensure_ascii=False,
+        )
+
+    else:
+        text = str(
+            value
+        )
+
     text = (
         text
         .replace(
@@ -643,7 +675,6 @@ def display(
     end,
     shot,
 ):
-    # ANSIで画面クリア
     print(
         "\033[2J\033[H",
         end="",
@@ -702,15 +733,48 @@ def display(
             + 1
         )
 
+        logs = state.get(
+            "log",
+            [],
+        )
+
+        if isinstance(
+            logs,
+            str,
+        ):
+            logs = [logs]
+
+        elif not isinstance(
+            logs,
+            list,
+        ):
+            logs = [
+                str(logs)
+            ]
+
+        if not logs:
+            logs = [""]
+
         print(
             f"{chunk:>5}  "
             f"{state['node']:<12}  "
             f"{status:<9}  "
-            f"{shorten(state['log'])}"
+            f"{shorten(logs[0])}"
         )
 
+        for log_line in logs[1:]:
+            print(
+                f"{'':>5}  "
+                f"{'':<12}  "
+                f"{'':<9}  "
+                f"{shorten(log_line)}"
+            )
+
     print()
-    print("SUMMARY:", end=" ")
+    print(
+        "SUMMARY:",
+        end=" ",
+    )
 
     order = [
         "RUNNING",
@@ -777,6 +841,16 @@ def main():
     )
 
     parser.add_argument(
+        "--lines",
+        type=int,
+        default=1,
+        help=(
+            "Number of recent log lines "
+            "to display per chunk."
+        ),
+    )
+
+    parser.add_argument(
         "--once",
         action="store_true",
         help=(
@@ -799,6 +873,11 @@ def main():
             "interval must be > 0"
         )
 
+    if args.lines <= 0:
+        raise SystemExit(
+            "lines must be > 0"
+        )
+
     remotes = load_remotes()
 
     if not remotes:
@@ -814,6 +893,7 @@ def main():
                 args.chunk_end,
                 args.end,
                 args.shot,
+                args.lines,
             )
 
             display(
