@@ -20,27 +20,47 @@ def decode_output(data: bytes) -> str:
     return data.decode("utf-8", errors="replace")
 
 
-def check_local(root, chunk_start, chunk_end, end, shot):
+def check_local(
+    root,
+    chunk_start,
+    chunk_end,
+    end,
+    shot,
+):
     root = Path(root)
 
-    output_dir = root / "data" / f"end{end}" / f"shot{shot}"
-    pid_file = (
+    output_dir = (
         root
-        / "log"
+        / "data"
+        / f"end{end}"
+        / f"shot{shot}"
+    )
+
+    temp_dir = (
+        root
+        / ".temp"
         / "remote_generate"
+    )
+
+    pid_file = (
+        temp_dir
+        / "pids"
         / f"chunk_{chunk_start}_{chunk_end}.pid"
     )
+
     log_file = (
-        root
-        / "log"
-        / "remote_generate"
+        temp_dir
+        / "logs"
         / f"chunk_{chunk_start}_{chunk_end}.log"
     )
 
     all_done = True
     output_files = []
 
-    for chunk in range(chunk_start, chunk_end + 1):
+    for chunk in range(
+        chunk_start,
+        chunk_end + 1,
+    ):
         files = sorted(
             output_dir.glob(
                 f"sl_data_chunk{chunk}_*.npz"
@@ -129,14 +149,24 @@ def check_ssh(
 $ProgressPreference = 'SilentlyContinue'
 
 $root = {root}
+
 $outputDir = Join-Path $root 'data\\end{end}\\shot{shot}'
-$pidFile = Join-Path $root 'log\\remote_generate\\chunk_{chunk_start}_{chunk_end}.pid'
-$logFile = Join-Path $root 'log\\remote_generate\\chunk_{chunk_start}_{chunk_end}.log'
+
+$tempDir = Join-Path $root '.temp\\remote_generate'
+
+$pidFile = Join-Path `
+    $tempDir `
+    'pids\\chunk_{chunk_start}_{chunk_end}.pid'
+
+$logFile = Join-Path `
+    $tempDir `
+    'logs\\chunk_{chunk_start}_{chunk_end}.log'
 
 $allDone = $true
 $outputFiles = @()
 
 for ($c = {chunk_start}; $c -le {chunk_end}; $c++) {{
+
     $files = @(
         Get-ChildItem `
             -LiteralPath $outputDir `
@@ -173,7 +203,9 @@ if (-not (Test-Path -LiteralPath $pidFile)) {{
 }}
 
 $jobPid = [int]((
-    Get-Content -LiteralPath $pidFile -Raw
+    Get-Content `
+        -LiteralPath $pidFile `
+        -Raw
 ).Trim())
 
 $process = Get-Process `
@@ -219,21 +251,52 @@ Write-Output ("LOG: " + $logFile)
         print(stdout, end="")
 
     if stderr:
-        print(stderr, end="", file=sys.stderr)
+        print(
+            stderr,
+            end="",
+            file=sys.stderr,
+        )
 
-    raise SystemExit(result.returncode)
+    raise SystemExit(
+        result.returncode
+    )
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("remote_name")
-    parser.add_argument("chunk_start", type=int)
-    parser.add_argument("chunk_end", type=int, nargs="?")
-    parser.add_argument("--end", type=int, default=9)
-    parser.add_argument("--shot", type=int, default=2)
+
+    parser.add_argument(
+        "remote_name"
+    )
+
+    parser.add_argument(
+        "chunk_start",
+        type=int,
+    )
+
+    parser.add_argument(
+        "chunk_end",
+        type=int,
+        nargs="?",
+    )
+
+    parser.add_argument(
+        "--end",
+        type=int,
+        default=9,
+    )
+
+    parser.add_argument(
+        "--shot",
+        type=int,
+        default=2,
+    )
+
     args = parser.parse_args()
 
-    node = get_remote(args.remote_name)
+    node = get_remote(
+        args.remote_name
+    )
 
     chunk_end = (
         args.chunk_start
@@ -264,7 +327,8 @@ def main():
 
     else:
         raise SystemExit(
-            f"Unknown node type: {node_type}"
+            f"Unknown node type: "
+            f"{node_type}"
         )
 
 

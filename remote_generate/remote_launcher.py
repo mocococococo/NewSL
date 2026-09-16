@@ -52,24 +52,31 @@ def main():
 
     args = parser.parse_args()
 
-    log_dir = ROOT / "log" / "remote_generate"
-    log_dir.mkdir(parents=True, exist_ok=True)
+    # 分散生成専用の一時ファイル置き場
+    temp_dir = ROOT / ".temp" / "remote_generate"
+    log_dir = temp_dir / "logs"
+    pid_dir = temp_dir / "pids"
 
-    log_path = (
+    log_dir.mkdir(parents=True, exist_ok=True)
+    pid_dir.mkdir(parents=True, exist_ok=True)
+
+    log_file = (
         log_dir
         / f"chunk_{args.chunk_start}_{args.chunk_end}.log"
     )
 
-    pid_path = (
-        log_dir
+    pid_file = (
+        pid_dir
         / f"chunk_{args.chunk_start}_{args.chunk_end}.pid"
     )
 
+    # ------------------------------
     # 二重起動チェック
-    if pid_path.exists():
+    # ------------------------------
+    if pid_file.exists():
         try:
             old_pid = int(
-                pid_path.read_text(
+                pid_file.read_text(
                     encoding="ascii"
                 ).strip()
             )
@@ -108,10 +115,10 @@ def main():
         print(command)
 
         print("LOG:")
-        print(log_path)
+        print(log_file)
 
         print("PID FILE:")
-        print(pid_path)
+        print(pid_file)
 
         return
 
@@ -121,7 +128,7 @@ def main():
         | subprocess.CREATE_BREAKAWAY_FROM_JOB
     )
 
-    with log_path.open("wb") as log:
+    with log_file.open("wb") as log:
         process = subprocess.Popen(
             command,
             cwd=ROOT,
@@ -132,14 +139,14 @@ def main():
             close_fds=True,
         )
 
-    pid_path.write_text(
+    pid_file.write_text(
         str(process.pid),
         encoding="ascii",
     )
 
     print("PID:", process.pid)
-    print("LOG:", log_path)
-    print("PID FILE:", pid_path)
+    print("LOG:", log_file)
+    print("PID FILE:", pid_file)
 
 
 if __name__ == "__main__":
