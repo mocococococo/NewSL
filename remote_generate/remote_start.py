@@ -3,8 +3,7 @@ import re
 import subprocess
 import sys
 
-
-REMOTE_ROOT = r"C:\Users\itolab\DigitalCurling\NewSL"
+from remote_config import get_remote
 
 
 def decode_output(data: bytes) -> str:
@@ -22,10 +21,16 @@ def decode_output(data: bytes) -> str:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("host")
+    parser.add_argument("remote_name")
     parser.add_argument("chunk_start", type=int)
     parser.add_argument("chunk_end", type=int, nargs="?")
     args = parser.parse_args()
+
+    # remotes.json から設定を取得
+    remote = get_remote(args.remote_name)
+
+    host = remote["host"]
+    remote_root = remote["root"]
 
     chunk_end = (
         args.chunk_start
@@ -34,14 +39,14 @@ def main():
     )
 
     command = (
-        f'cd /d "{REMOTE_ROOT}" && '
+        f'cd /d "{remote_root}" && '
         f"python remote_generate\\remote_launcher.py "
         f"--chunk-start {args.chunk_start} "
         f"--chunk-end {chunk_end}"
     )
 
     result = subprocess.run(
-        ["ssh", args.host, command],
+        ["ssh", host, command],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -61,10 +66,12 @@ def main():
     match = re.search(r"PID:\s*(\d+)", stdout)
 
     if match is None:
-        raise SystemExit("Remote process started, but PID could not be read.")
+        raise SystemExit(
+            "Remote process started, but PID could not be read."
+        )
 
     print(
-        f"STARTED: {args.host} "
+        f"STARTED: {args.remote_name} "
         f"chunk {args.chunk_start}-{chunk_end} "
         f"PID {match.group(1)}"
     )

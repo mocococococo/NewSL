@@ -3,8 +3,7 @@ import base64
 import subprocess
 import sys
 
-
-REMOTE_ROOT = r"C:\Users\itolab\DigitalCurling\NewSL"
+from remote_config import get_remote
 
 
 def decode_output(data: bytes) -> str:
@@ -26,12 +25,17 @@ def ps_quote(value: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("host")
+    parser.add_argument("remote_name")
     parser.add_argument("chunk_start", type=int)
     parser.add_argument("chunk_end", type=int, nargs="?")
     parser.add_argument("--end", type=int, default=9)
     parser.add_argument("--shot", type=int, default=2)
     args = parser.parse_args()
+
+    remote = get_remote(args.remote_name)
+
+    host = remote["host"]
+    remote_root = remote["root"]
 
     chunk_end = (
         args.chunk_start
@@ -39,11 +43,11 @@ def main():
         else args.chunk_end
     )
 
-    root = ps_quote(REMOTE_ROOT)
+    root = ps_quote(remote_root)
 
     script = f"""
 $ProgressPreference = 'SilentlyContinue'
-    
+
 $root = {root}
 $outputDir = Join-Path $root 'data\\end{args.end}\\shot{args.shot}'
 $pidFile = Join-Path $root 'log\\remote_generate\\chunk_{args.chunk_start}_{chunk_end}.pid'
@@ -116,7 +120,7 @@ Write-Output ("LOG: " + $logFile)
     result = subprocess.run(
         [
             "ssh",
-            args.host,
+            host,
             "powershell.exe",
             "-NoLogo",
             "-NoProfile",
