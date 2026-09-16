@@ -22,15 +22,34 @@ def is_process_running(pid: int) -> bool:
     )
 
     stdout = result.stdout.decode("cp932", errors="replace")
-
     return str(pid) in stdout
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--chunk-start", type=int, required=True)
-    parser.add_argument("--chunk-end", type=int, required=True)
-    parser.add_argument("--dry-run", action="store_true")
+
+    parser.add_argument(
+        "--chunk-start",
+        type=int,
+        required=True,
+    )
+
+    parser.add_argument(
+        "--chunk-end",
+        type=int,
+        required=True,
+    )
+
+    parser.add_argument(
+        "--log-path",
+        required=True,
+    )
+
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+    )
+
     args = parser.parse_args()
 
     log_dir = ROOT / "log" / "remote_generate"
@@ -46,9 +65,7 @@ def main():
         / f"chunk_{args.chunk_start}_{args.chunk_end}.pid"
     )
 
-    # ------------------------------
     # 二重起動チェック
-    # ------------------------------
     if pid_path.exists():
         try:
             old_pid = int(
@@ -82,6 +99,8 @@ def main():
         str(args.chunk_end),
         "--num_workers",
         "1",
+        "--log_path",
+        args.log_path,
     ]
 
     if args.dry_run:

@@ -630,10 +630,18 @@ def _generate_chunk(
               help="maximum number of chunk worker processes sharing the GPU")
 @click.option('--simulation_seed', type=click.IntRange(min=0), default=0, show_default=True,
               help="base search seed; each chunk has a reproducible independent stream")
-def main(chunk_start: int, chunk_end: int, inference_batch_size: int,
-         num_workers: int, simulation_seed: int) -> None:
+@click.option("--log_path", type=click.Path(path_type=Path), default=None)
+def main(chunk_start: int,
+         chunk_end: int,
+         inference_batch_size: int,
+         num_workers: int,
+         simulation_seed: int,
+         log_path: Path | None
+    ) -> None:
+    if log_path is None:
+        log_path = (Path(__file__).resolve().parents[1] / "LearnLog" / "all")
     generate_data(
-        log_path=Path(__file__).resolve().parents[1] / "LearnLog" / "all",
+        log_path=log_path,
         save_path=Path(__file__).resolve().parents[1] / "data",
         data_size=70000,
         target_end=9,

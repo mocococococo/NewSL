@@ -36,11 +36,16 @@ def main():
         else args.chunk_end
     )
 
+    # remotes.json からPCごとの学習元データパスを取得
+    log_path = node["log_path"]
+
     launcher_args = [
         "--chunk-start",
         str(args.chunk_start),
         "--chunk-end",
         str(chunk_end),
+        "--log-path",
+        log_path,
     ]
 
     if args.dry_run:
@@ -56,7 +61,11 @@ def main():
 
         command = [
             sys.executable,
-            str(root / "remote_generate" / "remote_launcher.py"),
+            str(
+                root
+                / "remote_generate"
+                / "remote_launcher.py"
+            ),
             *launcher_args,
         ]
 
@@ -76,9 +85,10 @@ def main():
 
         remote_command = (
             f'cd /d "{remote_root}" && '
-            f"python remote_generate\\remote_launcher.py "
-            f"--chunk-start {args.chunk_start} "
-            f"--chunk-end {chunk_end}"
+            f'python remote_generate\\remote_launcher.py '
+            f'--chunk-start {args.chunk_start} '
+            f'--chunk-end {chunk_end} '
+            f'--log-path "{log_path}"'
         )
 
         if args.dry_run:
@@ -107,7 +117,7 @@ def main():
     if result.returncode != 0:
         raise SystemExit(result.returncode)
 
-    # dry-runではPIDは出ないのでここで終了
+    # dry-runではPIDは出ない
     if args.dry_run:
         return
 
