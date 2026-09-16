@@ -9,5 +9,11 @@
     "host": "remote-01",
     "root": "C:/Users/itolab/DigitalCurling/NewSL",
     "workers": 2
+  },
+  "remote-02": {
+    "type": "ssh",
+    "host": "remote-02",
+    "root": "C:/Users/gt280/NewSL",
+    "workers": 2
   }
 }
