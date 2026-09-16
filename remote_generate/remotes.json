@@ -1,4 +1,8 @@
 {
+  "local": {
+    "type": "local",
+    "root": "C:/Users/kirby/Programs/DigitalCurling/NewSL"
+  },
   "remote-01": {
     "host": "remote-01",
     "root": "C:/Users/itolab/DigitalCurling/NewSL"

@@ -2,6 +2,7 @@ import argparse
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 from remote_config import get_remote
 
@@ -24,13 +25,10 @@ def main():
     parser.add_argument("remote_name")
     parser.add_argument("chunk_start", type=int)
     parser.add_argument("chunk_end", type=int, nargs="?")
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    # remotes.json から設定を取得
-    remote = get_remote(args.remote_name)
-
-    host = remote["host"]
-    remote_root = remote["root"]
+    node = get_remote(args.remote_name)
 
     chunk_end = (
         args.chunk_start
@@ -38,18 +36,64 @@ def main():
         else args.chunk_end
     )
 
-    command = (
-        f'cd /d "{remote_root}" && '
-        f"python remote_generate\\remote_launcher.py "
-        f"--chunk-start {args.chunk_start} "
-        f"--chunk-end {chunk_end}"
-    )
+    launcher_args = [
+        "--chunk-start",
+        str(args.chunk_start),
+        "--chunk-end",
+        str(chunk_end),
+    ]
 
-    result = subprocess.run(
-        ["ssh", host, command],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
+    if args.dry_run:
+        launcher_args.append("--dry-run")
+
+    node_type = node["type"]
+
+    # -------------------------
+    # 基盤PC自身で実行
+    # -------------------------
+    if node_type == "local":
+        root = Path(node["root"])
+
+        command = [
+            sys.executable,
+            str(root / "remote_generate" / "remote_launcher.py"),
+            *launcher_args,
+        ]
+
+        result = subprocess.run(
+            command,
+            cwd=root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    # -------------------------
+    # SSH先で実行
+    # -------------------------
+    elif node_type == "ssh":
+        host = node["host"]
+        remote_root = node["root"]
+
+        remote_command = (
+            f'cd /d "{remote_root}" && '
+            f"python remote_generate\\remote_launcher.py "
+            f"--chunk-start {args.chunk_start} "
+            f"--chunk-end {chunk_end}"
+        )
+
+        if args.dry_run:
+            remote_command += " --dry-run"
+
+        result = subprocess.run(
+            ["ssh", host, remote_command],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    else:
+        raise SystemExit(
+            f"Unknown node type: {node_type}"
+        )
 
     stdout = decode_output(result.stdout)
     stderr = decode_output(result.stderr)
@@ -63,11 +107,15 @@ def main():
     if result.returncode != 0:
         raise SystemExit(result.returncode)
 
+    # dry-runではPIDは出ないのでここで終了
+    if args.dry_run:
+        return
+
     match = re.search(r"PID:\s*(\d+)", stdout)
 
     if match is None:
         raise SystemExit(
-            "Remote process started, but PID could not be read."
+            "Process started, but PID could not be read."
         )
 
     print(
