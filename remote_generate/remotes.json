@@ -3,14 +3,14 @@
     "type": "local",
     "root": "C:/Users/kirby/Programs/DigitalCurling/NewSL",
     "log_path": "C:/Users/kirby/Programs/DigitalCurling/NewSL/LearnLog/all",
-    "workers": 2
+    "workers": 4
   },
   "remote-01": {
     "type": "ssh",
     "host": "remote-01",
     "root": "C:/Users/itolab/DigitalCurling/NewSL",
     "log_path": "C:/Users/itolab/DigitalCurling/NewSL/LearnLog/all",
-    "workers": 2
+    "workers": 4
   },
   "remote-02": {
     "type": "ssh",
