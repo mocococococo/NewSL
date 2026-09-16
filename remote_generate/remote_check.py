@@ -42,6 +42,8 @@ def main():
     root = ps_quote(REMOTE_ROOT)
 
     script = f"""
+$ProgressPreference = 'SilentlyContinue'
+    
 $root = {root}
 $outputDir = Join-Path $root 'data\\end{args.end}\\shot{args.shot}'
 $pidFile = Join-Path $root 'log\\remote_generate\\chunk_{args.chunk_start}_{chunk_end}.pid'
