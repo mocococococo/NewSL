@@ -19,7 +19,7 @@
     "host": "remote-02",
     "root": "C:/Users/gt280/NewSL",
     "log_path": "D:/all",
-    "workers": 2,
+    "workers": 1,
     "enabled": true
   }
 }
