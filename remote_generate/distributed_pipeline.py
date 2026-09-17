@@ -1,4 +1,5 @@
 import argparse
+import base64
 import subprocess
 import sys
 from pathlib import Path
@@ -135,10 +136,7 @@ def run_distribute(
         ]
 
     print()
-    print(
-        "RUN:"
-    )
-
+    print("RUN:")
     print(
         " ".join(
             map(
@@ -147,11 +145,8 @@ def run_distribute(
             )
         )
     )
-
     print()
 
-    # distribute.py の出力は
-    # そのまま現在のターミナルへ表示する
     result = subprocess.run(
         command,
         cwd=ROOT,
@@ -191,32 +186,40 @@ def ensure_remote_model_dir(
     host,
     node,
 ):
-    root = (
-        str(
-            node["root"]
-        )
-        .rstrip(
-            "/\\"
-        )
-        .replace(
+    remote_root = str(
+        node["root"]
+    )
+
+    escaped_root = (
+        remote_root.replace(
             "'",
             "''",
         )
     )
 
-    model_dir = (
-        f"{root}/model"
-    )
+    script = f"""
+$ErrorActionPreference = 'Stop'
 
-    powershell = (
-        "$ErrorActionPreference='Stop'; "
-        f"$p='{model_dir}'; "
-        "New-Item "
-        "-ItemType Directory "
-        "-Force "
-        "-Path $p "
-        "| Out-Null"
-    )
+$root = '{escaped_root}'
+
+$modelDir = Join-Path `
+    $root `
+    'model'
+
+New-Item `
+    -ItemType Directory `
+    -Force `
+    -Path $modelDir `
+    | Out-Null
+
+Write-Output $modelDir
+"""
+
+    encoded = base64.b64encode(
+        script.encode(
+            "utf-16-le"
+        )
+    ).decode("ascii")
 
     result = subprocess.run(
         [
@@ -226,8 +229,8 @@ def ensure_remote_model_dir(
             "-NoLogo",
             "-NoProfile",
             "-NonInteractive",
-            "-Command",
-            powershell,
+            "-EncodedCommand",
+            encoded,
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -254,15 +257,30 @@ def verify_remote_model(
         )
     )
 
-    powershell = (
-        "$ErrorActionPreference='Stop'; "
-        f"$p='{escaped_path}'; "
-        "if (-not "
-        "(Test-Path -LiteralPath $p)) "
-        "{ exit 2 }; "
-        "(Get-Item "
-        "-LiteralPath $p).Length"
-    )
+    script = f"""
+$ErrorActionPreference = 'Stop'
+
+$path = '{escaped_path}'
+
+if (-not (
+    Test-Path `
+        -LiteralPath $path
+)) {{
+    Write-Error "Model does not exist: $path"
+    exit 2
+}}
+
+$file = Get-Item `
+    -LiteralPath $path
+
+Write-Output $file.Length
+"""
+
+    encoded = base64.b64encode(
+        script.encode(
+            "utf-16-le"
+        )
+    ).decode("ascii")
 
     result = subprocess.run(
         [
@@ -272,8 +290,8 @@ def verify_remote_model(
             "-NoLogo",
             "-NoProfile",
             "-NonInteractive",
-            "-Command",
-            powershell,
+            "-EncodedCommand",
+            encoded,
         ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -294,6 +312,7 @@ def verify_remote_model(
         remote_size = int(
             text.splitlines()[-1]
         )
+
     except (
         ValueError,
         IndexError,
@@ -508,8 +527,7 @@ def main():
         "================================"
     )
 
-    # 同一実行中に一度syncした
-    # モデルを何度も転送しないため
+    # この実行中にすでにremoteへ送ったモデル
     synced_models = set()
 
     def ensure_synced(path):
@@ -563,7 +581,7 @@ def main():
 
         # --------------------------------
         # shot14以下では
-        # shot+1のモデルが教師
+        # shot+1モデルが教師
         # --------------------------------
         if shot < 15:
 
@@ -581,15 +599,13 @@ def main():
                     f"{teacher}"
                 )
 
-            # enabled=true のremoteへ
-            # 教師モデルを送る
             ensure_synced(
                 teacher
             )
 
         # --------------------------------
-        # すでにモデルが存在するなら
-        # この局面は完了済み
+        # モデルがすでにあれば
+        # その局面は完了済み
         # --------------------------------
         if current_model.is_file():
 
@@ -599,8 +615,8 @@ def main():
                 f"{current_model}"
             )
 
-            # 後続shotで教師に使えるよう、
-            # remoteにも揃えておく
+            # 後続shotで教師として
+            # remoteでも使用できるようにする
             ensure_synced(
                 current_model
             )
@@ -608,7 +624,7 @@ def main():
             continue
 
         # --------------------------------
-        # 生成 → 回収 → 学習
+        # 分散生成 → 回収 → 学習
         # --------------------------------
         run_distribute(
             args.chunk_start,
@@ -620,7 +636,7 @@ def main():
         )
 
         # --------------------------------
-        # 学習結果確認
+        # 学習済みモデル確認
         # --------------------------------
         if not current_model.is_file():
 
@@ -635,7 +651,7 @@ def main():
             f"{current_model}"
         )
 
-        # 後続shot用にremoteへ配布
+        # 次のshotの教師になるのでremoteへ配布
         ensure_synced(
             current_model
         )
