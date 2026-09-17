@@ -27,25 +27,47 @@ def run_script(script_name, *args):
         errors="replace",
     )
 
-    return result.returncode, result.stdout
+    return (
+        result.returncode,
+        result.stdout,
+    )
 
 
-def start_chunk(remote_name, chunk):
+def start_chunk(
+    remote_name,
+    chunk,
+    end,
+    shot,
+):
     code, output = run_script(
         "remote_start.py",
         remote_name,
         chunk,
+        "--end",
+        end,
+        "--shot",
+        shot,
     )
 
-    print(output, end="")
+    print(
+        output,
+        end="",
+    )
 
     if code != 0:
         raise RuntimeError(
-            f"{remote_name}: failed to start chunk {chunk}"
+            f"{remote_name}: "
+            f"failed to start "
+            f"chunk {chunk}"
         )
 
 
-def check_chunk(remote_name, chunk, end, shot):
+def check_chunk(
+    remote_name,
+    chunk,
+    end,
+    shot,
+):
     code, output = run_script(
         "remote_check.py",
         remote_name,
@@ -58,21 +80,44 @@ def check_chunk(remote_name, chunk, end, shot):
 
     if code != 0:
         raise RuntimeError(
-            f"{remote_name}: failed to check chunk {chunk}\n"
+            f"{remote_name}: "
+            f"failed to check "
+            f"chunk {chunk}\n"
             f"{output}"
         )
 
     for line in output.splitlines():
-        if line.startswith("STATUS:"):
-            status = line.split(":", 1)[1].strip()
-            return status, output
+
+        if line.startswith(
+            "STATUS:"
+        ):
+            status = (
+                line
+                .split(
+                    ":",
+                    1,
+                )[1]
+                .strip()
+            )
+
+            return (
+                status,
+                output,
+            )
 
     raise RuntimeError(
-        f"{remote_name}: STATUS not found\n{output}"
+        f"{remote_name}: "
+        f"STATUS not found\n"
+        f"{output}"
     )
 
 
-def collect_chunk(remote_name, chunk, end, shot):
+def collect_chunk(
+    remote_name,
+    chunk,
+    end,
+    shot,
+):
     code, output = run_script(
         "remote_collect.py",
         remote_name,
@@ -83,15 +128,24 @@ def collect_chunk(remote_name, chunk, end, shot):
         shot,
     )
 
-    print(output, end="")
+    print(
+        output,
+        end="",
+    )
 
     if code != 0:
         raise RuntimeError(
-            f"{remote_name}: failed to collect chunk {chunk}"
+            f"{remote_name}: "
+            f"failed to collect "
+            f"chunk {chunk}"
         )
 
 
-def local_chunk_files(chunk, end, shot):
+def local_chunk_files(
+    chunk,
+    end,
+    shot,
+):
     folder = (
         ROOT
         / "data"
@@ -106,7 +160,11 @@ def local_chunk_files(chunk, end, shot):
     )
 
 
-def is_locally_completed(chunk, end, shot):
+def is_locally_completed(
+    chunk,
+    end,
+    shot,
+):
     return bool(
         local_chunk_files(
             chunk,
@@ -121,24 +179,43 @@ def fill_slots(
     workers,
     pending_chunks,
     running,
+    end,
+    shot,
 ):
     while (
-        len(running[remote_name]) < workers
+        len(
+            running[
+                remote_name
+            ]
+        )
+        < workers
         and pending_chunks
     ):
-        chunk = pending_chunks.pop(0)
+
+        chunk = (
+            pending_chunks.pop(
+                0
+            )
+        )
 
         print(
             f"\nASSIGN: "
-            f"{remote_name} <- chunk {chunk}"
+            f"{remote_name} "
+            f"<- "
+            f"end{end}/shot{shot} "
+            f"chunk {chunk}"
         )
 
         start_chunk(
             remote_name,
             chunk,
+            end,
+            shot,
         )
 
-        running[remote_name].append(
+        running[
+            remote_name
+        ].append(
             chunk
         )
 
@@ -149,19 +226,6 @@ def discover_existing_jobs(
     end,
     shot,
 ):
-    """
-    起動時に既存状態を確認する。
-
-    completed:
-        基盤PCにすでにNPZがあるchunk
-
-    running:
-        各PCで現在実行中のchunk
-
-    pending:
-        新たに割り当てる必要があるchunk
-    """
-
     completed = []
     pending = []
 
@@ -170,18 +234,21 @@ def discover_existing_jobs(
         for name in remotes
     }
 
-    print("\nCHECK EXISTING STATE:")
+    print(
+        "\nCHECK EXISTING STATE:"
+    )
 
     for chunk in chunks:
 
         # --------------------------------
-        # 基盤PCにNPZがあれば完了済み
+        # 基盤PCにデータが存在
         # --------------------------------
         if is_locally_completed(
             chunk,
             end,
             shot,
         ):
+
             print(
                 f"  chunk {chunk}: "
                 f"ALREADY DONE"
@@ -197,56 +264,72 @@ def discover_existing_jobs(
         found_done = []
 
         # --------------------------------
-        # 全PCでこのchunkの状態を確認
+        # 各PCを調査
         # --------------------------------
         for remote_name in remotes:
 
-            status, output = check_chunk(
-                remote_name,
-                chunk,
-                end,
-                shot,
+            status, output = (
+                check_chunk(
+                    remote_name,
+                    chunk,
+                    end,
+                    shot,
+                )
             )
 
             if status == "RUNNING":
+
                 found_running.append(
                     remote_name
                 )
 
             elif status == "DONE":
+
                 found_done.append(
                     remote_name
                 )
 
         # --------------------------------
-        # 同一chunkの二重実行は異常
+        # 同じchunkが複数PCで実行
         # --------------------------------
-        if len(found_running) > 1:
+        if len(
+            found_running
+        ) > 1:
+
             raise RuntimeError(
-                f"chunk {chunk} is running on "
+                f"chunk {chunk} "
+                f"is running on "
                 f"multiple nodes: "
                 f"{', '.join(found_running)}"
             )
 
         # --------------------------------
-        # 複数PCに同じ完成データがある場合も異常
+        # 同じ完成データが複数remote
         # --------------------------------
-        if len(found_done) > 1:
+        if len(
+            found_done
+        ) > 1:
+
             raise RuntimeError(
-                f"chunk {chunk} has completed "
-                f"outputs on multiple nodes: "
+                f"chunk {chunk} "
+                f"has completed outputs "
+                f"on multiple nodes: "
                 f"{', '.join(found_done)}"
             )
 
         # --------------------------------
-        # 遠隔PCで既に完成していれば回収
+        # remoteですでに完了
         # --------------------------------
         if found_done:
-            remote_name = found_done[0]
+
+            remote_name = (
+                found_done[0]
+            )
 
             print(
                 f"  chunk {chunk}: "
-                f"DONE on {remote_name}, "
+                f"DONE on "
+                f"{remote_name}, "
                 f"collecting"
             )
 
@@ -264,9 +347,10 @@ def discover_existing_jobs(
             continue
 
         # --------------------------------
-        # 実行中なら監視を引き継ぐ
+        # 実行中を引き継ぐ
         # --------------------------------
         if found_running:
+
             remote_name = (
                 found_running[0]
             )
@@ -286,10 +370,11 @@ def discover_existing_jobs(
             continue
 
         # --------------------------------
-        # UNKNOWN / STOPPEDなら未実行扱い
+        # 未実行
         # --------------------------------
         print(
-            f"  chunk {chunk}: PENDING"
+            f"  chunk {chunk}: "
+            f"PENDING"
         )
 
         pending.append(
@@ -303,13 +388,17 @@ def discover_existing_jobs(
     )
 
 
-def train_model(end, shot, epochs=None):
+def train_model(
+    end,
+    shot,
+    epochs=None,
+):
     print(
         f"\nSTART TRAINING: "
         f"end{end}/shot{shot}"
     )
 
-    args = [
+    train_args = [
         "--end",
         end,
         "--shot",
@@ -317,14 +406,15 @@ def train_model(end, shot, epochs=None):
     ]
 
     if epochs is not None:
-        args += [
+
+        train_args += [
             "--epochs",
             epochs,
         ]
 
     code, output = run_script(
         "train_model.py",
-        *args,
+        *train_args,
     )
 
     print(
@@ -366,7 +456,7 @@ def main():
     parser.add_argument(
         "--shot",
         type=int,
-        default=2,
+        default=15,
     )
 
     parser.add_argument(
@@ -379,27 +469,32 @@ def main():
         "--epochs",
         type=int,
         default=None,
-        help=(
-            "Training epochs. "
-            "If omitted, train_model.py "
-            "uses the existing EPOCHS setting."
-        ),
     )
 
     parser.add_argument(
         "--no-train",
         action="store_true",
-        help=(
-            "Generate and collect data "
-            "without training the model."
-        ),
     )
 
     args = parser.parse_args()
 
-    if args.chunk_end < args.chunk_start:
+    if (
+        args.chunk_end
+        < args.chunk_start
+    ):
         raise SystemExit(
-            "chunk_end must be >= chunk_start"
+            "chunk_end must be "
+            ">= chunk_start"
+        )
+
+    if not 0 <= args.end <= 9:
+        raise SystemExit(
+            "end must be 0..9"
+        )
+
+    if not 0 <= args.shot <= 15:
+        raise SystemExit(
+            "shot must be 0..15"
         )
 
     remotes = load_remotes()
@@ -416,12 +511,15 @@ def main():
         )
     )
 
-    # ------------------------------------
-    # 設定表示
-    # ------------------------------------
-    print("REMOTES:")
+    print(
+        "REMOTES:"
+    )
 
-    for name, node in remotes.items():
+    for (
+        name,
+        node,
+    ) in remotes.items():
+
         workers = int(
             node.get(
                 "workers",
@@ -447,7 +545,7 @@ def main():
     )
 
     # ------------------------------------
-    # 既存状態を復元
+    # 既存状態を調査
     # ------------------------------------
     (
         completed,
@@ -461,9 +559,12 @@ def main():
     )
 
     # ------------------------------------
-    # 各PCの空きworkerへ割り当て
+    # 最初の割当
     # ------------------------------------
-    for remote_name, node in remotes.items():
+    for (
+        remote_name,
+        node,
+    ) in remotes.items():
 
         workers = int(
             node.get(
@@ -477,10 +578,12 @@ def main():
             workers,
             pending_chunks,
             running,
+            args.end,
+            args.shot,
         )
 
     # ------------------------------------
-    # 実行中chunkを監視
+    # 監視
     # ------------------------------------
     while any(
         running.values()
@@ -503,7 +606,9 @@ def main():
             )
 
             for chunk in list(
-                running[remote_name]
+                running[
+                    remote_name
+                ]
             ):
 
                 status, output = (
@@ -522,9 +627,6 @@ def main():
                     f"-> {status}"
                 )
 
-                # ------------------------
-                # まだ実行中
-                # ------------------------
                 if status == "RUNNING":
                     continue
 
@@ -559,8 +661,8 @@ def main():
                     continue
 
                 # ------------------------
-                # プロセス消失等
-                # → 再割当
+                # 異常終了
+                # → 再キュー
                 # ------------------------
                 if status in (
                     "STOPPED",
@@ -595,17 +697,19 @@ def main():
                 )
 
             # ----------------------------
-            # 空いたworkerへ次を投入
+            # 空きworkerへ次chunk
             # ----------------------------
             fill_slots(
                 remote_name,
                 workers,
                 pending_chunks,
                 running,
+                args.end,
+                args.shot,
             )
 
     # ------------------------------------
-    # 念のため未処理chunk確認
+    # 全chunk確認
     # ------------------------------------
     if pending_chunks:
         raise RuntimeError(
@@ -621,20 +725,22 @@ def main():
         completed
     )
 
-    if completed_chunks != expected_chunks:
+    if (
+        completed_chunks
+        != expected_chunks
+    ):
+
         missing = sorted(
             expected_chunks
             - completed_chunks
         )
 
         raise RuntimeError(
-            f"Some chunks are not completed: "
+            f"Some chunks are "
+            f"not completed: "
             f"{missing}"
         )
 
-    # ------------------------------------
-    # データ生成完了
-    # ------------------------------------
     print(
         "\nALL DATA GENERATION DONE"
     )
@@ -652,9 +758,10 @@ def main():
     )
 
     # ------------------------------------
-    # モデル学習
+    # 学習
     # ------------------------------------
     if args.no_train:
+
         print(
             "\nTRAINING SKIPPED"
         )

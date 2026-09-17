@@ -21,7 +21,11 @@ def is_process_running(pid: int) -> bool:
         stderr=subprocess.PIPE,
     )
 
-    stdout = result.stdout.decode("cp932", errors="replace")
+    stdout = result.stdout.decode(
+        "cp932",
+        errors="replace",
+    )
+
     return str(pid) in stdout
 
 
@@ -41,6 +45,18 @@ def main():
     )
 
     parser.add_argument(
+        "--target-end",
+        type=int,
+        required=True,
+    )
+
+    parser.add_argument(
+        "--target-shot",
+        type=int,
+        required=True,
+    )
+
+    parser.add_argument(
         "--log-path",
         required=True,
     )
@@ -52,28 +68,65 @@ def main():
 
     args = parser.parse_args()
 
-    # 分散生成専用の一時ファイル置き場
-    temp_dir = ROOT / ".temp" / "remote_generate"
-    log_dir = temp_dir / "logs"
-    pid_dir = temp_dir / "pids"
+    if not 0 <= args.target_end <= 9:
+        raise SystemExit(
+            "target-end must be 0..9"
+        )
 
-    log_dir.mkdir(parents=True, exist_ok=True)
-    pid_dir.mkdir(parents=True, exist_ok=True)
+    if not 0 <= args.target_shot <= 15:
+        raise SystemExit(
+            "target-shot must be 0..15"
+        )
+
+    temp_dir = (
+        ROOT
+        / ".temp"
+        / "remote_generate"
+    )
+
+    log_dir = (
+        temp_dir
+        / "logs"
+    )
+
+    pid_dir = (
+        temp_dir
+        / "pids"
+    )
+
+    log_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    pid_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     log_file = (
         log_dir
-        / f"chunk_{args.chunk_start}_{args.chunk_end}.log"
+        / (
+            f"chunk_"
+            f"{args.chunk_start}_"
+            f"{args.chunk_end}.log"
+        )
     )
 
     pid_file = (
         pid_dir
-        / f"chunk_{args.chunk_start}_{args.chunk_end}.pid"
+        / (
+            f"chunk_"
+            f"{args.chunk_start}_"
+            f"{args.chunk_end}.pid"
+        )
     )
 
-    # ------------------------------
-    # 二重起動チェック
-    # ------------------------------
+    # ------------------------------------
+    # 二重起動防止
+    # ------------------------------------
     if pid_file.exists():
+
         try:
             old_pid = int(
                 pid_file.read_text(
@@ -81,10 +134,13 @@ def main():
                 ).strip()
             )
 
-            if is_process_running(old_pid):
+            if is_process_running(
+                old_pid
+            ):
                 raise SystemExit(
                     f"Already running: "
-                    f"chunk {args.chunk_start}-"
+                    f"chunk "
+                    f"{args.chunk_start}-"
                     f"{args.chunk_end} "
                     f"PID {old_pid}"
                 )
@@ -92,33 +148,69 @@ def main():
         except ValueError:
             pass
 
+    # ------------------------------------
+    # shot_generator.py
+    # ------------------------------------
     command = [
         sys.executable,
         "-u",
+
         str(
             ROOT
             / "transformer"
             / "shot_generator.py"
         ),
+
         "--chunk_start",
         str(args.chunk_start),
+
         "--chunk_end",
         str(args.chunk_end),
+
+        "--target_end",
+        str(args.target_end),
+
+        "--target_shot",
+        str(args.target_shot),
+
         "--num_workers",
         "1",
+
         "--log_path",
         args.log_path,
     ]
 
     if args.dry_run:
-        print("COMMAND:")
-        print(command)
 
-        print("LOG:")
-        print(log_file)
+        print(
+            "TARGET:",
+            f"end{args.target_end}/"
+            f"shot{args.target_shot}",
+        )
 
-        print("PID FILE:")
-        print(pid_file)
+        print(
+            "COMMAND:"
+        )
+
+        print(
+            command
+        )
+
+        print(
+            "LOG:"
+        )
+
+        print(
+            log_file
+        )
+
+        print(
+            "PID FILE:"
+        )
+
+        print(
+            pid_file
+        )
 
         return
 
@@ -128,7 +220,10 @@ def main():
         | subprocess.CREATE_BREAKAWAY_FROM_JOB
     )
 
-    with log_file.open("wb") as log:
+    with log_file.open(
+        "wb"
+    ) as log:
+
         process = subprocess.Popen(
             command,
             cwd=ROOT,
@@ -144,9 +239,26 @@ def main():
         encoding="ascii",
     )
 
-    print("PID:", process.pid)
-    print("LOG:", log_file)
-    print("PID FILE:", pid_file)
+    print(
+        "PID:",
+        process.pid,
+    )
+
+    print(
+        "TARGET:",
+        f"end{args.target_end}/"
+        f"shot{args.target_shot}",
+    )
+
+    print(
+        "LOG:",
+        log_file,
+    )
+
+    print(
+        "PID FILE:",
+        pid_file,
+    )
 
 
 if __name__ == "__main__":

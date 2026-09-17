@@ -48,7 +48,12 @@ from shot_origin.search import shot_origin_search, set_root_state as set_origin_
 from shot.params import DEFAULT_SHOT_MAX_SIMULATIONS, DEFAULT_SHOT_INFERENCE_BATCH_SIZE
 from board.constant import VX_SIZE
 from learning_param import BATCH_SIZE, DATA_SET_SIZE
-from search_config import SearchMode, get_search_settings, require_search_mode
+from search_config import (
+    ACTIVE_SEARCH_SETTINGS,
+    SearchMode,
+    get_search_settings,
+    require_search_mode,
+)
 
 N_ACTIONS = DEFAULT_TRANSFORMER_CONFIG.action_dim
 N_VALUE_CLASSES = DEFAULT_TRANSFORMER_CONFIG.value_dim
@@ -621,61 +626,305 @@ def _generate_chunk(
     
 
 @click.command()
-@click.option('--chunk_start', type=int, required=True, help="chunk index to process")
-@click.option('--chunk_end', type=int, required=True, help="chunk index to process")
-@click.option('--inference_batch_size', type=click.IntRange(min=1),
-              default=DEFAULT_SHOT_INFERENCE_BATCH_SIZE, show_default=True,
-              help="maximum leaf inference batch size; 1 preserves sequential inference")
-@click.option('--num_workers', type=click.IntRange(min=1), default=1, show_default=True,
-              help="maximum number of chunk worker processes sharing the GPU")
-@click.option('--simulation_seed', type=click.IntRange(min=0), default=0, show_default=True,
-              help="base search seed; each chunk has a reproducible independent stream")
-@click.option("--log_path", type=click.Path(path_type=Path), default=None)
-def main(chunk_start: int,
-         chunk_end: int,
-         inference_batch_size: int,
-         num_workers: int,
-         simulation_seed: int,
-         log_path: Path | None
-    ) -> None:
-    if log_path is None:
-        log_path = (Path(__file__).resolve().parents[1] / "LearnLog" / "all")
+
+@click.option(
+    "--chunk_start",
+    type=int,
+    required=True,
+    help="chunk index to process",
+)
+
+@click.option(
+    "--chunk_end",
+    type=int,
+    required=True,
+    help="chunk index to process",
+)
+
+@click.option(
+    "--target_end",
+    type=click.IntRange(
+        min=0,
+        max=9,
+    ),
+    required=True,
+    help="target end",
+)
+
+@click.option(
+    "--target_shot",
+    type=click.IntRange(
+        min=0,
+        max=15,
+    ),
+    required=True,
+    help="target shot",
+)
+
+@click.option(
+    "--log_path",
+    type=click.Path(
+        path_type=Path,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+    ),
+    required=True,
+)
+
+@click.option(
+    "--inference_batch_size",
+    type=click.IntRange(
+        min=1,
+    ),
+    default=DEFAULT_SHOT_INFERENCE_BATCH_SIZE,
+    show_default=True,
+)
+
+@click.option(
+    "--num_workers",
+    type=click.IntRange(
+        min=1,
+    ),
+    default=1,
+    show_default=True,
+)
+
+@click.option(
+    "--simulation_seed",
+    type=click.IntRange(
+        min=0,
+    ),
+    default=0,
+    show_default=True,
+)
+def main(
+    chunk_start: int,
+    chunk_end: int,
+    target_end: int,
+    target_shot: int,
+    log_path: Path,
+    inference_batch_size: int,
+    num_workers: int,
+    simulation_seed: int,
+) -> None:
+
+    root = ROOT_DIR
+
+    # ------------------------------------
+    # search_config.py で選択されている
+    # 探索設定をそのまま使用する
+    # ------------------------------------
+    search_settings = (
+        ACTIVE_SEARCH_SETTINGS
+    )
+
+    require_search_mode(
+        search_settings.mode
+    )
+
+    # ------------------------------------
+    # 基本モデル
+    # ------------------------------------
+    base_model = (
+        root
+        / "model"
+        / search_settings.base_model_name
+    )
+
+    if not base_model.is_file():
+        raise FileNotFoundError(
+            f"Base model not found: "
+            f"{base_model}"
+        )
+
+    # ------------------------------------
+    # Transformer教師モデル
+    #
+    # shot15:
+    #   次shotなし
+    #   → Transformer教師なし
+    #
+    # shot14:
+    #   shot15モデル
+    #
+    # shot13:
+    #   shot14モデル
+    #
+    # ...
+    # ------------------------------------
+    if target_shot < 15:
+
+        teacher_shot = (
+            target_shot + 1
+        )
+
+        transformer_model = (
+            root
+            / "model"
+            / (
+                f"{search_settings.mode}"
+                f"-end{target_end}"
+                f"-shot{teacher_shot}.bin"
+            )
+        )
+
+        if not transformer_model.is_file():
+            raise FileNotFoundError(
+                "Required teacher model "
+                "not found: "
+                f"{transformer_model}"
+            )
+
+        use_transformer = True
+
+        transformer_target_end = [
+            target_end
+        ]
+
+        transformer_target_shot = [
+            teacher_shot
+        ]
+
+    else:
+
+        transformer_model = None
+
+        use_transformer = False
+
+        transformer_target_end = []
+
+        transformer_target_shot = []
+
+    print(
+        "================================"
+    )
+
+    print(
+        f"TARGET: "
+        f"end={target_end}, "
+        f"shot={target_shot}"
+    )
+
+    print(
+        f"SEARCH MODE: "
+        f"{search_settings.mode}"
+    )
+
+    print(
+        f"LOG PATH: "
+        f"{log_path}"
+    )
+
+    print(
+        f"BASE MODEL: "
+        f"{base_model}"
+    )
+
+    if transformer_model is None:
+
+        print(
+            "TRANSFORMER TEACHER: none"
+        )
+
+    else:
+
+        print(
+            f"TRANSFORMER TEACHER: "
+            f"{transformer_model}"
+        )
+
+    print(
+        "================================"
+    )
+
     generate_data(
         log_path=log_path,
-        save_path=Path(__file__).resolve().parents[1] / "data",
+
+        save_path=(
+            root
+            / "data"
+        ),
+
         data_size=70000,
-        target_end=9,
+
+        target_end=target_end,
+
         use_end_augmentation=True,
+
         use_score_diff_augmentation=False,
-        target_shot=[2],
-        model=Path(__file__).resolve().parents[1] / "model" / "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
-        use_transformer=True,
-        transformer_model=Path(__file__).resolve().parents[1]
-        / "model"
-        / "transformer-sl-9-3-model-06-30-adamw-epoch50-shot.bin",
-        transformer_target_end=[9],
-        transformer_target_shot=[3],
-        max_simulations=DEFAULT_SHOT_MAX_SIMULATIONS,
-        inference_batch_size=inference_batch_size,
-        num_workers=num_workers,
-        simulation_seed=simulation_seed,
+
+        target_shot=[
+            target_shot
+        ],
+
+        model=base_model,
+
+        use_transformer=(
+            use_transformer
+        ),
+
+        transformer_model=(
+            transformer_model
+        ),
+
+        transformer_target_end=(
+            transformer_target_end
+        ),
+
+        transformer_target_shot=(
+            transformer_target_shot
+        ),
+
+        max_simulations=(
+            search_settings.max_simulations
+        ),
+
         use_gpu=True,
+
         shuffle_seed=12345,
-        chunk_start=chunk_start,
-        chunk_end=chunk_end,
-        chunk_size=BATCH_SIZE,
+
+        chunk_start=(
+            chunk_start
+        ),
+
+        chunk_end=(
+            chunk_end
+        ),
+
+        chunk_size=(
+            BATCH_SIZE
+        ),
+
         policy_min_visit=3,
         policy_delta_q=1.0,
         policy_alpha_visit=0.2,
         policy_beta_q=0.3,
         policy_lambda_best=0.5,
+
         value_min_visit=3,
         value_delta_q=0.0,
         value_alpha_visit=0.5,
         value_beta_q=0.5,
-        value_lambda_best=0.5
+        value_lambda_best=0.5,
+
+        inference_batch_size=(
+            inference_batch_size
+        ),
+
+        num_workers=(
+            num_workers
+        ),
+
+        simulation_seed=(
+            simulation_seed
+        ),
+
+        search_mode=(
+            search_settings.mode
+        ),
     )
-   
-    
+
+
 if __name__ == "__main__":
     main()

@@ -17,18 +17,58 @@ def decode_output(data: bytes) -> str:
         except UnicodeDecodeError:
             pass
 
-    return data.decode("utf-8", errors="replace")
+    return data.decode(
+        "utf-8",
+        errors="replace",
+    )
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("remote_name")
-    parser.add_argument("chunk_start", type=int)
-    parser.add_argument("chunk_end", type=int, nargs="?")
-    parser.add_argument("--dry-run", action="store_true")
+
+    parser.add_argument(
+        "remote_name",
+    )
+
+    parser.add_argument(
+        "chunk_start",
+        type=int,
+    )
+
+    parser.add_argument(
+        "chunk_end",
+        type=int,
+        nargs="?",
+    )
+
+    parser.add_argument(
+        "--end",
+        type=int,
+        required=True,
+    )
+
+    parser.add_argument(
+        "--shot",
+        type=int,
+        required=True,
+    )
+
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+    )
+
     args = parser.parse_args()
 
-    node = get_remote(args.remote_name)
+    if not 0 <= args.end <= 9:
+        raise SystemExit(
+            "end must be 0..9"
+        )
+
+    if not 0 <= args.shot <= 15:
+        raise SystemExit(
+            "shot must be 0..15"
+        )
 
     chunk_end = (
         args.chunk_start
@@ -36,36 +76,52 @@ def main():
         else args.chunk_end
     )
 
-    # remotes.json からPCごとの学習元データパスを取得
+    node = get_remote(
+        args.remote_name
+    )
+
     log_path = node["log_path"]
 
     launcher_args = [
         "--chunk-start",
         str(args.chunk_start),
+
         "--chunk-end",
         str(chunk_end),
+
+        "--target-end",
+        str(args.end),
+
+        "--target-shot",
+        str(args.shot),
+
         "--log-path",
-        log_path,
+        str(log_path),
     ]
 
     if args.dry_run:
-        launcher_args.append("--dry-run")
+        launcher_args.append(
+            "--dry-run"
+        )
 
-    node_type = node["type"]
+    # ------------------------------------
+    # local
+    # ------------------------------------
+    if node["type"] == "local":
 
-    # -------------------------
-    # 基盤PC自身で実行
-    # -------------------------
-    if node_type == "local":
-        root = Path(node["root"])
+        root = Path(
+            node["root"]
+        )
+
+        launcher = (
+            root
+            / "remote_generate"
+            / "remote_launcher.py"
+        )
 
         command = [
             sys.executable,
-            str(
-                root
-                / "remote_generate"
-                / "remote_launcher.py"
-            ),
+            str(launcher),
             *launcher_args,
         ]
 
@@ -73,65 +129,87 @@ def main():
             command,
             cwd=root,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
 
-    # -------------------------
-    # SSH先で実行
-    # -------------------------
-    elif node_type == "ssh":
+    # ------------------------------------
+    # SSH
+    # ------------------------------------
+    elif node["type"] == "ssh":
+
         host = node["host"]
         remote_root = node["root"]
 
-        remote_command = (
-            f'cd /d "{remote_root}" && '
-            f'python remote_generate\\remote_launcher.py '
-            f'--chunk-start {args.chunk_start} '
-            f'--chunk-end {chunk_end} '
-            f'--log-path "{log_path}"'
+        launcher_command = (
+            subprocess.list2cmdline(
+                [
+                    "python",
+                    r"remote_generate\remote_launcher.py",
+                    *launcher_args,
+                ]
+            )
         )
 
-        if args.dry_run:
-            remote_command += " --dry-run"
+        remote_command = (
+            f'cd /d "{remote_root}" '
+            f"&& {launcher_command}"
+        )
 
         result = subprocess.run(
-            ["ssh", host, remote_command],
+            [
+                "ssh",
+                host,
+                remote_command,
+            ],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
         )
 
     else:
         raise SystemExit(
-            f"Unknown node type: {node_type}"
+            f"Unknown node type: "
+            f"{node['type']}"
         )
 
-    stdout = decode_output(result.stdout)
-    stderr = decode_output(result.stderr)
+    output = decode_output(
+        result.stdout
+    )
 
-    if stdout:
-        print(stdout, end="")
-
-    if stderr:
-        print(stderr, end="", file=sys.stderr)
+    print(
+        output,
+        end="",
+    )
 
     if result.returncode != 0:
-        raise SystemExit(result.returncode)
+        raise SystemExit(
+            result.returncode
+        )
 
-    # dry-runではPIDは出ない
     if args.dry_run:
         return
 
-    match = re.search(r"PID:\s*(\d+)", stdout)
+    match = re.search(
+        r"PID:\s*(\d+)",
+        output,
+    )
 
-    if match is None:
+    if not match:
         raise SystemExit(
-            "Process started, but PID could not be read."
+            "PID was not returned "
+            "by remote_launcher.py"
         )
 
+    pid = int(
+        match.group(1)
+    )
+
     print(
-        f"STARTED: {args.remote_name} "
-        f"chunk {args.chunk_start}-{chunk_end} "
-        f"PID {match.group(1)}"
+        f"STARTED: "
+        f"{args.remote_name} "
+        f"end{args.end}/shot{args.shot} "
+        f"chunk "
+        f"{args.chunk_start}-{chunk_end} "
+        f"PID {pid}"
     )
 
 
