@@ -11,6 +11,22 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 
 
+CONNECTION_ERROR_MARKERS = (
+    "connection timed out",
+    "connection refused",
+    "connection reset",
+    "connection closed",
+    "connection aborted",
+    "no route to host",
+    "network is unreachable",
+    "could not resolve hostname",
+    "stdio forwarding failed",
+    "operation timed out",
+    "open failed: connect failed",
+    "broken pipe",
+)
+
+
 def run_script(script_name, *args):
     command = [
         sys.executable,
@@ -30,6 +46,15 @@ def run_script(script_name, *args):
     return (
         result.returncode,
         result.stdout,
+    )
+
+
+def is_connection_error(output):
+    text = output.lower()
+
+    return any(
+        marker in text
+        for marker in CONNECTION_ERROR_MARKERS
     )
 
 
@@ -54,12 +79,26 @@ def start_chunk(
         end="",
     )
 
-    if code != 0:
-        raise RuntimeError(
-            f"{remote_name}: "
-            f"failed to start "
+    if code == 0:
+        return True
+
+    if is_connection_error(output):
+        print(
+            f"UNREACHABLE: "
+            f"{remote_name} while starting "
             f"chunk {chunk}"
         )
+
+        # SSHが切れたタイミングによっては、
+        # remote側で起動済みの可能性がある。
+        return False
+
+    raise RuntimeError(
+        f"{remote_name}: "
+        f"failed to start "
+        f"chunk {chunk}\n"
+        f"{output}"
+    )
 
 
 def check_chunk(
@@ -79,6 +118,13 @@ def check_chunk(
     )
 
     if code != 0:
+
+        if is_connection_error(output):
+            return (
+                "UNREACHABLE",
+                output,
+            )
+
         raise RuntimeError(
             f"{remote_name}: "
             f"failed to check "
@@ -133,12 +179,24 @@ def collect_chunk(
         end="",
     )
 
-    if code != 0:
-        raise RuntimeError(
-            f"{remote_name}: "
-            f"failed to collect "
+    if code == 0:
+        return True
+
+    if is_connection_error(output):
+        print(
+            f"UNREACHABLE: "
+            f"{remote_name} while collecting "
             f"chunk {chunk}"
         )
+
+        return False
+
+    raise RuntimeError(
+        f"{remote_name}: "
+        f"failed to collect "
+        f"chunk {chunk}\n"
+        f"{output}"
+    )
 
 
 def local_chunk_files(
@@ -206,18 +264,45 @@ def fill_slots(
             f"chunk {chunk}"
         )
 
-        start_chunk(
+        started = start_chunk(
             remote_name,
             chunk,
             end,
             shot,
         )
 
+        if started:
+
+            running[
+                remote_name
+            ].append(
+                chunk
+            )
+
+            continue
+
+        # SSH接続エラーの場合、
+        # remote側で起動に成功しているかどうか
+        # この時点では判断できない。
+        #
+        # そのため別PCへ再投入せず、
+        # 一旦このPCに割り当てられた状態で保持する。
         running[
             remote_name
         ].append(
             chunk
         )
+
+        print(
+            f"WAIT: "
+            f"chunk {chunk} may have started "
+            f"on {remote_name}; "
+            f"will check again later."
+        )
+
+        # 接続状態が不明なので、
+        # このPCへの追加割当も一旦停止する。
+        break
 
 
 def discover_existing_jobs(
@@ -274,6 +359,19 @@ def discover_existing_jobs(
                 )
             )
 
+            # 起動時の状態復元では、
+            # PCに接続できないままPENDINGと判断すると
+            # 二重生成になる可能性がある。
+            #
+            # そのため接続が戻るまで待つ。
+            if status == "UNREACHABLE":
+
+                raise ConnectionError(
+                    f"{remote_name} is temporarily "
+                    f"unreachable while checking "
+                    f"chunk {chunk}"
+                )
+
             if status == "RUNNING":
 
                 found_running.append(
@@ -322,12 +420,20 @@ def discover_existing_jobs(
                 f"collecting"
             )
 
-            collect_chunk(
+            collected = collect_chunk(
                 remote_name,
                 chunk,
                 end,
                 shot,
             )
+
+            if not collected:
+
+                raise ConnectionError(
+                    f"{remote_name} became "
+                    f"unreachable while collecting "
+                    f"chunk {chunk}"
+                )
 
             completed.append(
                 chunk
@@ -563,19 +669,40 @@ def main():
     # ------------------------------------
     # 既存状態を調査
     #
-    # ここはenabled=falseも含め
-    # 全PCを確認する
+    # 起動直後に一時的なSSH障害があれば、
+    # 状態を誤判定しないため接続復旧まで待つ。
     # ------------------------------------
-    (
-        completed,
-        running,
-        pending_chunks,
-    ) = discover_existing_jobs(
-        remotes,
-        chunks,
-        args.end,
-        args.shot,
-    )
+    while True:
+
+        try:
+            (
+                completed,
+                running,
+                pending_chunks,
+            ) = discover_existing_jobs(
+                remotes,
+                chunks,
+                args.end,
+                args.shot,
+            )
+
+            break
+
+        except ConnectionError as exc:
+
+            print(
+                f"\nWAITING FOR CONNECTION: "
+                f"{exc}"
+            )
+
+            print(
+                f"Retrying in "
+                f"{args.poll_seconds} seconds."
+            )
+
+            time.sleep(
+                args.poll_seconds
+            )
 
     # ------------------------------------
     # 最初の割当
@@ -606,11 +733,14 @@ def main():
     # ------------------------------------
     # 監視
     #
-    # 既存ジョブ監視のため
-    # 全PCを見る
+    # runningがある間、
+    # または再割当待ちのpendingがある間続ける
     # ------------------------------------
-    while any(
-        running.values()
+    while (
+        any(
+            running.values()
+        )
+        or pending_chunks
     ):
 
         time.sleep(
@@ -628,6 +758,8 @@ def main():
                     1,
                 )
             )
+
+            node_unreachable = False
 
             for chunk in list(
                 running[
@@ -651,9 +783,36 @@ def main():
                     f"-> {status}"
                 )
 
+                # ------------------------
+                # SSH等の一時的な接続障害
+                #
+                # chunkの状態は変更せず、
+                # このPCへの追加割当も停止する。
+                # ------------------------
+                if status == "UNREACHABLE":
+
+                    node_unreachable = True
+
+                    print(
+                        f"WAIT: "
+                        f"{remote_name} is temporarily "
+                        f"unreachable. "
+                        f"chunk {chunk} remains assigned."
+                    )
+
+                    # 同じpollでこのPCへ何度も
+                    # SSH接続を試さない。
+                    break
+
+                # ------------------------
+                # まだ実行中
+                # ------------------------
                 if status == "RUNNING":
                     continue
 
+                # ------------------------
+                # 完了
+                # ------------------------
                 if status == "DONE":
 
                     print(
@@ -662,12 +821,27 @@ def main():
                         f"chunk {chunk}"
                     )
 
-                    collect_chunk(
+                    collected = collect_chunk(
                         remote_name,
                         chunk,
                         args.end,
                         args.shot,
                     )
+
+                    # DONE確認後、回収時に
+                    # SSHが切れる場合もある。
+                    if not collected:
+
+                        node_unreachable = True
+
+                        print(
+                            f"WAIT: "
+                            f"chunk {chunk} is DONE on "
+                            f"{remote_name}, but collection "
+                            f"will be retried later."
+                        )
+
+                        break
 
                     completed.append(
                         chunk
@@ -681,6 +855,10 @@ def main():
 
                     continue
 
+                # ------------------------
+                # PCには接続できたが、
+                # プロセスが止まっている
+                # ------------------------
                 if status in (
                     "STOPPED",
                     "UNKNOWN",
@@ -715,11 +893,17 @@ def main():
 
             # --------------------------------
             # 新しいchunkの割当は
-            # enabled=true のPCだけ
+            #
+            # enabled=true
+            # かつ
+            # このpollで接続可能だったPCだけ
             # --------------------------------
-            if node.get(
-                "enabled",
-                True,
+            if (
+                node.get(
+                    "enabled",
+                    True,
+                )
+                and not node_unreachable
             ):
 
                 fill_slots(
