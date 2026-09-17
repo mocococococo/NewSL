@@ -762,6 +762,8 @@ def main(
         transformer_model = (
             root
             / "model"
+            / "distribute"
+            / f"end_{target_end}"
             / (
                 f"{search_settings.mode}"
                 f"-end{target_end}"
