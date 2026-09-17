@@ -79,6 +79,20 @@ def main():
         else f"shot-end{args.end}-shot{args.shot}"
     )
 
+    temporary_model_path = (
+        ROOT
+        / "model"
+        / f"{model_name}.bin"
+    )
+
+    output_model_path = (
+        ROOT
+        / "model"
+        / "distribute"
+        / f"end_{args.end}"
+        / f"{model_name}.bin"
+    )
+
     print("TRAINING")
     print("END:", args.end)
     print("SHOT:", args.shot)
@@ -97,6 +111,26 @@ def main():
         data_dir=data_dir,
     )
 
+
+    if not temporary_model_path.is_file():
+        raise FileNotFoundError(
+            f"Training finished but model was not created: "
+            f"{temporary_model_path}"
+        )
+
+    output_model_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    temporary_model_path.replace(
+        output_model_path
+    )
+
+    print(
+        f"Moved model to: "
+        f"{output_model_path}"
+    )
 
 if __name__ == "__main__":
     main()

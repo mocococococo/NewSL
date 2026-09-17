@@ -19,6 +19,8 @@ def model_path(end, shot):
     return (
         ROOT
         / "model"
+        / "distribute"
+        / f"end_{end}"
         / model_name(end, shot)
     )
 
@@ -161,7 +163,7 @@ def run_distribute(
 
 def remote_model_path(
     node,
-    filename,
+    path,
 ):
     root = (
         str(
@@ -176,22 +178,26 @@ def remote_model_path(
         )
     )
 
+    relative_path = (
+        path
+        .relative_to(
+            ROOT / "model"
+        )
+        .as_posix()
+    )
+
     return (
         f"{root}/model/"
-        f"{filename}"
+        f"{relative_path}"
     )
 
 
 def ensure_remote_model_dir(
     host,
-    node,
+    remote_path,
 ):
-    remote_root = str(
-        node["root"]
-    )
-
-    escaped_root = (
-        remote_root.replace(
+    escaped_path = (
+        remote_path.replace(
             "'",
             "''",
         )
@@ -200,19 +206,17 @@ def ensure_remote_model_dir(
     script = f"""
 $ErrorActionPreference = 'Stop'
 
-$root = '{escaped_root}'
+$path = '{escaped_path}'
 
-$modelDir = Join-Path `
-    $root `
-    'model'
+$modelDir = Split-Path `
+    -Parent `
+    $path
 
 New-Item `
     -ItemType Directory `
     -Force `
     -Path $modelDir `
     | Out-Null
-
-Write-Output $modelDir
 """
 
     encoded = base64.b64encode(
@@ -373,7 +377,7 @@ def sync_model_to_enabled_remotes(
         remote_path = (
             remote_model_path(
                 node,
-                path.name,
+                path,
             )
         )
 
@@ -385,7 +389,7 @@ def sync_model_to_enabled_remotes(
 
         ensure_remote_model_dir(
             host,
-            node,
+            remote_path,
         )
 
         result = subprocess.run(
