@@ -240,9 +240,7 @@ def discover_existing_jobs(
 
     for chunk in chunks:
 
-        # --------------------------------
-        # 基盤PCにデータが存在
-        # --------------------------------
+        # 基盤PCにすでにデータがあれば完了済み
         if is_locally_completed(
             chunk,
             end,
@@ -263,9 +261,8 @@ def discover_existing_jobs(
         found_running = []
         found_done = []
 
-        # --------------------------------
-        # 各PCを調査
-        # --------------------------------
+        # enabled=false のPCも含め、
+        # 全PCの状態を確認する
         for remote_name in remotes:
 
             status, output = (
@@ -289,9 +286,6 @@ def discover_existing_jobs(
                     remote_name
                 )
 
-        # --------------------------------
-        # 同じchunkが複数PCで実行
-        # --------------------------------
         if len(
             found_running
         ) > 1:
@@ -303,9 +297,6 @@ def discover_existing_jobs(
                 f"{', '.join(found_running)}"
             )
 
-        # --------------------------------
-        # 同じ完成データが複数remote
-        # --------------------------------
         if len(
             found_done
         ) > 1:
@@ -317,9 +308,7 @@ def discover_existing_jobs(
                 f"{', '.join(found_done)}"
             )
 
-        # --------------------------------
-        # remoteですでに完了
-        # --------------------------------
+        # remoteですでに完成していれば回収
         if found_done:
 
             remote_name = (
@@ -346,9 +335,8 @@ def discover_existing_jobs(
 
             continue
 
-        # --------------------------------
-        # 実行中を引き継ぐ
-        # --------------------------------
+        # すでに動いているものは
+        # enabled=false でも監視継続
         if found_running:
 
             remote_name = (
@@ -369,9 +357,6 @@ def discover_existing_jobs(
 
             continue
 
-        # --------------------------------
-        # 未実行
-        # --------------------------------
         print(
             f"  chunk {chunk}: "
             f"PENDING"
@@ -497,11 +482,31 @@ def main():
             "shot must be 0..15"
         )
 
+    # ------------------------------------
+    # 全PC
+    # ------------------------------------
     remotes = load_remotes()
 
     if not remotes:
         raise SystemExit(
             "No remotes configured."
+        )
+
+    # ------------------------------------
+    # 新規chunk生成に使うPCだけ
+    # ------------------------------------
+    generation_remotes = {
+        name: node
+        for name, node in remotes.items()
+        if node.get(
+            "enabled",
+            True,
+        )
+    }
+
+    if not generation_remotes:
+        raise SystemExit(
+            "No enabled remotes configured."
         )
 
     chunks = list(
@@ -511,6 +516,9 @@ def main():
         )
     )
 
+    # ------------------------------------
+    # PC設定表示
+    # ------------------------------------
     print(
         "REMOTES:"
     )
@@ -527,9 +535,17 @@ def main():
             )
         )
 
+        enabled = bool(
+            node.get(
+                "enabled",
+                True,
+            )
+        )
+
         print(
             f"  {name} "
-            f"(workers={workers})"
+            f"(workers={workers}, "
+            f"enabled={enabled})"
         )
 
     print(
@@ -546,6 +562,9 @@ def main():
 
     # ------------------------------------
     # 既存状態を調査
+    #
+    # ここはenabled=falseも含め
+    # 全PCを確認する
     # ------------------------------------
     (
         completed,
@@ -560,11 +579,13 @@ def main():
 
     # ------------------------------------
     # 最初の割当
+    #
+    # enabled=true のPCだけ
     # ------------------------------------
     for (
         remote_name,
         node,
-    ) in remotes.items():
+    ) in generation_remotes.items():
 
         workers = int(
             node.get(
@@ -584,6 +605,9 @@ def main():
 
     # ------------------------------------
     # 監視
+    #
+    # 既存ジョブ監視のため
+    # 全PCを見る
     # ------------------------------------
     while any(
         running.values()
@@ -630,9 +654,6 @@ def main():
                 if status == "RUNNING":
                     continue
 
-                # ------------------------
-                # 完了
-                # ------------------------
                 if status == "DONE":
 
                     print(
@@ -660,10 +681,6 @@ def main():
 
                     continue
 
-                # ------------------------
-                # 異常終了
-                # → 再キュー
-                # ------------------------
                 if status in (
                     "STOPPED",
                     "UNKNOWN",
@@ -696,21 +713,24 @@ def main():
                     f"{output}"
                 )
 
-            # ----------------------------
-            # 空きworkerへ次chunk
-            # ----------------------------
-            fill_slots(
-                remote_name,
-                workers,
-                pending_chunks,
-                running,
-                args.end,
-                args.shot,
-            )
+            # --------------------------------
+            # 新しいchunkの割当は
+            # enabled=true のPCだけ
+            # --------------------------------
+            if node.get(
+                "enabled",
+                True,
+            ):
 
-    # ------------------------------------
-    # 全chunk確認
-    # ------------------------------------
+                fill_slots(
+                    remote_name,
+                    workers,
+                    pending_chunks,
+                    running,
+                    args.end,
+                    args.shot,
+                )
+
     if pending_chunks:
         raise RuntimeError(
             f"Pending chunks remain: "
@@ -757,9 +777,6 @@ def main():
         ),
     )
 
-    # ------------------------------------
-    # 学習
-    # ------------------------------------
     if args.no_train:
 
         print(

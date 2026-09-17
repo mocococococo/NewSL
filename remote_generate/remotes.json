@@ -3,20 +3,23 @@
     "type": "local",
     "root": "C:/Users/kirby/Programs/DigitalCurling/NewSL",
     "log_path": "C:/Users/kirby/Programs/DigitalCurling/NewSL/LearnLog/all",
-    "workers": 4
+    "workers": 4,
+    "enabled": true
   },
   "remote-01": {
     "type": "ssh",
     "host": "remote-01",
     "root": "C:/Users/itolab/DigitalCurling/NewSL",
     "log_path": "C:/Users/itolab/DigitalCurling/NewSL/LearnLog/all",
-    "workers": 4
+    "workers": 4,
+    "enabled": true
   },
   "remote-02": {
     "type": "ssh",
     "host": "remote-02",
     "root": "C:/Users/gt280/NewSL",
     "log_path": "D:/all",
-    "workers": 2
+    "workers": 2,
+    "enabled": true
   }
 }
