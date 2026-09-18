@@ -698,6 +698,14 @@ def _generate_chunk(
     default=0,
     show_default=True,
 )
+
+@click.option(
+    "--use_gpu/--no_use_gpu",
+    default=True,
+    show_default=True,
+)
+
+
 def main(
     chunk_start: int,
     chunk_end: int,
@@ -705,6 +713,7 @@ def main(
     target_shot: int,
     log_path: Path,
     inference_batch_size: int,
+    use_gpu: bool,
     num_workers: int,
     simulation_seed: int,
 ) -> None:
@@ -814,6 +823,16 @@ def main(
     )
 
     print(
+        f"USE GPU: "
+        f"{use_gpu}"
+    )
+    
+    print(
+        f"INFERENCE BATCH SIZE: "
+        f"{inference_batch_size}"
+    )
+
+    print(
         f"LOG PATH: "
         f"{log_path}"
     )
@@ -882,7 +901,7 @@ def main(
             search_settings.max_simulations
         ),
 
-        use_gpu=True,
+        use_gpu=use_gpu,
 
         shuffle_seed=12345,
 

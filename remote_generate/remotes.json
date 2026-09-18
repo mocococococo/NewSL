@@ -4,7 +4,9 @@
     "root": "C:/Users/kirby/Programs/DigitalCurling/NewSL",
     "log_path": "C:/Users/kirby/Programs/DigitalCurling/NewSL/LearnLog/all",
     "workers": 4,
-    "enabled": true
+    "enabled": true,
+    "use_gpu": true,
+    "inference_batch_size": 256
   },
   "remote-01": {
     "type": "ssh",
@@ -12,7 +14,9 @@
     "root": "C:/Users/itolab/DigitalCurling/NewSL",
     "log_path": "C:/Users/itolab/DigitalCurling/NewSL/LearnLog/all",
     "workers": 4,
-    "enabled": true
+    "enabled": true,
+    "use_gpu": true,
+    "inference_batch_size": 256
   },
   "remote-02": {
     "type": "ssh",
@@ -20,6 +24,8 @@
     "root": "C:/Users/gt280/NewSL",
     "log_path": "D:/all",
     "workers": 1,
-    "enabled": true
+    "enabled": true,
+    "use_gpu": true,
+    "inference_batch_size": 64
   }
 }
