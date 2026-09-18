@@ -27,5 +27,35 @@
     "enabled": true,
     "use_gpu": true,
     "inference_batch_size": 64
+  },
+  "remote-03": {
+    "type": "ssh",
+    "host": "remote-03",
+    "root": "C:/Users/itolab/NewSL",
+    "log_path": "C:/Users/itolab/NewSL/LearnLog/all",
+    "workers": 1,
+    "enabled": true,
+    "use_gpu": false,
+    "inference_batch_size": 8
+  },
+  "remote-04": {
+    "type": "ssh",
+    "host": "remote-04",
+    "root": "C:/Users/itolab/NewSL",
+    "log_path": "C:/Users/itolab/NewSL/LearnLog/all",
+    "workers": 1,
+    "enabled": true,
+    "use_gpu": false,
+    "inference_batch_size": 8
+  },
+  "remote-05": {
+    "type": "ssh",
+    "host": "remote-05",
+    "root": "C:/Users/taki/NewSL",
+    "log_path": "C:/Users/taki/NewSL/LearnLog/all",
+    "workers": 1,
+    "enabled": true,
+    "use_gpu": false,
+    "inference_batch_size": 8
   }
 }
