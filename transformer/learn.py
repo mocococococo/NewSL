@@ -49,11 +49,35 @@ def train(
     model_name: str = "transformer-sl-model",
     use_gpu: bool = True,
     data_dir: str | Path | None = None,
+    loss_history_dir: str | Path | None = None,
 ) -> None:
     """TransformerNetwork を教師あり学習する。"""
     torch.set_grad_enabled(True)
     program_dir = Path(program_dir)
-    loss_history_path = make_loss_history_path(program_dir, model_name)
+    
+    if loss_history_dir is None:
+        loss_history_path = make_loss_history_path(
+            program_dir,
+            model_name,
+        )
+    else:
+        loss_history_dir = Path(loss_history_dir)
+        loss_history_dir.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        loss_history_path = (
+            loss_history_dir
+            / f"{model_name}.json"
+        )
+
+        if not loss_history_path.exists():
+            loss_history_path.write_text(
+                "{}",
+                encoding="utf-8",
+            )
+    
     data_dir = Path(data_dir) if data_dir is not None else program_dir / "data"
 
     print(data_dir / "sl_data_*.npz")

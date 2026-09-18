@@ -109,6 +109,11 @@ def main():
         model_name=model_name,
         use_gpu=not args.cpu,
         data_dir=data_dir,
+        loss_history_dir=(
+            ROOT
+            / "record"
+            / "distribute"
+        ),
     )
 
 
