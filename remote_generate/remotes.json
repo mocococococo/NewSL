@@ -33,7 +33,7 @@
     "host": "remote-03",
     "root": "C:/Users/itolab/NewSL",
     "log_path": "C:/Users/itolab/NewSL/LearnLog/all",
-    "workers": 2,
+    "workers": 1,
     "enabled": true,
     "use_gpu": false,
     "inference_batch_size": 8
@@ -43,7 +43,7 @@
     "host": "remote-04",
     "root": "C:/Users/itolab/NewSL",
     "log_path": "C:/Users/itolab/NewSL/LearnLog/all",
-    "workers": 2,
+    "workers": 1,
     "enabled": true,
     "use_gpu": false,
     "inference_batch_size": 8
@@ -53,7 +53,7 @@
     "host": "remote-05",
     "root": "C:/Users/taki/NewSL",
     "log_path": "C:/Users/taki/NewSL/LearnLog/all",
-    "workers": 2,
+    "workers": 1,
     "enabled": true,
     "use_gpu": false,
     "inference_batch_size": 8
@@ -63,7 +63,7 @@
     "host": "remote-06",
     "root": "C:/Users/kirby/DigitalCurling/NewSL",
     "log_path": "D:/all/all",
-    "workers": 2,
+    "workers": 1,
     "enabled": true,
     "use_gpu": false,
     "inference_batch_size": 8

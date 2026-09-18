@@ -469,7 +469,7 @@ def main():
     parser.add_argument(
         "--poll-seconds",
         type=int,
-        default=30,
+        default=300,
     )
 
     args = parser.parse_args()

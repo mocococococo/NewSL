@@ -303,6 +303,106 @@ def fill_slots(
         # 接続状態が不明なので、
         # このPCへの追加割当も一旦停止する。
         break
+    
+
+def fill_pending_round_robin(
+    remotes,
+    pending_chunks,
+    running,
+    end,
+    shot,
+    unreachable_nodes=None,
+):
+    if unreachable_nodes is None:
+        unreachable_nodes = set()
+
+    while pending_chunks:
+
+        assigned_in_round = False
+
+        for (
+            remote_name,
+            node,
+        ) in remotes.items():
+
+            if not pending_chunks:
+                break
+
+            if not node.get(
+                "enabled",
+                True,
+            ):
+                continue
+
+            if (
+                remote_name
+                in unreachable_nodes
+            ):
+                continue
+
+            workers = int(
+                node.get(
+                    "workers",
+                    1,
+                )
+            )
+
+            if (
+                len(
+                    running[
+                        remote_name
+                    ]
+                )
+                >= workers
+            ):
+                continue
+
+            chunk = (
+                pending_chunks.pop(
+                    0
+                )
+            )
+
+            print(
+                f"\nASSIGN: "
+                f"{remote_name} "
+                f"<- "
+                f"end{end}/shot{shot} "
+                f"chunk {chunk}"
+            )
+
+            started = start_chunk(
+                remote_name,
+                chunk,
+                end,
+                shot,
+            )
+
+            running[
+                remote_name
+            ].append(
+                chunk
+            )
+
+            assigned_in_round = True
+
+            if not started:
+
+                unreachable_nodes.add(
+                    remote_name
+                )
+
+                print(
+                    f"WAIT: "
+                    f"chunk {chunk} may have started "
+                    f"on {remote_name}; "
+                    f"will check again later."
+                )
+
+        # 1周してもどのPCにも割り当てられなければ、
+        # 現在は全workerが使用中
+        if not assigned_in_round:
+            break
 
 
 def discover_existing_jobs(
@@ -747,19 +847,19 @@ def main():
             args.poll_seconds
         )
 
+        # このpollで接続不能だったPC
+        unreachable_nodes = set()
+
+        # --------------------------------
+        # まず全PCの状態を確認する
+        #
+        # ここではまだ新しいchunkを
+        # 割り当てない
+        # --------------------------------
         for (
             remote_name,
             node,
         ) in remotes.items():
-
-            workers = int(
-                node.get(
-                    "workers",
-                    1,
-                )
-            )
-
-            node_unreachable = False
 
             for chunk in list(
                 running[
@@ -784,14 +884,13 @@ def main():
                 )
 
                 # ------------------------
-                # SSH等の一時的な接続障害
-                #
-                # chunkの状態は変更せず、
-                # このPCへの追加割当も停止する。
+                # 一時的な接続障害
                 # ------------------------
                 if status == "UNREACHABLE":
 
-                    node_unreachable = True
+                    unreachable_nodes.add(
+                        remote_name
+                    )
 
                     print(
                         f"WAIT: "
@@ -800,12 +899,12 @@ def main():
                         f"chunk {chunk} remains assigned."
                     )
 
-                    # 同じpollでこのPCへ何度も
-                    # SSH接続を試さない。
+                    # このpollでは同じPCを
+                    # これ以上確認しない
                     break
 
                 # ------------------------
-                # まだ実行中
+                # 実行中
                 # ------------------------
                 if status == "RUNNING":
                     continue
@@ -828,11 +927,11 @@ def main():
                         args.shot,
                     )
 
-                    # DONE確認後、回収時に
-                    # SSHが切れる場合もある。
                     if not collected:
 
-                        node_unreachable = True
+                        unreachable_nodes.add(
+                            remote_name
+                        )
 
                         print(
                             f"WAIT: "
@@ -856,8 +955,8 @@ def main():
                     continue
 
                 # ------------------------
-                # PCには接続できたが、
-                # プロセスが止まっている
+                # 接続はできたが
+                # プロセスが停止している
                 # ------------------------
                 if status in (
                     "STOPPED",
@@ -891,29 +990,19 @@ def main():
                     f"{output}"
                 )
 
-            # --------------------------------
-            # 新しいchunkの割当は
-            #
-            # enabled=true
-            # かつ
-            # このpollで接続可能だったPCだけ
-            # --------------------------------
-            if (
-                node.get(
-                    "enabled",
-                    True,
-                )
-                and not node_unreachable
-            ):
-
-                fill_slots(
-                    remote_name,
-                    workers,
-                    pending_chunks,
-                    running,
-                    args.end,
-                    args.shot,
-                )
+        # --------------------------------
+        # 全PCの状態確認が終わってから、
+        # 空いているworkerへpendingを
+        # 1チャンクずつ順番に割り当てる
+        # --------------------------------
+        fill_pending_round_robin(
+            remotes,
+            pending_chunks,
+            running,
+            args.end,
+            args.shot,
+            unreachable_nodes,
+        )
 
     if pending_chunks:
         raise RuntimeError(
