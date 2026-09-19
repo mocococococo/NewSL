@@ -40,6 +40,8 @@ def check_local(
         root
         / ".temp"
         / "remote_generate"
+        / f"end{end}"
+        / f"shot{shot}"
     )
 
     pid_file = (
@@ -152,7 +154,9 @@ $root = {root}
 
 $outputDir = Join-Path $root 'data\\end{end}\\shot{shot}'
 
-$tempDir = Join-Path $root '.temp\\remote_generate'
+$tempDir = Join-Path `
+    $root `
+    '.temp\\remote_generate\\end{end}\\shot{shot}'
 
 $pidFile = Join-Path `
     $tempDir `

@@ -120,6 +120,8 @@ def scan_local_node(
         root
         / ".temp"
         / "remote_generate"
+        / f"end{end}"
+        / f"shot{shot}"
     )
 
     log_dir = (
@@ -242,7 +244,7 @@ $outputDir = Join-Path `
 
 $tempDir = Join-Path `
     $root `
-    '.temp\\remote_generate'
+    '.temp\\remote_generate\\end{end}\\shot{shot}'
 
 $logDir = Join-Path `
     $tempDir `

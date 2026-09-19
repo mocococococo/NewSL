@@ -17,16 +17,6 @@ TEMP_ROOT = (
     / "remote_generate"
 )
 
-LOG_DIR = (
-    TEMP_ROOT
-    / "logs"
-)
-
-PID_DIR = (
-    TEMP_ROOT
-    / "pids"
-)
-
 
 def is_pid_running(
     pid,
@@ -114,12 +104,28 @@ def main():
 
     args = parser.parse_args()
 
-    LOG_DIR.mkdir(
+    job_temp_root = (
+        TEMP_ROOT
+        / f"end{args.target_end}"
+        / f"shot{args.target_shot}"
+    )
+
+    log_dir = (
+        job_temp_root
+        / "logs"
+    )
+
+    pid_dir = (
+        job_temp_root
+        / "pids"
+    )
+
+    log_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
 
-    PID_DIR.mkdir(
+    pid_dir.mkdir(
         parents=True,
         exist_ok=True,
     )
@@ -131,12 +137,12 @@ def main():
     )
 
     log_file = (
-        LOG_DIR
+        log_dir
         / f"{chunk_name}.log"
     )
 
     pid_file = (
-        PID_DIR
+        pid_dir
         / f"{chunk_name}.pid"
     )
 
