@@ -147,17 +147,10 @@ def get_record_root(
 ):
     root = Path(root)
 
-    base = (
+    return (
         root
         / "record"
         / "distribute"
-    )
-
-    if run_name == "all":
-        return base
-
-    return (
-        base
         / run_name
     )
 
