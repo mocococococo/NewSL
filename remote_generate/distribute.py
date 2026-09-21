@@ -480,6 +480,7 @@ def discover_existing_jobs(
                     chunk,
                     end,
                     shot,
+                    run_name,
                 )
             )
 
