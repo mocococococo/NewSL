@@ -5,7 +5,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from remote_config import get_remote
+from remote_config import (
+    get_remote,
+    get_data_root,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,10 +27,18 @@ def decode_output(data: bytes) -> str:
     return data.decode("utf-8", errors="replace")
 
 
-def collect_local(node, chunk, end, shot):
+def collect_local(
+    node,
+    chunk,
+    end,
+    shot,
+    run_name,
+):
     data_dir = (
-        Path(node["root"])
-        / "data"
+        get_data_root(
+            Path(node["root"]),
+            run_name,
+        )
         / f"end{end}"
         / f"shot{shot}"
     )
@@ -57,13 +68,25 @@ def collect_local(node, chunk, end, shot):
     )
 
 
-def collect_ssh(node, remote_name, chunk, end, shot):
+def collect_ssh(
+    node,
+    remote_name,
+    chunk,
+    end,
+    shot,
+    run_name,
+):
     host = node["host"]
     remote_root = node["root"]
 
     remote_dir = (
-        f"{remote_root}/data/end{end}/shot{shot}"
-    )
+            get_data_root(
+            Path(remote_root),
+            run_name,
+        )
+        / f"end{end}"
+        / f"shot{shot}"
+    ).as_posix()
 
     python_code = f"""
 from pathlib import Path
@@ -129,8 +152,10 @@ print(json.dumps([
         )
 
     local_dir = (
-        ROOT
-        / "data"
+        get_data_root(
+            ROOT,
+            run_name,
+        )
         / f"end{end}"
         / f"shot{shot}"
     )
@@ -197,6 +222,7 @@ def main():
     parser.add_argument("chunk", type=int)
     parser.add_argument("--end", type=int, default=9)
     parser.add_argument("--shot", type=int, default=2)
+    parser.add_argument("--run-name", required=True)
     args = parser.parse_args()
 
     node = get_remote(args.remote_name)
@@ -209,6 +235,7 @@ def main():
             args.chunk,
             args.end,
             args.shot,
+            args.run_name,
         )
 
     elif node_type == "ssh":
@@ -218,6 +245,7 @@ def main():
             args.chunk,
             args.end,
             args.shot,
+            args.run_name,
         )
 
     else:

@@ -62,6 +62,11 @@ def main():
         type=int,
         required=True,
     )
+    
+    parser.add_argument(
+        "--run-name",
+        required=True,
+    )
 
     parser.add_argument(
         "--dry-run",
@@ -100,6 +105,8 @@ def main():
         str(args.shot),
         "--log-path",
         str(node["log_path"]),
+        "--run-name",
+        str(args.run_name),
     ]
 
     if use_gpu:

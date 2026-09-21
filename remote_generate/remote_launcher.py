@@ -3,18 +3,13 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from remote_config import get_temp_root
 
 
 ROOT = (
     Path(__file__)
     .resolve()
     .parents[1]
-)
-
-TEMP_ROOT = (
-    ROOT
-    / ".temp"
-    / "remote_generate"
 )
 
 
@@ -70,6 +65,11 @@ def main():
         required=True,
     )
 
+    parser.add_argument(
+        "--run-name",
+        required=True,
+    )
+
     gpu_group = (
         parser
         .add_mutually_exclusive_group()
@@ -105,7 +105,10 @@ def main():
     args = parser.parse_args()
 
     job_temp_root = (
-        TEMP_ROOT
+        get_temp_root(
+            ROOT,
+            args.run_name,
+        )
         / f"end{args.target_end}"
         / f"shot{args.target_shot}"
     )
@@ -191,6 +194,8 @@ def main():
         "1",
         "--log_path",
         str(args.log_path),
+        "--run_name",
+        str(args.run_name),
     ]
 
     if args.use_gpu:
@@ -219,6 +224,11 @@ def main():
             f"TARGET: "
             f"end={args.target_end}, "
             f"shot={args.target_shot}"
+        )
+        
+        print(
+            f"RUN NAME: "
+            f"{args.run_name}"
         )
 
         print(

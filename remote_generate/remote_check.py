@@ -4,7 +4,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from remote_config import get_remote
+from remote_config import (
+    get_remote,
+    get_data_root,
+    get_temp_root,
+)
 
 
 def decode_output(data: bytes) -> str:
@@ -26,20 +30,24 @@ def check_local(
     chunk_end,
     end,
     shot,
+    run_name,
 ):
     root = Path(root)
 
     output_dir = (
-        root
-        / "data"
+        get_data_root(
+            root,
+            run_name,
+        )
         / f"end{end}"
         / f"shot{shot}"
     )
 
     temp_dir = (
-        root
-        / ".temp"
-        / "remote_generate"
+        get_temp_root(
+            root,
+            run_name,
+        )
         / f"end{end}"
         / f"shot{shot}"
     )
@@ -144,19 +152,42 @@ def check_ssh(
     chunk_end,
     end,
     shot,
+    run_name,
 ):
-    root = ps_quote(remote_root)
+    root = ps_quote(
+        remote_root
+    )
+
+    output_dir = ps_quote(
+        (
+            get_data_root(
+                Path(remote_root),
+                run_name,
+            )
+            / f"end{end}"
+            / f"shot{shot}"
+        ).as_posix()
+    )
+
+    temp_dir = ps_quote(
+        (
+            get_temp_root(
+                Path(remote_root),
+                run_name,
+            )
+            / f"end{end}"
+            / f"shot{shot}"
+        ).as_posix()
+    )
 
     script = f"""
 $ProgressPreference = 'SilentlyContinue'
 
 $root = {root}
 
-$outputDir = Join-Path $root 'data\\end{end}\\shot{shot}'
+$outputDir = {output_dir}
 
-$tempDir = Join-Path `
-    $root `
-    '.temp\\remote_generate\\end{end}\\shot{shot}'
+$tempDir = {temp_dir}
 
 $pidFile = Join-Path `
     $tempDir `
@@ -295,6 +326,11 @@ def main():
         type=int,
         default=2,
     )
+    
+    parser.add_argument(
+        "--run-name",
+        required=True,
+    )
 
     args = parser.parse_args()
 
@@ -317,6 +353,7 @@ def main():
             chunk_end,
             args.end,
             args.shot,
+            args.run_name,
         )
 
     elif node_type == "ssh":
@@ -327,6 +364,7 @@ def main():
             chunk_end,
             args.end,
             args.shot,
+            args.run_name,
         )
 
     else:
