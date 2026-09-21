@@ -148,16 +148,9 @@ def get_temp_root(
 ):
     root = Path(root)
 
-    base = (
+    return (
         root
         / ".temp"
         / "remote_generate"
-    )
-
-    if run_name == "all":
-        return base
-
-    return (
-        base
         / run_name
     )
