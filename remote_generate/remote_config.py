@@ -106,12 +106,6 @@ def get_data_root(
 ):
     root = Path(root)
 
-    if run_name == "all":
-        return (
-            root
-            / "data"
-        )
-
     return (
         root
         / "data"
@@ -126,17 +120,10 @@ def get_model_root(
 ):
     root = Path(root)
 
-    base = (
+    return (
         root
         / "model"
         / "distribute"
-    )
-
-    if run_name == "all":
-        return base
-
-    return (
-        base
         / run_name
     )
 
