@@ -26,6 +26,10 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from remote_generate.remote_config import (
+    get_data_root,
+    get_model_root,
+)
 from common.translate_state import convert_team_stoi, scores_dict_to_list
 from mcts.state import score_diff_from_scores
 from nn.utility import load_network, get_torch_device
@@ -673,6 +677,12 @@ def _generate_chunk(
 )
 
 @click.option(
+    "--run_name",
+    type=str,
+    required=True,
+)
+
+@click.option(
     "--inference_batch_size",
     type=click.IntRange(
         min=1,
@@ -712,6 +722,7 @@ def main(
     target_end: int,
     target_shot: int,
     log_path: Path,
+    run_name: str,
     inference_batch_size: int,
     use_gpu: bool,
     num_workers: int,
@@ -769,9 +780,10 @@ def main(
         )
 
         transformer_model = (
-            root
-            / "model"
-            / "distribute"
+            get_model_root(
+                root,
+                run_name,
+            )
             / f"end_{target_end}"
             / (
                 f"{search_settings.mode}"
@@ -821,6 +833,11 @@ def main(
         f"SEARCH MODE: "
         f"{search_settings.mode}"
     )
+    
+    print(
+        f"RUN NAME: "
+        f"{run_name}"
+    )
 
     print(
         f"USE GPU: "
@@ -863,8 +880,10 @@ def main(
         log_path=log_path,
 
         save_path=(
-            root
-            / "data"
+            get_data_root(
+                root,
+                run_name,
+            )
         ),
 
         data_size=70000,
