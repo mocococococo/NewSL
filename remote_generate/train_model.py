@@ -11,6 +11,11 @@ if str(ROOT) not in sys.path:
 
 from learning_param import BATCH_SIZE, EPOCHS
 from transformer.learn import train
+from remote_config import (
+    get_data_root,
+    get_model_root,
+    get_record_root,
+)
 
 
 def main():
@@ -25,6 +30,11 @@ def main():
     parser.add_argument(
         "--shot",
         type=int,
+        required=True,
+    )
+    
+    parser.add_argument(
+        "--run-name",
         required=True,
     )
 
@@ -53,8 +63,10 @@ def main():
     args = parser.parse_args()
 
     data_dir = (
-        ROOT
-        / "data"
+        get_data_root(
+            ROOT,
+            args.run_name,
+        )
         / f"end{args.end}"
         / f"shot{args.shot}"
     )
@@ -86,14 +98,16 @@ def main():
     )
 
     output_model_path = (
-        ROOT
-        / "model"
-        / "distribute"
+        get_model_root(
+            ROOT,
+            args.run_name,
+        )
         / f"end_{args.end}"
         / f"{model_name}.bin"
     )
 
     print("TRAINING")
+    print("RUN:", args.run_name)
     print("END:", args.end)
     print("SHOT:", args.shot)
     print("DATA:", data_dir)
@@ -110,9 +124,10 @@ def main():
         use_gpu=not args.cpu,
         data_dir=data_dir,
         loss_history_dir=(
-            ROOT
-            / "record"
-            / "distribute"
+            get_record_root(
+                ROOT,
+                args.run_name,
+            )
         ),
     )
 

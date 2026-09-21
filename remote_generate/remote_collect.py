@@ -80,7 +80,7 @@ def collect_ssh(
     remote_root = node["root"]
 
     remote_dir = (
-            get_data_root(
+        get_data_root(
             Path(remote_root),
             run_name,
         )

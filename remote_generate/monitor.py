@@ -7,7 +7,12 @@ import subprocess
 import time
 from pathlib import Path
 
-from remote_config import load_remotes
+from remote_config import (
+    load_remotes,
+    get_run_name,
+    get_data_root,
+    get_temp_root,
+)
 
 
 def decode_output(data: bytes) -> str:
@@ -103,6 +108,7 @@ def scan_local_node(
     chunk_end,
     end,
     shot,
+    run_name,
     log_lines,
 ):
     root = Path(
@@ -110,16 +116,19 @@ def scan_local_node(
     )
 
     output_dir = (
-        root
-        / "data"
+        get_data_root(
+            root,
+            run_name,
+        )
         / f"end{end}"
         / f"shot{shot}"
     )
 
     temp_dir = (
-        root
-        / ".temp"
-        / "remote_generate"
+        get_temp_root(
+            root,
+            run_name,
+        )
         / f"end{end}"
         / f"shot{shot}"
     )
@@ -222,6 +231,7 @@ def scan_ssh_node(
     chunk_end,
     end,
     shot,
+    run_name,
     log_lines,
 ):
     host = node["host"]
@@ -229,6 +239,28 @@ def scan_ssh_node(
 
     root = ps_quote(
         remote_root
+    )
+    
+    output_dir = ps_quote(
+        (
+            get_data_root(
+                Path(remote_root),
+                run_name,
+            )
+            / f"end{end}"
+            / f"shot{shot}"
+        ).as_posix()
+    )
+
+    temp_dir = ps_quote(
+        (
+            get_temp_root(
+                Path(remote_root),
+                run_name,
+            )
+            / f"end{end}"
+            / f"shot{shot}"
+        ).as_posix()
     )
 
     script = f"""
@@ -238,13 +270,9 @@ $ProgressPreference = 'SilentlyContinue'
 
 $root = {root}
 
-$outputDir = Join-Path `
-    $root `
-    'data\\end{end}\\shot{shot}'
+$outputDir = {output_dir}
 
-$tempDir = Join-Path `
-    $root `
-    '.temp\\remote_generate\\end{end}\\shot{shot}'
+$tempDir = {temp_dir}
 
 $logDir = Join-Path `
     $tempDir `
@@ -470,6 +498,7 @@ def scan_all_nodes(
     chunk_end,
     end,
     shot,
+    run_name,
     log_lines,
 ):
     states = {
@@ -494,6 +523,7 @@ def scan_all_nodes(
                     chunk_end,
                     end,
                     shot,
+                    run_name,
                     log_lines,
                 )
             )
@@ -507,6 +537,7 @@ def scan_all_nodes(
                     chunk_end,
                     end,
                     shot,
+                    run_name,
                     log_lines,
                 )
             )
@@ -676,6 +707,7 @@ def display(
     chunk_end,
     end,
     shot,
+    run_name,
 ):
     print(
         "\033[2J\033[H",
@@ -688,6 +720,10 @@ def display(
 
     print(
         f"Target : end{end}/shot{shot}"
+    )
+    
+    print(
+        f"Run    : {run_name}"
     )
 
     print(
@@ -835,6 +871,11 @@ def main():
         type=int,
         default=2,
     )
+    
+    parser.add_argument(
+        "--run-name",
+        default=None,
+    )
 
     parser.add_argument(
         "--interval",
@@ -882,9 +923,16 @@ def main():
 
     remotes = load_remotes()
 
+    remotes = load_remotes()
+
     if not remotes:
         raise SystemExit(
             "No remotes configured."
+        )
+
+    if args.run_name is None:
+        args.run_name = get_run_name(
+            remotes
         )
 
     try:
@@ -895,6 +943,7 @@ def main():
                 args.chunk_end,
                 args.end,
                 args.shot,
+                args.run_name,
                 args.lines,
             )
 
@@ -904,6 +953,7 @@ def main():
                 args.chunk_end,
                 args.end,
                 args.shot,
+                args.run_name,
             )
 
             if args.once:
