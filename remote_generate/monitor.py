@@ -923,8 +923,6 @@ def main():
 
     remotes = load_remotes()
 
-    remotes = load_remotes()
-
     if not remotes:
         raise SystemExit(
             "No remotes configured."
