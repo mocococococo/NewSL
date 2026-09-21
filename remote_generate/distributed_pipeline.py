@@ -4,7 +4,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-from remote_config import load_remotes
+from remote_config import (
+    load_remotes,
+    get_run_name,
+    get_model_root,
+)
 
 
 HERE = Path(__file__).resolve().parent
@@ -15,11 +19,16 @@ def model_name(end, shot):
     return f"shot-end{end}-shot{shot}.bin"
 
 
-def model_path(end, shot):
+def model_path(
+    end,
+    shot,
+    run_name,
+):
     return (
-        ROOT
-        / "model"
-        / "distribute"
+        get_model_root(
+            ROOT,
+            run_name,
+        )
         / f"end_{end}"
         / model_name(end, shot)
     )
@@ -114,6 +123,7 @@ def run_distribute(
     shot,
     epochs,
     poll_seconds,
+    run_name,
 ):
     command = [
         sys.executable,
@@ -129,6 +139,8 @@ def run_distribute(
         str(shot),
         "--poll-seconds",
         str(poll_seconds),
+        "--run-name",
+        str(run_name),
     ]
 
     if epochs is not None:
@@ -473,6 +485,12 @@ def main():
     )
 
     args = parser.parse_args()
+    
+    remotes = load_remotes()
+
+    run_name = get_run_name(
+        remotes
+    )
 
     if (
         args.chunk_end
@@ -508,6 +526,11 @@ def main():
         f"Chunks: "
         f"{args.chunk_start}-"
         f"{args.chunk_end}"
+    )
+
+    print(
+        f"Run  : "
+        f"{run_name}"
     )
 
     print(
@@ -580,6 +603,7 @@ def main():
             model_path(
                 end,
                 shot,
+                run_name,
             )
         )
 
@@ -593,6 +617,7 @@ def main():
                 model_path(
                     end,
                     shot + 1,
+                    run_name,
                 )
             )
 
@@ -637,6 +662,7 @@ def main():
             shot,
             args.epochs,
             args.poll_seconds,
+            run_name,
         )
 
         # --------------------------------

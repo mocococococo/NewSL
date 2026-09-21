@@ -4,7 +4,11 @@ import sys
 import time
 from pathlib import Path
 
-from remote_config import load_remotes
+from remote_config import (
+    load_remotes,
+    get_run_name,
+    get_data_root,
+)
 
 
 HERE = Path(__file__).resolve().parent
@@ -63,6 +67,7 @@ def start_chunk(
     chunk,
     end,
     shot,
+    run_name,
 ):
     code, output = run_script(
         "remote_start.py",
@@ -72,6 +77,8 @@ def start_chunk(
         end,
         "--shot",
         shot,
+        "--run-name",
+        run_name,
     )
 
     print(
@@ -106,6 +113,7 @@ def check_chunk(
     chunk,
     end,
     shot,
+    run_name,
 ):
     code, output = run_script(
         "remote_check.py",
@@ -115,6 +123,8 @@ def check_chunk(
         end,
         "--shot",
         shot,
+        "--run-name",
+        run_name,
     )
 
     if code != 0:
@@ -163,6 +173,7 @@ def collect_chunk(
     chunk,
     end,
     shot,
+    run_name,
 ):
     code, output = run_script(
         "remote_collect.py",
@@ -172,6 +183,8 @@ def collect_chunk(
         end,
         "--shot",
         shot,
+        "--run-name",
+        run_name,
     )
 
     print(
@@ -203,10 +216,13 @@ def local_chunk_files(
     chunk,
     end,
     shot,
+    run_name,
 ):
     folder = (
-        ROOT
-        / "data"
+        get_data_root(
+            ROOT,
+            run_name,
+        )
         / f"end{end}"
         / f"shot{shot}"
     )
@@ -222,12 +238,14 @@ def is_locally_completed(
     chunk,
     end,
     shot,
+    run_name,
 ):
     return bool(
         local_chunk_files(
             chunk,
             end,
             shot,
+            run_name,
         )
     )
 
@@ -239,6 +257,7 @@ def fill_slots(
     running,
     end,
     shot,
+    run_name,
 ):
     while (
         len(
@@ -269,6 +288,7 @@ def fill_slots(
             chunk,
             end,
             shot,
+            run_name,
         )
 
         if started:
@@ -311,6 +331,7 @@ def fill_pending_round_robin(
     running,
     end,
     shot,
+    run_name,
     unreachable_nodes=None,
 ):
     if unreachable_nodes is None:
@@ -376,6 +397,7 @@ def fill_pending_round_robin(
                 chunk,
                 end,
                 shot,
+                run_name,
             )
 
             running[
@@ -410,6 +432,7 @@ def discover_existing_jobs(
     chunks,
     end,
     shot,
+    run_name,
 ):
     completed = []
     pending = []
@@ -430,6 +453,7 @@ def discover_existing_jobs(
             chunk,
             end,
             shot,
+            run_name,
         ):
 
             print(
@@ -525,6 +549,7 @@ def discover_existing_jobs(
                 chunk,
                 end,
                 shot,
+                run_name,
             )
 
             if not collected:
@@ -582,6 +607,7 @@ def discover_existing_jobs(
 def train_model(
     end,
     shot,
+    run_name,
     epochs=None,
 ):
     print(
@@ -594,6 +620,8 @@ def train_model(
         end,
         "--shot",
         shot,
+        "--run-name",
+        run_name,
     ]
 
     if epochs is not None:
@@ -663,6 +691,11 @@ def main():
     )
 
     parser.add_argument(
+        "--run-name",
+        default=None,
+    )
+
+    parser.add_argument(
         "--no-train",
         action="store_true",
     )
@@ -692,6 +725,28 @@ def main():
     # 全PC
     # ------------------------------------
     remotes = load_remotes()
+    
+    configured_run_name = (
+        get_run_name(
+            remotes
+        )
+    )
+
+    if args.run_name is None:
+        args.run_name = (
+            configured_run_name
+        )
+
+    elif (
+        args.run_name
+        != configured_run_name
+    ):
+        raise SystemExit(
+            "run-name does not match "
+            "the log_path configuration: "
+            f"--run-name={args.run_name}, "
+            f"log_path={configured_run_name}"
+        )
 
     if not remotes:
         raise SystemExit(
@@ -761,6 +816,11 @@ def main():
     )
 
     print(
+        f"RUN: "
+        f"{args.run_name}"
+    )
+
+    print(
         f"TARGET: "
         f"end{args.end}/"
         f"shot{args.shot}"
@@ -784,6 +844,7 @@ def main():
                 chunks,
                 args.end,
                 args.shot,
+                args.run_name,
             )
 
             break
@@ -828,6 +889,7 @@ def main():
             running,
             args.end,
             args.shot,
+            args.run_name,
         )
 
     # ------------------------------------
@@ -873,6 +935,7 @@ def main():
                         chunk,
                         args.end,
                         args.shot,
+                        args.run_name,
                     )
                 )
 
@@ -925,6 +988,7 @@ def main():
                         chunk,
                         args.end,
                         args.shot,
+                        args.run_name,
                     )
 
                     if not collected:
@@ -1001,6 +1065,7 @@ def main():
             running,
             args.end,
             args.shot,
+            args.run_name,
             unreachable_nodes,
         )
 
@@ -1061,6 +1126,7 @@ def main():
     train_model(
         args.end,
         args.shot,
+        args.run_name,
         args.epochs,
     )
 
