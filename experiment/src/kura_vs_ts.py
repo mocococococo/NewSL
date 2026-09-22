@@ -604,7 +604,7 @@ def main(
         target_shot,
         data_size,
         X,
-        transformer_model,
+        transformer_model_path,
         search_method,
         run_name,
     )
