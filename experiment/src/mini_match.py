@@ -70,6 +70,9 @@ _remove_sys_path(KURA_DIR)
 _purge_shared_modules()
 
 _prepend_sys_path(NEWSL_DIR)
+from remote_generate.remote_config import (
+    get_model_root,
+)
 from common.translate_state import (
     convert_team_stoi,
     scores_to_scorediff_for_team0,
@@ -144,6 +147,32 @@ def _pushd(path: Path) -> Iterator[None]:
         yield
     finally:
         os.chdir(previous)
+
+
+def _build_distributed_transformer_models(
+    run_name: str,
+    target_end: int,
+    target_shot: int,
+) -> dict[int, Path]:
+    model_root = get_model_root(
+        NEWSL_DIR,
+        run_name,
+    )
+
+    return {
+        shot: (
+            model_root
+            / f"end_{target_end}"
+            / (
+                f"shot-end{target_end}"
+                f"-shot{shot}.bin"
+            )
+        )
+        for shot in range(
+            target_shot,
+            16,
+        )
+    }
 
 
 def _resolve_newsl_model(model: str | Path) -> Path:
@@ -831,9 +860,17 @@ def build_output_stem(
     target_shot: int,
     data_size: int,
     x_repeats: int,
+    run_name: str | None,
 ) -> str:
+    run_label = (
+        f"_{run_name}"
+        if run_name is not None
+        else ""
+    )
+
     return (
         f"mini_match_{player_a.lower()}_vs_{player_b.lower()}"
+        f"{run_label}"
         f"_end{target_end}_shot{target_shot}"
         f"_datasize{data_size}_x{x_repeats}"
     )
@@ -846,6 +883,7 @@ def main(
     player_b_kind: str = "Transformer",
     target_end: int = 9,
     target_shot: int = 14,
+    run_name: str | None = None,
     data_size: int = 1000,
     X: int = 1,
     use_gpu: bool = True,
@@ -861,11 +899,37 @@ def main(
     if X <= 0:
         raise ValueError(f"X must be positive, got {X}")
 
+    if (
+        run_name is not None
+        and transformer_models_by_shot is not None
+    ):
+        raise ValueError(
+            "run_name と transformer_models_by_shot は "
+            "同時に指定できません。"
+        )
+
     if transformer_models_by_shot is None:
-        transformer_models_by_shot = {
-            14: "transformer-sl-9-14-model-06-04-adamw-epoch50-shot.bin",
-            15: "transformer-sl-9-15-model-06-02-adamw-epoch50-shot.bin",
-        }
+
+        if run_name is not None:
+            transformer_models_by_shot = (
+                _build_distributed_transformer_models(
+                    run_name,
+                    target_end,
+                    target_shot,
+                )
+            )
+
+        else:
+            transformer_models_by_shot = {
+                14: (
+                    "transformer-sl-9-14-model-"
+                    "06-04-adamw-epoch50-shot.bin"
+                ),
+                15: (
+                    "transformer-sl-9-15-model-"
+                    "06-02-adamw-epoch50-shot.bin"
+                ),
+            }
     if kura_policy_models_by_shot is None:
         kura_policy_models_by_shot = KURA_POLICY_MODELS_BY_SHOT
     if kura_value_models_by_shot is None:
@@ -932,6 +996,7 @@ def main(
         target_shot,
         data_size,
         X,
+        run_name,
     )
     json_dir = save_dir / output_stem
     json_dir.mkdir(parents=True, exist_ok=True)
@@ -954,6 +1019,7 @@ def main(
         "player_a_search_method": player_a.search_method,
         "player_b_search_method": player_b.search_method,
         "max_simulations": int(max_simulations),
+        "transformer_run_name": run_name,
         "cnn_model": str(_resolve_newsl_model(cnn_model)),
         "transformer_models_by_shot": {
             int(shot): str(_resolve_newsl_model(model_path))
