@@ -69,6 +69,11 @@ _remove_sys_path(KURA_DIR)
 _purge_shared_modules()
 
 _prepend_sys_path(NEWSL_DIR)
+
+from remote_generate.remote_config import (
+    get_model_root,
+)
+
 from common.translate_state import (
     convert_team_stoi,
     scores_to_scorediff_for_team0,
@@ -386,6 +391,45 @@ def save_position_json(
         ),
         encoding="utf-8",
     )
+    
+
+def resolve_transformer_model_path(
+    transformer_model: str | Path | None,
+    run_name: str | None,
+    target_end: int,
+    target_shot: int,
+) -> Path:
+    if run_name is not None:
+        return (
+            get_model_root(
+                NEWSL_DIR,
+                run_name,
+            )
+            / f"end_{target_end}"
+            / (
+                f"shot-end{target_end}"
+                f"-shot{target_shot}.bin"
+            )
+        )
+
+    if transformer_model is None:
+        raise ValueError(
+            "transformer_model または "
+            "run_name のどちらかを指定してください。"
+        )
+
+    model_path = Path(
+        transformer_model
+    )
+
+    if model_path.is_absolute():
+        return model_path
+
+    return (
+        NEWSL_DIR
+        / "model"
+        / model_path
+    )
 
 
 def _safe_model_stem(model_path: str | Path) -> str:
@@ -400,11 +444,20 @@ def build_output_stem(
     x_repeats: int,
     transformer_model: str | Path,
     search_method: str,
+    run_name: str | None,
 ) -> str:
     """実験条件から、PNG名とJSONディレクトリ名の共通stemを作る。"""
 
+    run_label = (
+        f"{run_name}_"
+        if run_name is not None
+        else ""
+    )
+
     return (
-        f"kura_vs_{search_method}_{_safe_model_stem(transformer_model)}"
+        f"kura_vs_{search_method}_"
+        f"{run_label}"
+        f"{_safe_model_stem(transformer_model)}"
         f"_end{target_end}_shot{target_shot}"
         f"_winrate_datasize{data_size}_x{x_repeats}"
     )
@@ -507,7 +560,10 @@ def evaluate_continuous_action(
 def main(
     log_path: str | Path = "path/to/dcl2/records",
     save_path: str | Path = "path/to/save/data",
-    transformer_model: str = "transformer-sl16-model-140000data.bin",
+    transformer_model: str | Path | None = (
+        "transformer-sl16-model-140000data.bin"
+    ),
+    run_name: str | None = None,
     kura_policy_model: str = KURA_POLICY_SHOT15_MODEL,
     search_method: str = "mcts",
     data_size: int = 1000,
@@ -527,6 +583,21 @@ def main(
     save_dir = Path(save_path)
     save_dir.mkdir(parents=True, exist_ok=True)
 
+    transformer_model_path = (
+        resolve_transformer_model_path(
+            transformer_model,
+            run_name,
+            target_end,
+            target_shot,
+        )
+    )
+
+    if not transformer_model_path.is_file():
+        raise FileNotFoundError(
+            "Transformer model not found: "
+            f"{transformer_model_path}"
+        )
+
     # PNG は experiment/data 直下、局面別 JSON は stem 名のディレクトリ配下に保存する。
     output_stem = build_output_stem(
         target_end,
@@ -535,6 +606,7 @@ def main(
         X,
         transformer_model,
         search_method,
+        run_name,
     )
     json_dir = save_dir / output_stem
     if json_dir.exists() and any(json_dir.glob("*.json")):
@@ -547,7 +619,6 @@ def main(
     position_index_width = max(6, len(str(max(data_size - 1, 0))))
 
     device = get_torch_device(use_gpu=use_gpu)
-    transformer_model_path = NEWSL_DIR / "model" / transformer_model
     transformer_network = load_transformer_network(transformer_model_path, use_gpu=use_gpu)
     transformer_network.to(device)
 
@@ -812,7 +883,8 @@ if __name__ == "__main__":
     main(
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        transformer_model="transformer-sl-9-15-model-06-02-AdamW-epoch50-shot.bin",
+        transformer_model=None,
+        run_name="jiritsu-vs-silicon",
         kura_policy_model=KURA_POLICY_SHOT15_MODEL,
         search_method="shot",
         data_size=1000,
