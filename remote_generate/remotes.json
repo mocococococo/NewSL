@@ -4,7 +4,7 @@
     "root": "C:/Users/kirby/Programs/DigitalCurling/NewSL",
     "log_path": "C:/Users/kirby/Programs/DigitalCurling/NewSL/LearnLog/jiritsu-vs-silicon",
     "workers": 4,
-    "enabled": false,
+    "enabled": true,
     "use_gpu": true,
     "inference_batch_size": 256
   },
@@ -26,7 +26,7 @@
     "workers": 2,
     "enabled": true,
     "use_gpu": true,
-    "inference_batch_size": 64
+    "inference_batch_size": 128
   },
   "remote-03": {
     "type": "ssh",

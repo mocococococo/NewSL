@@ -451,13 +451,13 @@ def main():
     parser.add_argument(
         "--start-end",
         type=int,
-        default=9,
+        default=8,
     )
 
     parser.add_argument(
         "--start-shot",
         type=int,
-        default=9,
+        default=1,
     )
 
     parser.add_argument(
@@ -481,7 +481,7 @@ def main():
     parser.add_argument(
         "--poll-seconds",
         type=int,
-        default=300,
+        default=100,
     )
 
     args = parser.parse_args()

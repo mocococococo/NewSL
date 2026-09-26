@@ -153,23 +153,28 @@ def _build_distributed_transformer_models(
     run_name: str,
     target_end: int,
     target_shot: int,
-) -> dict[int, Path]:
-    model_root = get_model_root(
-        NEWSL_DIR,
-        run_name,
-    )
+    final_end: int = 9,
+) -> dict[tuple[int, int], Path]:
+    if not (0 <= target_end <= final_end <= 9):
+        raise ValueError(
+            "0 <= target_end <= final_end <= 9 が必要です。"
+        )
+    if not (0 <= target_shot <= 15):
+        raise ValueError(
+            "target_shot は 0〜15 で指定してください。"
+        )
+
+    model_root = get_model_root(NEWSL_DIR, run_name)
 
     return {
-        shot: (
+        (end, shot): (
             model_root
-            / f"end_{target_end}"
-            / (
-                f"shot-end{target_end}"
-                f"-shot{shot}.bin"
-            )
+            / f"end_{end}"
+            / f"shot-end{end}-shot{shot}.bin"
         )
+        for end in range(target_end, final_end + 1)
         for shot in range(
-            target_shot,
+            target_shot if end == target_end else 0,
             16,
         )
     }
@@ -663,7 +668,7 @@ class NewSLCNNPlayer(MiniMatchPlayer):
 class NewSLTransformerPlayer(MiniMatchPlayer):
     def __init__(
         self,
-        models_by_shot: dict[int, str | Path],
+        models_by_shot: dict[int | tuple[int, int], str | Path],
         use_gpu: bool,
         max_simulations: int,
         target_end: int,
@@ -673,20 +678,44 @@ class NewSLTransformerPlayer(MiniMatchPlayer):
         self.search_method = "shot"
         self.max_simulations = int(max_simulations)
         self.target_end = int(target_end)
-        self.model_paths_by_shot = {
-            int(shot): _resolve_newsl_model(model_path)
-            for shot, model_path in models_by_shot.items()
-        }
-        self.networks_by_shot = {
-            shot: load_transformer_network(model_path, use_gpu=use_gpu)
-            for shot, model_path in self.model_paths_by_shot.items()
+
+        self.model_paths_by_end_shot = {}
+
+        for key, model_path in models_by_shot.items():
+            if isinstance(key, tuple):
+                end, shot = key
+            else:
+                # 旧方式の {shot: path} は開始endのモデルとして扱う。
+                end, shot = self.target_end, key
+
+            self.model_paths_by_end_shot[
+                (int(end), int(shot))
+            ] = _resolve_newsl_model(model_path)
+
+        self.networks_by_end_shot = {
+            (end, shot): load_transformer_network(
+                model_path,
+                use_gpu=use_gpu,
+            )
+            for (end, shot), model_path
+            in self.model_paths_by_end_shot.items()
         }
 
     def select_action(self, state: State) -> ShotAction:
-        if state.shot_index not in self.networks_by_shot:
+        key = (state.end, state.shot_index)
+        if key not in self.networks_by_end_shot:
             raise ValueError(
-                f"Transformer model for shot {state.shot_index} is not configured."
+                f"Transformer model for end {state.end}, "
+                f"shot {state.shot_index} is not configured."
             )
+
+        # 探索中の後続shotにも使えるよう、現在のendのモデルを渡す。
+        networks_by_shot = {
+            shot: network
+            for (end, shot), network
+            in self.networks_by_end_shot.items()
+            if end == state.end
+        }
 
         root = set_shot_root_state(
             network=None,
@@ -695,24 +724,29 @@ class NewSLTransformerPlayer(MiniMatchPlayer):
             end=state.end,
             shot_index=state.shot_index,
             hammer_team=state.hammer_team,
-            transformer_network=self.networks_by_shot,
+            transformer_network=networks_by_shot,
             use_transformer=True,
-            transformer_target_end=(self.target_end,),
-            transformer_target_shot=tuple(sorted(self.networks_by_shot)),
+            transformer_target_end=(state.end,),
+            transformer_target_shot=tuple(sorted(networks_by_shot)),
         )
+
         vx, vy, spin = shot_search(
             root_state=root,
             max_simulations=self.max_simulations,
         )
+
         return ShotAction(
             vx=float(vx),
             vy=float(vy),
             spin=1 if int(spin) == 1 else 0,
             meta={
+                "end": int(state.end),
                 "models_by_shot": {
                     int(shot): str(path)
-                    for shot, path in self.model_paths_by_shot.items()
-                }
+                    for (end, shot), path
+                    in self.model_paths_by_end_shot.items()
+                    if end == state.end
+                },
             },
         )
 
@@ -723,7 +757,7 @@ def build_player(
     use_gpu: bool,
     target_end: int,
     cnn_model: str | Path,
-    transformer_models_by_shot: dict[int, str | Path],
+    transformer_models_by_shot: dict[int | tuple[int, int], str | Path],
     kura_policy_models_by_shot: dict[int, str | Path],
     kura_value_models_by_shot: dict[int, str | Path],
     max_simulations: int,
@@ -775,24 +809,69 @@ def run_suffix_game(
     start_with_a: bool,
     repeat_index: int,
     x_repeats: int,
+    final_end: int = 9,
 ) -> tuple[State, list[dict[str, Any]]]:
+    if not (0 <= root_state.end <= final_end <= 9):
+        raise ValueError(
+            "0 <= 開始end <= final_end <= 9 が必要です。"
+        )
+    if root_state.is_end_terminal():
+        raise ValueError("開始局面はend終了前の局面を指定してください。")
+
     state = root_state
     action_log: list[dict[str, Any]] = []
-    start_shot = root_state.shot_index
+
+    # 開始局面で、プレイヤーAが担当するチームを固定する。
+    a_team = (
+        root_state.to_move()
+        if start_with_a
+        else 1 - root_state.to_move()
+    )
+
     first_player = player_a if start_with_a else player_b
     second_player = player_b if start_with_a else player_a
     print_mini_match_header(first_player, second_player, repeat_index, x_repeats)
 
-    while not state.is_end_terminal():
-        offset = state.shot_index - start_shot
-        use_a = (offset % 2 == 0) if start_with_a else (offset % 2 == 1)
-        player = player_a if use_a else player_b
+    while True:
+        if state.is_end_terminal():
+            if state.end == final_end:
+                break
+
+            end_score = _end_score_diff_team0_minus_team1(
+                state.stones
+            )
+
+            # 得点された側が次endのハンマー。
+            # ブランクなら現在のハンマーを保持する。
+            if end_score > 0:
+                next_hammer = 1
+            elif end_score < 0:
+                next_hammer = 0
+            else:
+                next_hammer = state.hammer_team
+
+            state = State.initial(
+                stones=[None] * 16,
+                end=state.end + 1,
+                hammer_team=next_hammer,
+                shot_index=0,
+                score_diff=state.score_diff + end_score,
+            )
+
+        # ハンマーが変わっても、担当チームは変えない。
+        player = (
+            player_a if state.to_move() == a_team else player_b
+        )
+
         print_search_header(state, player)
         action = player.select_action(state)
         print_selected_action(player, action)
+
         action_log.append(
             {
+                "end": int(state.end),
                 "shot": int(state.shot_index),
+                "team": int(state.to_move()),
                 "player_key": player.key,
                 "player_label": player.label,
                 "vx": float(action.vx),
@@ -801,6 +880,7 @@ def run_suffix_game(
                 "meta": action.meta,
             }
         )
+
         state = simulator_step_continuous(
             state,
             action.vx,
@@ -819,6 +899,7 @@ def evaluate_start_pattern(
     x_repeats: int,
     root_view_team: int,
     root_view_score_diff_before_shot: int,
+    final_end: int = 9,
 ) -> tuple[np.ndarray, float, float, float, float, list[dict[str, Any]]]:
     counts = np.zeros(3, dtype=np.int32)
     sample_action_log: list[dict[str, Any]] = []
@@ -831,13 +912,31 @@ def evaluate_start_pattern(
             start_with_a=start_with_a,
             repeat_index=repeat_index,
             x_repeats=x_repeats,
+            final_end=final_end,
         )
         if repeat_index == 0:
             sample_action_log = action_log
 
-        raw_score = _end_score_diff_team0_minus_team1(final_state.stones)
-        score_from_root_view = score_diff_for_team_view(raw_score, root_view_team)
-        total_score_from_root_view = root_view_score_diff_before_shot + score_from_root_view
+        # 最終endの得点は、まだscore_diffに含まれていない。
+        raw_score = _end_score_diff_team0_minus_team1(
+            final_state.stones
+        )
+
+        # 対戦開始後に終了したendの得点 + 最終endの得点。
+        suffix_score = (
+            final_state.score_diff
+            - root_state.score_diff
+            + raw_score
+        )
+
+        score_from_root_view = score_diff_for_team_view(
+            suffix_score,
+            root_view_team,
+        )
+        total_score_from_root_view = (
+            root_view_score_diff_before_shot
+            + score_from_root_view
+        )
 
         if total_score_from_root_view > 0:
             counts[RESULT_WIN_IDX] += 1
@@ -861,10 +960,16 @@ def build_output_stem(
     data_size: int,
     x_repeats: int,
     run_name: str | None,
+    final_end: int,
 ) -> str:
     run_label = (
         f"_{run_name}"
         if run_name is not None
+        else ""
+    )
+    end_label = (
+        f"_through_end{final_end}"
+        if final_end != target_end
         else ""
     )
 
@@ -872,6 +977,7 @@ def build_output_stem(
         f"mini_match_{player_a.lower()}_vs_{player_b.lower()}"
         f"{run_label}"
         f"_end{target_end}_shot{target_shot}"
+        f"{end_label}"
         f"_datasize{data_size}_x{x_repeats}"
     )
 
@@ -889,10 +995,11 @@ def main(
     use_gpu: bool = True,
     max_simulations: int = 1000,
     cnn_model: str | Path = "js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
-    transformer_models_by_shot: Optional[dict[int, str | Path]] = None,
+    transformer_models_by_shot: Optional[dict[int | tuple[int, int], str | Path]] = None,
     kura_policy_models_by_shot: Optional[dict[int, str | Path]] = None,
     kura_value_models_by_shot: Optional[dict[int, str | Path]] = None,
     shuffle_seed: Optional[int] = 12345,
+    final_end: int = 9,
 ) -> None:
     if not (0 <= target_shot <= 15):
         raise ValueError(f"target_shot must be in [0, 15], got {target_shot}")
@@ -916,6 +1023,7 @@ def main(
                     run_name,
                     target_end,
                     target_shot,
+                    final_end=final_end,
                 )
             )
 
@@ -935,36 +1043,96 @@ def main(
     if kura_value_models_by_shot is None:
         kura_value_models_by_shot = KURA_VALUE_MODELS_BY_SHOT
 
-    needed_transformer_shots = tuple(range(target_shot, 16))
+    if not (0 <= target_end <= final_end <= 9):
+        raise ValueError(
+            "0 <= target_end <= final_end <= 9 が必要です。"
+        )
+
+    # 新旧どちらの指定も、確認用に (end, shot) へ統一する。
+    transformer_models_by_end_shot = {}
+
+    for key, model_path in transformer_models_by_shot.items():
+        if isinstance(key, tuple):
+            end, shot = key
+        else:
+            end, shot = target_end, key
+
+        transformer_models_by_end_shot[
+            (int(end), int(shot))
+        ] = _resolve_newsl_model(model_path)
+
     if any(
         kind.strip().lower() == "transformer"
         for kind in (player_a_kind, player_b_kind)
     ):
+        needed_end_shots = [
+            (end, shot)
+            for end in range(target_end, final_end + 1)
+            for shot in range(
+                target_shot if end == target_end else 0,
+                16,
+            )
+        ]
+
         missing = [
-            shot for shot in needed_transformer_shots if shot not in transformer_models_by_shot
+            key
+            for key in needed_end_shots
+            if key not in transformer_models_by_end_shot
         ]
         if missing:
-            raise ValueError(f"Missing transformer models for shots: {missing}")
+            raise ValueError(
+                f"Transformerモデルの指定が不足しています: {missing}"
+            )
 
-    if any(kind.strip().lower() == "kura" for kind in (player_a_kind, player_b_kind)):
+        missing_files = [
+            f"end={end}, shot={shot}: {path}"
+            for (end, shot), path
+            in transformer_models_by_end_shot.items()
+            if not path.is_file()
+        ]
+        if missing_files:
+            raise FileNotFoundError(
+                "Transformerモデルのファイルが見つかりません:\n"
+                + "\n".join(missing_files)
+            )
+
+    if any(
+        kind.strip().lower() == "kura"
+        for kind in (player_a_kind, player_b_kind)
+    ):
+        # 次のendへ進む場合、そのendではshot0から投げる。
+        first_kura_shot = (
+            0 if final_end > target_end else target_shot
+        )
+
+        # shot0は固定投球なのでpolicyモデル不要。
         needed_kura_policy_shots = tuple(
-            shot for shot in range(target_shot, 16) if shot != 0
+            range(max(first_kura_shot, 1), 16)
         )
         missing_policy = [
             shot
             for shot in needed_kura_policy_shots
             if shot not in kura_policy_models_by_shot
         ]
-        needed_kura_value_shots = tuple(range(max(target_shot + 1, 2), 16))
+
+        # shot1〜14の候補評価には、次shotのvalueモデルを使う。
+        needed_kura_value_shots = tuple(
+            range(max(first_kura_shot + 1, 2), 16)
+        )
         missing_value = [
             shot
             for shot in needed_kura_value_shots
             if shot not in kura_value_models_by_shot
         ]
+
         if missing_policy:
-            raise ValueError(f"Missing Kura policy models for shots: {missing_policy}")
+            raise ValueError(
+                f"Missing Kura policy models for shots: {missing_policy}"
+            )
         if missing_value:
-            raise ValueError(f"Missing Kura value models for shots: {missing_value}")
+            raise ValueError(
+                f"Missing Kura value models for shots: {missing_value}"
+            )
 
     player_a = build_player(
         player_a_kind,
@@ -997,6 +1165,7 @@ def main(
         data_size,
         X,
         run_name,
+        final_end=final_end,
     )
     json_dir = save_dir / output_stem
     json_dir.mkdir(parents=True, exist_ok=True)
@@ -1006,6 +1175,7 @@ def main(
         "experiment_type": "mini_match",
         "target_end": int(target_end),
         "target_shot": int(target_shot),
+        "final_end": int(final_end),
         "requested_data_size": int(data_size),
         "execution_repeats_x": int(X),
         "player_a_start_method_key": f"{player_a.key}_start",
@@ -1021,9 +1191,26 @@ def main(
         "max_simulations": int(max_simulations),
         "transformer_run_name": run_name,
         "cnn_model": str(_resolve_newsl_model(cnn_model)),
+        # 旧項目は、開始endのモデル一覧として残す。
         "transformer_models_by_shot": {
-            int(shot): str(_resolve_newsl_model(model_path))
-            for shot, model_path in transformer_models_by_shot.items()
+            int(shot): str(path)
+            for (end, shot), path
+            in transformer_models_by_end_shot.items()
+            if end == target_end
+        },
+
+        # 全対象endのモデル一覧を保存する。
+        "transformer_models_by_end_shot": {
+            str(end): {
+                str(shot): str(path)
+                for (model_end, shot), path
+                in transformer_models_by_end_shot.items()
+                if model_end == end
+            }
+            for end in sorted({
+                end
+                for end, _ in transformer_models_by_end_shot
+            })
         },
         "kura_policy_models_by_shot": {
             int(shot): str(_resolve_kura_model(model_path))
@@ -1104,6 +1291,7 @@ def main(
                 player_b,
                 start_with_a=True,
                 x_repeats=X,
+                final_end=final_end,
                 root_view_team=root_view_team,
                 root_view_score_diff_before_shot=root_view_score_diff_before_shot,
             )
@@ -1120,6 +1308,7 @@ def main(
                 player_b,
                 start_with_a=False,
                 x_repeats=X,
+                final_end=final_end,
                 root_view_team=root_view_team,
                 root_view_score_diff_before_shot=root_view_score_diff_before_shot,
             )
@@ -1199,30 +1388,17 @@ if __name__ == "__main__":
     main(
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=Path(__file__).resolve().parents[1] / "data",
-        player_a_kind="CNN",
+        player_a_kind="cnn",
         player_b_kind="Transformer",
-        target_end=9,
-        target_shot=3,
-        data_size=1000,
+        run_name="jiritsu-vs-silicon",
+        target_end=8,
+        target_shot=10,
+        final_end=9,
+        transformer_models_by_shot=None,
+        data_size=100,
         X=1,
         use_gpu=True,
         max_simulations=1022,
-        cnn_model="js20000CP-32-9-LeaRate1000-vx32-vy25-batchsize1024.bin",
-        transformer_models_by_shot={
-            3:  "transformer-sl-9-3-model-06-30-adamw-epoch50-shot.bin",
-            4:  "transformer-sl-9-4-model-06-28-adamw-epoch50-shot.bin",
-            5:  "transformer-sl-9-5-model-06-27-adamw-epoch50-shot.bin",
-            6:  "transformer-sl-9-6-model-06-19-adamw-epoch50-shot.bin",
-            7:  "transformer-sl-9-7-model-06-18-adamw-epoch50-shot.bin",
-            8:  "transformer-sl-9-8-model-06-16-adamw-epoch50-shot.bin",
-            9:  "transformer-sl-9-9-model-06-14-adamw-epoch50-shot.bin",
-            10: "transformer-sl-9-10-model-06-11-adamw-epoch50-shot.bin",
-            11: "transformer-sl-9-11-model-06-09-adamw-epoch50-shot.bin",
-            12: "transformer-sl-9-12-model-06-08-adamw-epoch50-shot.bin",
-            13: "transformer-sl-9-13-model-06-06-adamw-epoch50-shot.bin",
-            14: "transformer-sl-9-14-model-06-05-adamw-epoch50-shot.bin",
-            15: "transformer-sl-9-15-model-06-02-adamw-epoch50-shot.bin",
-        },
         kura_policy_models_by_shot=KURA_POLICY_MODELS_BY_SHOT,
         kura_value_models_by_shot=KURA_VALUE_MODELS_BY_SHOT,
         shuffle_seed=12345,
