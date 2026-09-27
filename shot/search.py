@@ -59,11 +59,12 @@ def shot_search(
     use_value: bool = True,
     action_type: TransformerVyMode = TRANSFORMER_VY_MODE,
     inference_batch_size: int = DEFAULT_SHOT_INFERENCE_BATCH_SIZE,
+    search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     SHOTで探索して最善手(action_id: 0..N_ACTIONS-1)を返す。
     - max_simulations: シミュレーション回数上限
-    - time_limit_sec: 時間上限（秒）。Noneなら時間制限なし
+    - search_time_limit: 探索ループの時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
     - inference_batch_size: 深さ1・value評価の教師生成でまとめる推論数の上限。
       1は逐次推論。2以上では浮動小数点の丸め差が生じる可能性がある。
@@ -75,8 +76,15 @@ def shot_search(
         raise ValueError("inference_batch_size must be a positive integer")
     # 最初に探索木の root を作る
     reset_policy_selection_log()
+    
+    if search_time_limit is not None:
+        if not (0 < search_time_limit < float("inf")):
+            raise ValueError(
+                "search_time_limit は正の有限値（秒）、"
+                "または None を指定してください。"
+            )
 
-    time_limit_sec = DEFAULT_SHOT_TIME_LIMIT_SEC
+    time_limit_sec = search_time_limit
     if is_create_data:
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
 

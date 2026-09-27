@@ -82,6 +82,7 @@ from mcts.rollout import _end_score_diff_team0_minus_team1
 from mcts.simulate import simulator_step_continuous
 from mcts.state import State
 from nn.utility import get_torch_device, load_network
+from shot.params import DEFAULT_SHOT_TIME_LIMIT_SEC
 from shot.search import shot_search, set_root_state as set_shot_root_state
 from transformer.utility import load_transformer_network
 
@@ -633,12 +634,14 @@ class NewSLCNNPlayer(MiniMatchPlayer):
         model_path: str | Path,
         use_gpu: bool,
         max_simulations: int,
+        search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
     ) -> None:
         self.key = "cnn"
         self.label = "CNN"
         self.search_method = "shot"
         self.model_path = _resolve_newsl_model(model_path)
         self.max_simulations = int(max_simulations)
+        self.search_time_limit = search_time_limit
         device = get_torch_device(use_gpu=use_gpu)
         self.network = load_network(self.model_path, use_gpu=use_gpu)
         self.network.to(device)
@@ -656,6 +659,7 @@ class NewSLCNNPlayer(MiniMatchPlayer):
         vx, vy, spin = shot_search(
             root_state=root,
             max_simulations=self.max_simulations,
+            search_time_limit=self.search_time_limit,
         )
         return ShotAction(
             vx=float(vx),
@@ -672,11 +676,13 @@ class NewSLTransformerPlayer(MiniMatchPlayer):
         use_gpu: bool,
         max_simulations: int,
         target_end: int,
+        search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
     ) -> None:
         self.key = "transformer"
         self.label = "Transformer"
         self.search_method = "shot"
         self.max_simulations = int(max_simulations)
+        self.search_time_limit = search_time_limit
         self.target_end = int(target_end)
 
         self.model_paths_by_end_shot = {}
@@ -733,6 +739,7 @@ class NewSLTransformerPlayer(MiniMatchPlayer):
         vx, vy, spin = shot_search(
             root_state=root,
             max_simulations=self.max_simulations,
+            search_time_limit=self.search_time_limit,
         )
 
         return ShotAction(
@@ -761,6 +768,7 @@ def build_player(
     kura_policy_models_by_shot: dict[int, str | Path],
     kura_value_models_by_shot: dict[int, str | Path],
     max_simulations: int,
+    search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
 ) -> MiniMatchPlayer:
     normalized = kind.strip().lower()
     if normalized == "kura":
@@ -770,13 +778,19 @@ def build_player(
             use_gpu=use_gpu,
         )
     if normalized == "cnn":
-        return NewSLCNNPlayer(cnn_model, use_gpu=use_gpu, max_simulations=max_simulations)
+        return NewSLCNNPlayer(
+            cnn_model,
+            use_gpu=use_gpu,
+            max_simulations=max_simulations,
+            search_time_limit=search_time_limit,
+        )
     if normalized == "transformer":
         return NewSLTransformerPlayer(
             transformer_models_by_shot,
             use_gpu=use_gpu,
             max_simulations=max_simulations,
             target_end=target_end,
+            search_time_limit=search_time_limit,
         )
     raise ValueError(f"Unknown player kind: {kind}")
 
@@ -1000,6 +1014,7 @@ def main(
     kura_value_models_by_shot: Optional[dict[int, str | Path]] = None,
     shuffle_seed: Optional[int] = 12345,
     final_end: int = 9,
+    search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
 ) -> None:
     if not (0 <= target_shot <= 15):
         raise ValueError(f"target_shot must be in [0, 15], got {target_shot}")
@@ -1143,6 +1158,7 @@ def main(
         kura_policy_models_by_shot=kura_policy_models_by_shot,
         kura_value_models_by_shot=kura_value_models_by_shot,
         max_simulations=max_simulations,
+        search_time_limit=search_time_limit,
     )
     player_b = build_player(
         player_b_kind,
@@ -1153,6 +1169,7 @@ def main(
         kura_policy_models_by_shot=kura_policy_models_by_shot,
         kura_value_models_by_shot=kura_value_models_by_shot,
         max_simulations=max_simulations,
+        search_time_limit=search_time_limit,
     )
 
     save_dir = Path(save_path)
@@ -1189,6 +1206,11 @@ def main(
         "player_a_search_method": player_a.search_method,
         "player_b_search_method": player_b.search_method,
         "max_simulations": int(max_simulations),
+        "search_time_limit": (
+            None
+            if search_time_limit is None
+            else float(search_time_limit)
+        ),
         "transformer_run_name": run_name,
         "cnn_model": str(_resolve_newsl_model(cnn_model)),
         # 旧項目は、開始endのモデル一覧として残す。
@@ -1399,6 +1421,7 @@ if __name__ == "__main__":
         X=1,
         use_gpu=True,
         max_simulations=1022,
+        search_time_limit=None,
         kura_policy_models_by_shot=KURA_POLICY_MODELS_BY_SHOT,
         kura_value_models_by_shot=KURA_VALUE_MODELS_BY_SHOT,
         shuffle_seed=12345,
