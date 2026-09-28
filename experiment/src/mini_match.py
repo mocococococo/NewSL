@@ -81,6 +81,7 @@ from common.translate_state import (
 from mcts.rollout import _end_score_diff_team0_minus_team1
 from mcts.simulate import simulator_step_continuous
 from mcts.state import State
+from mcts.search import mcts_search
 from nn.utility import get_torch_device, load_network
 from shot.params import DEFAULT_SHOT_TIME_LIMIT_SEC
 from shot.search import shot_search, set_root_state as set_shot_root_state
@@ -635,10 +636,15 @@ class NewSLCNNPlayer(MiniMatchPlayer):
         use_gpu: bool,
         max_simulations: int,
         search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
+        search_method: str = "shot",
     ) -> None:
         self.key = "cnn"
         self.label = "CNN"
-        self.search_method = "shot"
+        self.search_method = search_method.strip().lower()
+        if self.search_method not in ("shot", "puct"):
+            raise ValueError(
+                "search_method は shot または puct を指定してください。"
+            )
         self.model_path = _resolve_newsl_model(model_path)
         self.max_simulations = int(max_simulations)
         self.search_time_limit = search_time_limit
@@ -656,7 +662,12 @@ class NewSLCNNPlayer(MiniMatchPlayer):
             hammer_team=state.hammer_team,
             use_transformer=False,
         )
-        vx, vy, spin = shot_search(
+        search = (
+            shot_search
+            if self.search_method == "shot"
+            else mcts_search
+        )
+        vx, vy, spin = search(
             root_state=root,
             max_simulations=self.max_simulations,
             search_time_limit=self.search_time_limit,
@@ -677,10 +688,15 @@ class NewSLTransformerPlayer(MiniMatchPlayer):
         max_simulations: int,
         target_end: int,
         search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
+        search_method: str = "shot",
     ) -> None:
         self.key = "transformer"
         self.label = "Transformer"
-        self.search_method = "shot"
+        self.search_method = search_method.strip().lower()
+        if self.search_method not in ("shot", "puct"):
+            raise ValueError(
+                "search_method は shot または puct を指定してください。"
+            )
         self.max_simulations = int(max_simulations)
         self.search_time_limit = search_time_limit
         self.target_end = int(target_end)
@@ -736,7 +752,12 @@ class NewSLTransformerPlayer(MiniMatchPlayer):
             transformer_target_shot=tuple(sorted(networks_by_shot)),
         )
 
-        vx, vy, spin = shot_search(
+        search = (
+            shot_search
+            if self.search_method == "shot"
+            else mcts_search
+        )
+        vx, vy, spin = search(
             root_state=root,
             max_simulations=self.max_simulations,
             search_time_limit=self.search_time_limit,
@@ -769,6 +790,7 @@ def build_player(
     kura_value_models_by_shot: dict[int, str | Path],
     max_simulations: int,
     search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
+    search_method: str = "shot",
 ) -> MiniMatchPlayer:
     normalized = kind.strip().lower()
     if normalized == "kura":
@@ -783,6 +805,7 @@ def build_player(
             use_gpu=use_gpu,
             max_simulations=max_simulations,
             search_time_limit=search_time_limit,
+            search_method=search_method,
         )
     if normalized == "transformer":
         return NewSLTransformerPlayer(
@@ -791,6 +814,7 @@ def build_player(
             max_simulations=max_simulations,
             target_end=target_end,
             search_time_limit=search_time_limit,
+            search_method=search_method,
         )
     raise ValueError(f"Unknown player kind: {kind}")
 
@@ -1015,6 +1039,8 @@ def main(
     shuffle_seed: Optional[int] = 12345,
     final_end: int = 9,
     search_time_limit: Optional[float] = DEFAULT_SHOT_TIME_LIMIT_SEC,
+    player_a_search_method: str = "shot",
+    player_b_search_method: str = "shot",
 ) -> None:
     if not (0 <= target_shot <= 15):
         raise ValueError(f"target_shot must be in [0, 15], got {target_shot}")
@@ -1159,6 +1185,7 @@ def main(
         kura_value_models_by_shot=kura_value_models_by_shot,
         max_simulations=max_simulations,
         search_time_limit=search_time_limit,
+        search_method=player_a_search_method,
     )
     player_b = build_player(
         player_b_kind,
@@ -1170,6 +1197,7 @@ def main(
         kura_value_models_by_shot=kura_value_models_by_shot,
         max_simulations=max_simulations,
         search_time_limit=search_time_limit,
+        search_method=player_b_search_method,
     )
 
     save_dir = Path(save_path)
@@ -1183,6 +1211,10 @@ def main(
         X,
         run_name,
         final_end=final_end,
+    )
+    output_stem += (
+        f"_a-{player_a.search_method}"
+        f"_b-{player_b.search_method}"
     )
     json_dir = save_dir / output_stem
     json_dir.mkdir(parents=True, exist_ok=True)
@@ -1412,6 +1444,8 @@ if __name__ == "__main__":
         save_path=Path(__file__).resolve().parents[1] / "data",
         player_a_kind="cnn",
         player_b_kind="Transformer",
+        player_a_search_method="puct",
+        player_b_search_method="puct",
         run_name="jiritsu-vs-silicon",
         target_end=8,
         target_shot=10,

@@ -70,6 +70,7 @@ def mcts_search(
     measure_tt_stats: bool = True,
     return_stats: bool = False,
     action_type: TransformerVyMode = "default",
+    search_time_limit: Optional[float] = DEFAULT_TIME_LIMIT_SEC,
 ) -> Union[SearchAction, SearchDataResult]:
     """
     PUCTで探索して最善手を返す。
@@ -86,9 +87,15 @@ def mcts_search(
     def decode_search_action(action: int) -> SearchAction:
         return decode_action(action, action_type=action_type)
     
-    time_limit_sec = DEFAULT_TIME_LIMIT_SEC
-        # if root_state.shot_index % 2 == 0 \
-        # else DEFAULT_TIME_LIMIT_SEC_LIST[root_state.shot_index]
+    if search_time_limit is not None:
+        if not (0 < search_time_limit < float("inf")):
+            raise ValueError(
+                "search_time_limit は正の有限値（秒）、"
+                "または None を指定してください。"
+            )
+
+    time_limit_sec = search_time_limit
+    
     if is_create_data:
         value_list = [0.0 for _ in range(VALUE_CLASS_COUNT)]
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する

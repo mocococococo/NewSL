@@ -457,7 +457,7 @@ def main():
     parser.add_argument(
         "--start-shot",
         type=int,
-        default=6,
+        default=2,
     )
 
     parser.add_argument(
