@@ -451,13 +451,13 @@ def main():
     parser.add_argument(
         "--start-end",
         type=int,
-        default=7,
+        default=6,
     )
 
     parser.add_argument(
         "--start-shot",
         type=int,
-        default=2,
+        default=6,
     )
 
     parser.add_argument(
