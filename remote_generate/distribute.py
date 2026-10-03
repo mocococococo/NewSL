@@ -738,16 +738,6 @@ def main():
             configured_run_name
         )
 
-    elif (
-        args.run_name
-        != configured_run_name
-    ):
-        raise SystemExit(
-            "run-name does not match "
-            "the log_path configuration: "
-            f"--run-name={args.run_name}, "
-            f"log_path={configured_run_name}"
-        )
 
     if not remotes:
         raise SystemExit(

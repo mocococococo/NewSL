@@ -15,6 +15,7 @@ from remote_config import (
     get_data_root,
     get_model_root,
     get_record_root,
+    get_temp_root,
 )
 
 
@@ -92,8 +93,9 @@ def main():
     )
 
     temporary_model_path = (
-        ROOT
-        / "model"
+        get_temp_root(ROOT, args.run_name)
+        / "training"
+        / f"end_{args.end}"
         / f"{model_name}.bin"
     )
 
@@ -123,6 +125,7 @@ def main():
         model_name=model_name,
         use_gpu=not args.cpu,
         data_dir=data_dir,
+        model_output_path=temporary_model_path,
         loss_history_dir=(
             get_record_root(
                 ROOT,

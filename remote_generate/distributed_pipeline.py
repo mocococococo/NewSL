@@ -483,14 +483,25 @@ def main():
         type=int,
         default=100,
     )
+    
+    parser.add_argument(
+        "--run-name",
+        default=None,
+        help="Output run name (default: log_path directory name)",
+    )
 
     args = parser.parse_args()
     
     remotes = load_remotes()
 
-    run_name = get_run_name(
-        remotes
+    configured_run_name = get_run_name(
+         remotes
     )
+    run_name = (
+        args.run_name
+        if args.run_name is not None
+        else configured_run_name
+     )
 
     if (
         args.chunk_end

@@ -50,6 +50,7 @@ def train(
     use_gpu: bool = True,
     data_dir: str | Path | None = None,
     loss_history_dir: str | Path | None = None,
+    model_output_path: str | Path | None = None,
 ) -> None:
     """TransformerNetwork を教師あり学習する。"""
     torch.set_grad_enabled(True)
@@ -270,7 +271,11 @@ def train(
             current_lr = learning_schedule["learning_rate"][epoch]
             print(f"Epoch {epoch}, learning rate has changed {previous_lr} -> {current_lr}")
 
-    model_path = program_dir / "model" / f"{model_name}.bin"
+    model_path = (
+        Path(model_output_path)
+        if model_output_path is not None
+        else program_dir / "model" / f"{model_name}.bin"
+    )
     save_model(transformer_net, model_path)
     print("Finished Training.")
     print(f"Saved model to {model_path}")
