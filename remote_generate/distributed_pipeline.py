@@ -451,19 +451,19 @@ def main():
     parser.add_argument(
         "--start-end",
         type=int,
-        default=6,
+        default=8,
     )
 
     parser.add_argument(
         "--start-shot",
         type=int,
-        default=6,
+        default=15,
     )
 
     parser.add_argument(
         "--stop-end",
         type=int,
-        default=0,
+        default=8,
     )
 
     parser.add_argument(
@@ -486,7 +486,7 @@ def main():
     
     parser.add_argument(
         "--run-name",
-        default=None,
+        default="jiritsu-vs-silicon-wintable-fixed",
         help="Output run name (default: log_path directory name)",
     )
 
