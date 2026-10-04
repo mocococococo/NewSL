@@ -712,46 +712,46 @@ def print_summary(
         f"{summary['player_a_start_better_by_result_mean_x_count']}"
     )
     print(f"Tie by result_mean_x count                : {summary['tie_by_result_mean_x_count']}")
-    print("")
-    print(f"direct match summary ({summary['direct_match_summary']['view_label']})")
+    # print("")
+    # print(f"direct match summary ({summary['direct_match_summary']['view_label']})")
     direct_match_summary = summary["direct_match_summary"]
     view_player_label = direct_match_summary["view_player_label"]
     opponent_label = direct_match_summary["opponent_label"]
-    print(
-        f"{view_player_label} wins / {opponent_label} wins / draws / total: "
-        f"{direct_match_summary['view_player_win_count']}, "
-        f"{direct_match_summary['opponent_win_count']}, "
-        f"{direct_match_summary['draw_count']}, "
-        f"{direct_match_summary['total_trials']}"
-    )
-    print(
-        f"draw-excluded decisive winrate {view_player_label}: "
-        f"{direct_match_summary['decisive_win_rate_view_player']:.6f} "
-        f"({direct_match_summary['view_player_win_count']}/"
-        f"{direct_match_summary['decisive_trials']})"
-    )
-    print(
-        f"draw-excluded decisive winrate 95% CI {view_player_label}: "
-        f"[{direct_match_summary['decisive_win_rate_ci_low_view_player']:.6f}, "
-        f"{direct_match_summary['decisive_win_rate_ci_high_view_player']:.6f}]"
-    )
-    print(
-        "binomial test on decisive games two-sided p: " +
-        _format_p_value(direct_match_summary["binomial_two_sided_p"])
-    )
-    print(
-        f"binomial test on decisive games one-sided p ({view_player_label} > {opponent_label}): " +
-        _format_p_value(
-            direct_match_summary["binomial_one_sided_p_view_player_greater"]
-        )
-    )
+    # print(
+    #     f"{view_player_label} wins / {opponent_label} wins / draws / total: "
+    #     f"{direct_match_summary['view_player_win_count']}, "
+    #     f"{direct_match_summary['opponent_win_count']}, "
+    #     f"{direct_match_summary['draw_count']}, "
+    #     f"{direct_match_summary['total_trials']}"
+    # )
+    # print(
+    #     f"draw-excluded decisive winrate {view_player_label}: "
+    #     f"{direct_match_summary['decisive_win_rate_view_player']:.6f} "
+    #     f"({direct_match_summary['view_player_win_count']}/"
+    #     f"{direct_match_summary['decisive_trials']})"
+    # )
+    # print(
+    #     f"draw-excluded decisive winrate 95% CI {view_player_label}: "
+    #     f"[{direct_match_summary['decisive_win_rate_ci_low_view_player']:.6f}, "
+    #     f"{direct_match_summary['decisive_win_rate_ci_high_view_player']:.6f}]"
+    # )
+    # print(
+    #     "binomial test on decisive games two-sided p: " +
+    #     _format_p_value(direct_match_summary["binomial_two_sided_p"])
+    # )
+    # print(
+    #     f"binomial test on decisive games one-sided p ({view_player_label} > {opponent_label}): " +
+    #     _format_p_value(
+    #         direct_match_summary["binomial_one_sided_p_view_player_greater"]
+    #     )
+    # )
     position_unit_summary = summary["position_unit_summary"]
     print("")
     print("position-unit paired summary")
-    print(
-        "r_i = (view-player wins + 0.5 * draws) / "
-        f"{position_unit_summary['total_trials_per_position']} trials per position"
-    )
+    # print(
+    #     "r_i = (view-player wins + 0.5 * draws) / "
+    #     f"{position_unit_summary['total_trials_per_position']} trials per position"
+    # )
     print(
         f"mean r_i {view_player_label}: "
         f"{position_unit_summary['mean_r']:.6f}"
@@ -765,15 +765,15 @@ def print_summary(
         f"{position_unit_summary['zero_difference_count']}, "
         f"{position_unit_summary['nonzero_difference_count']}"
     )
-    print(
-        "Wilcoxon signed-rank statistic: "
-        f"{position_unit_summary['wilcoxon_statistic']:.6f}"
-    )
-    print(
-        "Wilcoxon settings: "
-        f"zero_method={position_unit_summary['wilcoxon_zero_method']}, "
-        f"method={position_unit_summary['wilcoxon_method']}"
-    )
+    # print(
+    #     "Wilcoxon signed-rank statistic: "
+    #     f"{position_unit_summary['wilcoxon_statistic']:.6f}"
+    # )
+    # print(
+    #     "Wilcoxon settings: "
+    #     f"zero_method={position_unit_summary['wilcoxon_zero_method']}, "
+    #     f"method={position_unit_summary['wilcoxon_method']}"
+    # )
     print(
         "Wilcoxon signed-rank test two-sided p: " +
         _format_p_value(position_unit_summary["wilcoxon_two_sided_p"])
@@ -785,21 +785,21 @@ def print_summary(
             position_unit_summary["wilcoxon_one_sided_p_view_player_greater"]
         )
     )
-    print(
-        "position-level sign-flip statistic mean d_i: "
-        f"{position_unit_summary['sign_flip_statistic_mean_d']:.6f}"
-    )
-    print(
-        "exact position-level sign-flip permutation test two-sided p: " +
-        _format_p_value(position_unit_summary["sign_flip_two_sided_p"])
-    )
-    print(
-        f"exact position-level sign-flip permutation test one-sided p "
-        f"({view_player_label} > {opponent_label}): " +
-        _format_p_value(
-            position_unit_summary["sign_flip_one_sided_p_view_player_greater"]
-        )
-    )
+    # print(
+    #     "position-level sign-flip statistic mean d_i: "
+    #     f"{position_unit_summary['sign_flip_statistic_mean_d']:.6f}"
+    # )
+    # print(
+    #     "exact position-level sign-flip permutation test two-sided p: " +
+    #     _format_p_value(position_unit_summary["sign_flip_two_sided_p"])
+    # )
+    # print(
+    #     f"exact position-level sign-flip permutation test one-sided p "
+    #     f"({view_player_label} > {opponent_label}): " +
+    #     _format_p_value(
+    #         position_unit_summary["sign_flip_one_sided_p_view_player_greater"]
+    #     )
+    # )
     print(
         "position bootstrap settings: "
         f"method={position_unit_summary['bootstrap_method']}, "
@@ -811,26 +811,26 @@ def print_summary(
         f"[{position_unit_summary['bootstrap_mean_r_ci_low']:.6f}, "
         f"{position_unit_summary['bootstrap_mean_r_ci_high']:.6f}]"
     )
-    print("")
-    print("root_view_score_diff_before_shot bucket summary (all trials in each bucket)")
-    for bucket_label in summary["root_view_score_diff_bucket_order"]:
-        bucket_summary = summary["root_view_score_diff_bucket_summary"][bucket_label]
-        player_a_start_bucket = bucket_summary[PLAYER_A_START_KEY]
-        player_b_start_bucket = bucket_summary[PLAYER_B_START_KEY]
-        print(
-            f"bucket {bucket_label:>4} positions={player_a_start_bucket['num_positions']:4d} "
-            f"trials={player_a_start_bucket['total_trials']:5d} "
-            f"| {player_a_start_label} result_mean="
-            f"{player_a_start_bucket['result_mean_over_all_trials']:.4f} "
-            f"win/draw/lose={player_a_start_bucket['win_rate_over_all_trials']:.4f},"
-            f"{player_a_start_bucket['draw_rate_over_all_trials']:.4f},"
-            f"{player_a_start_bucket['lose_rate_over_all_trials']:.4f} "
-            f"| {player_b_start_label} result_mean="
-            f"{player_b_start_bucket['result_mean_over_all_trials']:.4f} "
-            f"win/draw/lose={player_b_start_bucket['win_rate_over_all_trials']:.4f},"
-            f"{player_b_start_bucket['draw_rate_over_all_trials']:.4f},"
-            f"{player_b_start_bucket['lose_rate_over_all_trials']:.4f}"
-        )
+    # print("")
+    # print("root_view_score_diff_before_shot bucket summary (all trials in each bucket)")
+    # for bucket_label in summary["root_view_score_diff_bucket_order"]:
+    #     bucket_summary = summary["root_view_score_diff_bucket_summary"][bucket_label]
+    #     player_a_start_bucket = bucket_summary[PLAYER_A_START_KEY]
+    #     player_b_start_bucket = bucket_summary[PLAYER_B_START_KEY]
+    #     print(
+    #         f"bucket {bucket_label:>4} positions={player_a_start_bucket['num_positions']:4d} "
+    #         f"trials={player_a_start_bucket['total_trials']:5d} "
+    #         f"| {player_a_start_label} result_mean="
+    #         f"{player_a_start_bucket['result_mean_over_all_trials']:.4f} "
+    #         f"win/draw/lose={player_a_start_bucket['win_rate_over_all_trials']:.4f},"
+    #         f"{player_a_start_bucket['draw_rate_over_all_trials']:.4f},"
+    #         f"{player_a_start_bucket['lose_rate_over_all_trials']:.4f} "
+    #         f"| {player_b_start_label} result_mean="
+    #         f"{player_b_start_bucket['result_mean_over_all_trials']:.4f} "
+    #         f"win/draw/lose={player_b_start_bucket['win_rate_over_all_trials']:.4f},"
+    #         f"{player_b_start_bucket['draw_rate_over_all_trials']:.4f},"
+    #         f"{player_b_start_bucket['lose_rate_over_all_trials']:.4f}"
+    #     )
 
 
 def render_report_from_records(
