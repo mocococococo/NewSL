@@ -667,51 +667,51 @@ def print_summary(
         print(f"Saved plot to {png_path}")
     print(f"num_positions                : {summary['num_positions']}")
     print(f"execution_repeats_x         : {summary['execution_repeats_x']}")
-    print(
-        f"log_size result_mean_x {player_a_start_label}: "
-        f"{summary['log_size_result_mean_x_player_a_start']:.6f}"
-    )
-    print(
-        f"log_size result_mean_x {player_b_start_label}: "
-        f"{summary['log_size_result_mean_x_player_b_start']:.6f}"
-    )
-    print(
-        f"log_size diff ({player_b_start_label} - {player_a_start_label}): "
-        f"{summary['log_size_diff_result_mean_x_player_b_start_minus_player_a_start']:.6f}"
-    )
-    print(
-        f"log_size win/draw/lose {player_a_start_label}: "
-        f"{summary['log_size_win_rate_x_player_a_start']:.6f}, "
-        f"{summary['log_size_draw_rate_x_player_a_start']:.6f}, "
-        f"{summary['log_size_lose_rate_x_player_a_start']:.6f}"
-    )
-    print(
-        f"log_size win/draw/lose {player_b_start_label}: "
-        f"{summary['log_size_win_rate_x_player_b_start']:.6f}, "
-        f"{summary['log_size_draw_rate_x_player_b_start']:.6f}, "
-        f"{summary['log_size_lose_rate_x_player_b_start']:.6f}"
-    )
-    print(
-        f"all_trials win/draw/lose {player_a_start_label}: "
-        f"{summary['all_trials_win_count_player_a_start']}, "
-        f"{summary['all_trials_draw_count_player_a_start']}, "
-        f"{summary['all_trials_lose_count_player_a_start']}"
-    )
-    print(
-        f"all_trials win/draw/lose {player_b_start_label}: "
-        f"{summary['all_trials_win_count_player_b_start']}, "
-        f"{summary['all_trials_draw_count_player_b_start']}, "
-        f"{summary['all_trials_lose_count_player_b_start']}"
-    )
-    print(
-        f"{player_b_start_label} better by result_mean_x count       : "
-        f"{summary['player_b_start_better_by_result_mean_x_count']}"
-    )
-    print(
-        f"{player_a_start_label} better by result_mean_x count        : "
-        f"{summary['player_a_start_better_by_result_mean_x_count']}"
-    )
-    print(f"Tie by result_mean_x count                : {summary['tie_by_result_mean_x_count']}")
+    # print(
+    #     f"log_size result_mean_x {player_a_start_label}: "
+    #     f"{summary['log_size_result_mean_x_player_a_start']:.6f}"
+    # )
+    # print(
+    #     f"log_size result_mean_x {player_b_start_label}: "
+    #     f"{summary['log_size_result_mean_x_player_b_start']:.6f}"
+    # )
+    # print(
+    #     f"log_size diff ({player_b_start_label} - {player_a_start_label}): "
+    #     f"{summary['log_size_diff_result_mean_x_player_b_start_minus_player_a_start']:.6f}"
+    # )
+    # print(
+    #     f"log_size win/draw/lose {player_a_start_label}: "
+    #     f"{summary['log_size_win_rate_x_player_a_start']:.6f}, "
+    #     f"{summary['log_size_draw_rate_x_player_a_start']:.6f}, "
+    #     f"{summary['log_size_lose_rate_x_player_a_start']:.6f}"
+    # )
+    # print(
+    #     f"log_size win/draw/lose {player_b_start_label}: "
+    #     f"{summary['log_size_win_rate_x_player_b_start']:.6f}, "
+    #     f"{summary['log_size_draw_rate_x_player_b_start']:.6f}, "
+    #     f"{summary['log_size_lose_rate_x_player_b_start']:.6f}"
+    # )
+    # print(
+    #     f"all_trials win/draw/lose {player_a_start_label}: "
+    #     f"{summary['all_trials_win_count_player_a_start']}, "
+    #     f"{summary['all_trials_draw_count_player_a_start']}, "
+    #     f"{summary['all_trials_lose_count_player_a_start']}"
+    # )
+    # print(
+    #     f"all_trials win/draw/lose {player_b_start_label}: "
+    #     f"{summary['all_trials_win_count_player_b_start']}, "
+    #     f"{summary['all_trials_draw_count_player_b_start']}, "
+    #     f"{summary['all_trials_lose_count_player_b_start']}"
+    # )
+    # print(
+    #     f"{player_b_start_label} better by result_mean_x count       : "
+    #     f"{summary['player_b_start_better_by_result_mean_x_count']}"
+    # )
+    # print(
+    #     f"{player_a_start_label} better by result_mean_x count        : "
+    #     f"{summary['player_a_start_better_by_result_mean_x_count']}"
+    # )
+    # print(f"Tie by result_mean_x count                : {summary['tie_by_result_mean_x_count']}")
     # print("")
     # print(f"direct match summary ({summary['direct_match_summary']['view_label']})")
     direct_match_summary = summary["direct_match_summary"]
@@ -756,15 +756,15 @@ def print_summary(
         f"mean r_i {view_player_label}: "
         f"{position_unit_summary['mean_r']:.6f}"
     )
-    print(
-        f"mean d_i = mean(r_i - 0.5): "
-        f"{position_unit_summary['mean_d']:.6f}"
-    )
-    print(
-        "zero / nonzero d_i positions: "
-        f"{position_unit_summary['zero_difference_count']}, "
-        f"{position_unit_summary['nonzero_difference_count']}"
-    )
+    # print(
+    #     f"mean d_i = mean(r_i - 0.5): "
+    #     f"{position_unit_summary['mean_d']:.6f}"
+    # )
+    # print(
+    #     "zero / nonzero d_i positions: "
+    #     f"{position_unit_summary['zero_difference_count']}, "
+    #     f"{position_unit_summary['nonzero_difference_count']}"
+    # )
     # print(
     #     "Wilcoxon signed-rank statistic: "
     #     f"{position_unit_summary['wilcoxon_statistic']:.6f}"
@@ -778,13 +778,13 @@ def print_summary(
         "Wilcoxon signed-rank test two-sided p: " +
         _format_p_value(position_unit_summary["wilcoxon_two_sided_p"])
     )
-    print(
-        f"Wilcoxon signed-rank test one-sided p "
-        f"({view_player_label} > {opponent_label}): " +
-        _format_p_value(
-            position_unit_summary["wilcoxon_one_sided_p_view_player_greater"]
-        )
-    )
+    # print(
+    #     f"Wilcoxon signed-rank test one-sided p "
+    #     f"({view_player_label} > {opponent_label}): " +
+    #     _format_p_value(
+    #         position_unit_summary["wilcoxon_one_sided_p_view_player_greater"]
+    #     )
+    # )
     # print(
     #     "position-level sign-flip statistic mean d_i: "
     #     f"{position_unit_summary['sign_flip_statistic_mean_d']:.6f}"
@@ -800,12 +800,12 @@ def print_summary(
     #         position_unit_summary["sign_flip_one_sided_p_view_player_greater"]
     #     )
     # )
-    print(
-        "position bootstrap settings: "
-        f"method={position_unit_summary['bootstrap_method']}, "
-        f"resamples={position_unit_summary['bootstrap_resamples']}, "
-        f"seed={position_unit_summary['bootstrap_seed']}"
-    )
+    # print(
+    #     "position bootstrap settings: "
+    #     f"method={position_unit_summary['bootstrap_method']}, "
+    #     f"resamples={position_unit_summary['bootstrap_resamples']}, "
+    #     f"seed={position_unit_summary['bootstrap_seed']}"
+    # )
     print(
         f"position bootstrap mean r_i 95% CI {view_player_label}: "
         f"[{position_unit_summary['bootstrap_mean_r_ci_low']:.6f}, "
