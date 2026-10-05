@@ -663,6 +663,9 @@ def print_summary(
 
     print("")
     print(f"Saved position json files to {json_dir}")
+    run_name = summary.get("experiment", {}).get("transformer_run_name")
+    if run_name:
+        print(f"run_name                   : {run_name}")
     if png_path is not None:
         print(f"Saved plot to {png_path}")
     print(f"num_positions                : {summary['num_positions']}")
