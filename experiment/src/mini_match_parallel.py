@@ -332,10 +332,32 @@ def main(
         **{name: {int(shot): str(path) for shot, path in models[name].items()}
            for name in ("kura_policy_models_by_shot", "kura_value_models_by_shot")},
     }
-    # 並列数を変えた比較や再実行でも、以前の結果を上書きしない。
-    # Windows のパス長を抑え、対戦条件は各 JSON の experiment に記録する。
+     # 実験条件ごとにまとめ、その下に実行日時のフォルダを作る。
+    run_label = run_name or "manual"
+
+    a_label = (
+        "kura"
+        if kinds[0] == "kura"
+        else f"{kinds[0]}-{player_a_search_method.strip().lower()}"
+    )
+    b_label = (
+        "kura"
+        if kinds[1] == "kura"
+        else f"{kinds[1]}-{player_b_search_method.strip().lower()}"
+    )
+
+    match_label = f"{a_label}_vs_{b_label}"
+    condition_label = f"end{target_end}-shot{target_shot}_to_end{final_end}"
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    json_dir = Path(save_path) / "mini_match_parallel" / f"{stamp}_workers{actual_workers}"
+
+    json_dir = (
+        Path(save_path)
+        / "mini_match_parallel"
+        / run_label
+        / match_label
+        / condition_label
+        / f"{stamp}_workers{actual_workers}"
+    )
     json_dir.mkdir(parents=True, exist_ok=False)
     print(f"{len(jobs)}局面 × A/B開始 × {X}回を {actual_workers}プロセスで実行します。")
     print(f"保存先: {json_dir}", flush=True)
@@ -377,9 +399,9 @@ if __name__ == "__main__":
         player_b_kind="kura",
         player_a_search_method="shot",
         player_b_search_method="shot",
-        run_name="jiritsu-vs-silicon-wintable-fixed",
+        run_name="jiritsu-vs-silicon",
         target_end=8,
-        target_shot=13,
+        target_shot=5,
         final_end=9,
         transformer_models_by_shot=None,
         data_size=1000,

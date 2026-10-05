@@ -666,6 +666,8 @@ def print_summary(
     run_name = summary.get("experiment", {}).get("transformer_run_name")
     if run_name:
         print(f"run_name                   : {run_name}")
+    print(f"target_end                 : {summary['target_end']}")
+    print(f"target_shot                : {summary['target_shot']}")
     if png_path is not None:
         print(f"Saved plot to {png_path}")
     print(f"num_positions                : {summary['num_positions']}")
