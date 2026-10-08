@@ -668,6 +668,13 @@ def print_summary(
         print(f"run_name                   : {run_name}")
     print(f"target_end                 : {summary['target_end']}")
     print(f"target_shot                : {summary['target_shot']}")
+    experiment = summary.get("experiment", {})
+    for side in ("a", "b"):
+        player_name = summary[f"player_{side}_label"]
+        search_method = (
+            experiment.get(f"player_{side}_search_method") or "不明"
+        )
+        print(f"player_{side}                   : {player_name}, {search_method}")
     if png_path is not None:
         print(f"Saved plot to {png_path}")
     print(f"num_positions                : {summary['num_positions']}")
