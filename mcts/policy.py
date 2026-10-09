@@ -13,6 +13,10 @@ from .state import State
 N_ACTIONS = VX_SIZE * VY_SIZE * 2
 N_VALUE_CLASSES = 17
 
+# SHOTから渡されるCNNのvalue評価を一括推論するか。
+# True: 一括推論、False: 逐次推論。PUCTには影響しない。
+CNN_VALUE_BATCH_ENABLED = True
+
 # 外から設定する（search開始前に1回だけセット）
 _DUAL_NET = None
 _SCORE_DIFF: int = None
@@ -106,25 +110,21 @@ def get_value_probs(state: State) -> List[float]:
 
 
 def get_value_probs_batch(states: List[State]) -> List[List[float]]:
-    """valueをまとめて推論する。TF32有効のCUDA CNNは逐次推論を維持する。"""
+    """CNN_VALUE_BATCH_ENABLED に従い、value を一括または逐次推論する。"""
     if not states:
         return []
-    if len(states) == 1:
-        return [get_value_probs(states[0])]
 
-    device = getattr(_DUAL_NET, "device", None)
-    # cuDNNはバッチ形状によってTF32/FP32を切り替えるため、TF32が許可
-    # されているCUDA CNNは逐次推論を維持する。呼び出し側が両経路とも
-    # TF32を無効にした場合は、CUDAでも下のバッチ推論を利用できる。
-    if (
-        device is not None and torch.device(device).type == "cuda"
-        and torch.backends.cudnn.enabled and torch.backends.cudnn.allow_tf32
-    ):
+    if not CNN_VALUE_BATCH_ENABLED or len(states) == 1:
         return [get_value_probs(state) for state in states]
 
-    inputs = torch.cat([_prepare_input(state, to_device=False) for state in states], dim=0)
+    device = getattr(_DUAL_NET, "device", None)
+    inputs = torch.cat(
+        [_prepare_input(state, to_device=False) for state in states],
+        dim=0,
+    )
     if device is not None:
         inputs = inputs.to(device)
+
     _DUAL_NET.eval()
     with torch.no_grad():
         values = _DUAL_NET.inference_value(inputs)

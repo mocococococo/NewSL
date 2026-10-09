@@ -66,7 +66,8 @@ def shot_search(
     - max_simulations: シミュレーション回数上限
     - search_time_limit: 探索ループの時間上限（秒）。Noneなら時間制限なし
     ※ どちらかの上限に達したら終了
-    - inference_batch_size: 深さ1・value評価の教師生成でまとめる推論数の上限。
+    - inference_batch_size: 深さ1・value評価・時間制限なしの探索でまとめる推論数の上限。
+      対戦と教師データ生成の両方に適用する。
       1は逐次推論。2以上では浮動小数点の丸め差が生じる可能性がある。
     """
     require_search_mode("shot", action_type)
@@ -88,9 +89,14 @@ def shot_search(
     if is_create_data:
         time_limit_sec = None  # データ生成時は時間制限なしでシミュレーション回数で制御する
 
-    # 深さ1の教師生成では、末端から行動選択しないため子ノードと policy は不要。
-    value_only_leaf = is_create_data and max_depth == 1 and use_value
-    batch_value_leaf = value_only_leaf and inference_batch_size > 1 and not is_end_terminal(root_state)
+    # 深さ1の value 評価では、対戦でも末端の policy と子ノードは不要。
+    value_only_leaf = max_depth == 1 and use_value
+    batch_value_leaf = (
+        value_only_leaf
+        and inference_batch_size > 1
+        and not is_end_terminal(root_state)
+        and time_limit_sec is None
+    )
 
     dbg = Debugger(debug, every=debug_every)
     decode_search_action = lambda a: decode_action(a, action_type=action_type)
