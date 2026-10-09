@@ -250,6 +250,61 @@ def _evaluate_position(job):
     return result, captured.getvalue()
 
 
+def _load_resume_records(json_dir, jobs, metadata, config):
+    from experiment.src.mini_match_report import load_position_records
+
+    expected = json.loads(json.dumps(metadata))
+    for side in ("a", "b"):
+        kind = config[f"player_{side}_kind"].strip().lower()
+        expected[f"player_{side}_search_method"] = (
+            "kura_original"
+            if kind == "kura"
+            else config[f"player_{side}_search_method"].strip().lower()
+        )
+
+    # 再開時にプロセス数だけ変更することは許可する。
+    ignored_keys = {"num_workers", "requested_num_workers"}
+    jobs_by_index = {job["position_index"]: job for job in jobs}
+    records = load_position_records(json_dir)
+    seen = set()
+
+    for record in records:
+        position = record["position"]
+        index = position["position_index"]
+        if index in seen or index not in jobs_by_index:
+            raise ValueError(f"保存済みの局面番号が不正です: {index}")
+
+        saved_metadata = record.get("experiment", {})
+        for key, value in expected.items():
+            if key in ignored_keys:
+                continue
+            if key not in saved_metadata or saved_metadata[key] != value:
+                raise ValueError(
+                    f"局面 {index}: 中断前と設定が異なります: {key}"
+                )
+
+        for key, value in jobs_by_index[index].items():
+            if key != "stones" and position.get(key) != value:
+                raise ValueError(
+                    f"局面 {index}: 元ログ・局面順が一致しません: {key}"
+                )
+
+        for side in ("player_a_start", "player_b_start"):
+            counts = [
+                record[side][key]
+                for key in ("win_count_x", "draw_count_x", "lose_count_x")
+            ]
+            if (
+                any(type(count) is not int or count < 0 for count in counts)
+                or sum(counts) != metadata["execution_repeats_x"]
+            ):
+                raise ValueError(f"局面 {index}: {side} の結果が不完全です")
+
+        seen.add(index)
+
+    return records
+
+
 def main(
     log_path: str | Path = NEWSL_DIR / "LearnLog" / "all",
     save_path: str | Path = NEWSL_DIR / "experiment" / "data",
@@ -274,6 +329,7 @@ def main(
     torch_threads_per_worker: int = 1,
     player_a_search_method: str = "shot",
     player_b_search_method: str = "shot",
+    resume_dir: str | Path | None = None,
 ) -> Path:
     """一つの局面の A-start/B-start を同じワーカーで評価し、保存先を返す。"""
     started = time.perf_counter()
@@ -358,16 +414,44 @@ def main(
         / condition_label
         / f"{stamp}_workers{actual_workers}"
     )
-    json_dir.mkdir(parents=True, exist_ok=False)
-    print(f"{len(jobs)}局面 × A/B開始 × {X}回を {actual_workers}プロセスで実行します。")
+    if resume_dir is None:
+        json_dir.mkdir(parents=True, exist_ok=False)
+        records = []
+    else:
+        json_dir = Path(resume_dir)
+        records = _load_resume_records(json_dir, jobs, metadata, config)
+
+    completed_indices = {
+        record["position"]["position_index"] for record in records
+    }
+    pending_jobs = [
+        job for job in jobs
+        if job["position_index"] not in completed_indices
+    ]
+
+    print(
+        f"保存済み {len(records)}/{len(jobs)}局面、"
+        f"残り {len(pending_jobs)}局面"
+    )
     print(f"保存先: {json_dir}", flush=True)
-    records = []
+
+    if not pending_jobs:
+        records.sort(key=lambda record: record["position"]["position_index"])
+        mm.print_report_from_records(json_dir, records)
+        return json_dir
+
+    actual_workers = min(num_workers, len(pending_jobs))
+    metadata["num_workers"] = actual_workers
+    print(f"残りを {actual_workers}プロセスで実行します。", flush=True)
     width = max(6, len(str(len(jobs) - 1)))
     with ProcessPoolExecutor(
         max_workers=actual_workers, mp_context=mp.get_context("spawn"),
         initializer=_init_worker, initargs=(config, models, metadata),
     ) as executor:
-        futures = [executor.submit(_evaluate_position, job) for job in jobs]
+        futures = [
+            executor.submit(_evaluate_position, job)
+            for job in pending_jobs
+        ]
         try:
             for future in as_completed(futures):
                 record, search_log = future.result()
@@ -396,12 +480,12 @@ if __name__ == "__main__":
         log_path=NEWSL_DIR / "LearnLog" / "all",
         save_path=NEWSL_DIR / "experiment" / "data",
         player_a_kind="Transformer",
-        player_b_kind="kura",
+        player_b_kind="CNN",
         player_a_search_method="shot",
         player_b_search_method="shot",
         run_name="jiritsu-vs-silicon",
         target_end=8,
-        target_shot=5,
+        target_shot=6,
         final_end=9,
         transformer_models_by_shot=None,
         data_size=1000,
@@ -415,4 +499,14 @@ if __name__ == "__main__":
         shuffle_seed=12345,
         simulation_seed=12345,
         torch_threads_per_worker=1,
+        resume_dir=(
+            NEWSL_DIR
+            / "experiment"
+            / "data"
+            / "mini_match_parallel"
+            / "jiritsu-vs-silicon-wintable-fixed"
+            / "transformer-shot_vs_cnn-shot"
+            / "end8-shot6_to_end9"
+            / "20261009_071842_312976_workers4"
+        ),
     )
